@@ -57,3 +57,9 @@ No Torch, Docling, local Whisper weights or Ollama is installed in the cloud fun
 5. Correct a value and ask again. The next response should use that corrected value.
 
 The anonymous local Groq smoke test passed four-language ASR, JSON explanation, neural speech, citations, report restoration after deleting its temporary server record, live correction, photo OCR and scanned-PDF OCR. ASR plus explanation took about 0.7–1.3 seconds; total time including speech generation was about 3–11 seconds. These are sample measurements, not a latency guarantee for long reports or cold starts.
+
+## Public deployment check (15 October 2026)
+
+The public Vercel deployment passed health, PDF upload, all four neural voice mappings, exact sample number/unit and source citations, Repeat/Slower/Simpler, snapshot restoration with a previously unknown report ID, and a corrected Ferritin value. Three cloud-extracted photo rows and three scanned-PDF rows were marked for review. One scan request hit the Groq free quota; a later retry succeeded.
+
+Recorded public voice-turn times including ASR, explanation and TTS: Hindi 3.36 s; English 1.85 s; Spanish 1.46 s; Mandarin 1.57 s. These sample timings exclude browser upload/network overhead and are not guarantees for long reports or cold starts. Browser playback, Stop during speech and switching the PDF highlight from Ferritin to TSH were checked. Real human microphone quality, phone cameras and clinical accuracy across arbitrary reports still need user testing.
