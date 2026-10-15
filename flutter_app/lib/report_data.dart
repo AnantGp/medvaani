@@ -197,3 +197,14 @@ String reportText(dynamic value) {
       .replaceAll(RegExp(r'^#{1,6}\s+', multiLine: true), '')
       .replaceAll(RegExp(r'^\s*[-=]{3,}\s*$', multiLine: true), ''));
 }
+
+/// The list and the voice context use every extracted measurement, including
+/// readings that still need review. Review state is never silently upgraded.
+List<Map<String, dynamic>> workspaceMeasurements(Map? report) => report == null
+    ? []
+    : reportLabValues(report['parsed_data'])
+        .where((row) =>
+            row['measurement_id'] != null &&
+            row['record_type'] == 'measurement' &&
+            row['acceptance_state'] != 'rejected')
+        .toList();

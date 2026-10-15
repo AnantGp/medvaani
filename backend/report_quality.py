@@ -124,7 +124,10 @@ def _validated_row(original):
             if not str(row.get(key, '')).strip() or not valid_box(field.get('box')):
                 continue
             box = field['box']
-            if field.get('page') != value_source.get('page') or box[1] > vbox[1] + vbox[3] + .008 or box[1] + box[3] < vbox[1] - .008:
+            labeled_reference = (key == 'reference_range' and field.get('relationship') == 'labeled_following_reference'
+                                 and field.get('page') == value_source.get('page')
+                                 and 0 <= box[1] - vbox[1] <= .12)
+            if not labeled_reference and (field.get('page') != value_source.get('page') or box[1] > vbox[1] + vbox[3] + .008 or box[1] + box[3] < vbox[1] - .008):
                 issue('field_association', key)
     kind = value_kind(row.get('value', ''))
     row['value_kind'] = kind

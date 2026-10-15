@@ -8,6 +8,8 @@ from urllib.parse import urlsplit
 
 
 class LocalApp(SimpleHTTPRequestHandler):
+    api_origin = "http://127.0.0.1:8001"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(Path(__file__).resolve().parents[1] / 'flutter_app' / 'build' / 'web'), **kwargs)
 
@@ -42,7 +44,7 @@ class LocalApp(SimpleHTTPRequestHandler):
             return
         body = self.rfile.read(length) if length else None
         headers = {name: self.headers[name] for name in ('Content-Type', 'Accept') if name in self.headers}
-        request = Request('http://127.0.0.1:8001' + self.path[4:], data=body, headers=headers, method=self.command)
+        request = Request(self.api_origin + self.path[4:], data=body, headers=headers, method=self.command)
         try:
             response = urlopen(request, timeout=700)
         except HTTPError as error:
@@ -76,5 +78,7 @@ class LocalApp(SimpleHTTPRequestHandler):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=3001)
+    parser.add_argument("--api-origin", default="http://127.0.0.1:8001", help="Remote API origin, including /api when hosted on Vercel")
     args = parser.parse_args()
+    LocalApp.api_origin = args.api_origin.rstrip("/")
     ThreadingHTTPServer(('127.0.0.1', args.port), LocalApp).serve_forever()

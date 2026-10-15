@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'app_content_utils.dart';
+import 'dart:typed_data';
 import 'report_data.dart';
-import 'report_review_widgets.dart';
 
 class ReportPalette {
   static const ground = Color(0xFFF7F5F1);
@@ -147,7 +145,15 @@ class ReportWorkspace extends StatefulWidget {
       this.onConfirmReview,
       this.onAskQuestion,
       this.onClearSavedReport,
+      this.onSelectMeasurement,
+      this.onEditMeasurement,
+      this.onDropFile,
+      this.dragging = false,
       this.activeSpeech});
+  final void Function(String id, bool speak)? onSelectMeasurement;
+  final ValueChanged<String>? onEditMeasurement;
+  final void Function(Uint8List bytes, String name)? onDropFile;
+  final bool dragging;
   final bool reviewing, reviewSaving, restoring;
   final String? reviewError, storageError;
   final Widget? sourcePreview, sourceExplorer, voicePanel;
@@ -184,377 +190,732 @@ class ReportWorkspace extends StatefulWidget {
 }
 
 class _ReportWorkspaceState extends State<ReportWorkspace> {
-  int _reportView = 0;
-
-  @override
-  void didUpdateWidget(covariant ReportWorkspace oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final cited = widget.report?['voice_cited_measurement_ids'];
-    if (cited is List &&
-        cited.isNotEmpty &&
-        !identical(cited, oldWidget.report?['voice_cited_measurement_ids'])) {
-      _reportView = 2;
-    }
-  }
-
-  static const _labels = [
-    'Upload report',
-    'Explanation',
-    'Suggestions',
-    'Settings'
-  ];
+  String _query = '';
+  String _filter = 'all';
+  bool _mobileSource = true;
+  static const _nav = [0, 1, 3];
+  static const _labels = ['Upload report', 'Report workspace', '', 'Settings'];
   static const _icons = [
-    LucideIcons.fileUp,
-    LucideIcons.bookOpen,
-    LucideIcons.lightbulb,
-    LucideIcons.settings2
+    Icons.upload_file_outlined,
+    Icons.space_dashboard_outlined,
+    Icons.help_outline,
+    Icons.tune_rounded
   ];
-  Duration get _transition => MediaQuery.disableAnimationsOf(context) ||
-          MediaQuery.of(context).accessibleNavigation
-      ? Duration.zero
-      : const Duration(milliseconds: 190);
-  String _text(String key) => reportText(widget.report?[key]);
-  String get _explanation => [
-        _text('simple_explanation'),
-        _text('simplified_explanation'),
-        _text('simple_summary')
-      ].firstWhere((s) => s.isNotEmpty, orElse: () => '');
-  bool get _busy =>
-      widget.loading ||
-      widget.translating ||
-      widget.reviewSaving ||
-      widget.restoring;
+  bool get _busy => widget.loading || widget.reviewSaving || widget.restoring;
+  List<Map<String, dynamic>> get _rows => workspaceMeasurements(widget.report);
+  String _copy(String en, String hi, String es, String zh) =>
+      {'Hindi': hi, 'Spanish': es, 'Mandarin': zh}[widget.language] ?? en;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, size) {
-        final wide = size.maxWidth >= 1000;
+        final desktop = size.maxWidth >= 900;
+        final expandedRail = size.maxWidth >= 1350;
+        final workspace = widget.index == 1 || widget.index == 2;
         return Scaffold(
           body: SafeArea(
               child: Row(children: [
-            if (wide) _sidebar(),
+            if (desktop) _sidebar(expandedRail),
             Expanded(
                 child: Column(children: [
-              Container(
-                  height: 80,
-                  padding: EdgeInsets.symmetric(horizontal: wide ? 32 : 16),
-                  decoration: const BoxDecoration(
-                      color: ReportPalette.ground,
-                      border: Border(
-                          bottom: BorderSide(color: ReportPalette.border))),
-                  child: Row(children: [
-                    if (wide)
-                      Expanded(
-                          child: Text(_labels[widget.index],
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w600)))
-                    else
-                      const Expanded(child: _Brand()),
-                    _languageControl(compact: !wide),
-                  ])),
+              _header(desktop),
               Expanded(
-                  child: AnimatedSwitcher(
-                      duration: _transition,
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeOut,
-                      child: SingleChildScrollView(
-                          key: ValueKey(widget.index),
-                          padding: EdgeInsets.fromLTRB(wide ? 36 : 20,
-                              wide ? 40 : 28, wide ? 36 : 20, 40),
-                          child: Center(
+                  child: workspace && widget.report != null
+                      ? _report(desktop)
+                      : SingleChildScrollView(
+                          padding: EdgeInsets.all(desktop ? 24 : 16),
+                          child: Align(
+                              alignment: Alignment.topCenter,
                               child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                      maxWidth:
-                                          widget.index == 1 ? 1480 : 1120),
-                                  child: _page()))))),
+                                constraints:
+                                    const BoxConstraints(maxWidth: 1440),
+                                child: widget.index == 3
+                                    ? _settings()
+                                    : workspace
+                                        ? _empty()
+                                        : _upload(),
+                              )))),
             ])),
           ])),
-          bottomNavigationBar: wide
+          bottomNavigationBar: desktop
               ? null
               : NavigationBar(
-                  selectedIndex: widget.index,
-                  onDestinationSelected: widget.onNavigate,
-                  destinations: List.generate(
-                      4,
-                      (i) => NavigationDestination(
-                          icon: Icon(_icons[i], size: 22),
-                          label: i == 0 ? 'Upload' : _labels[i]))),
+                  height: 62,
+                  selectedIndex:
+                      _nav.indexOf(widget.index == 2 ? 1 : widget.index),
+                  onDestinationSelected: (i) => widget.onNavigate(_nav[i]),
+                  destinations: const [
+                    NavigationDestination(
+                        icon: Icon(Icons.upload_file_outlined),
+                        label: 'Upload'),
+                    NavigationDestination(
+                        icon: Icon(Icons.space_dashboard_outlined),
+                        label: 'Report'),
+                    NavigationDestination(
+                        icon: Icon(Icons.tune_rounded), label: 'Settings'),
+                  ],
+                ),
         );
       });
 
-  Widget _sidebar() => Container(
-      width: 236,
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-      decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(right: BorderSide(color: ReportPalette.border))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4), child: _Brand()),
-        const SizedBox(height: 42),
-        for (var i = 0; i < 4; i++)
-          Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Semantics(
-                  selected: widget.index == i,
-                  child: TextButton.icon(
-                      onPressed: () => widget.onNavigate(i),
-                      icon: Icon(_icons[i], size: 21),
-                      label: Text(_labels[i]),
-                      style: TextButton.styleFrom(
-                          alignment: Alignment.centerLeft,
-                          minimumSize: const Size(0, 52),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          backgroundColor: widget.index == i
-                              ? ReportPalette.burgundy
-                              : Colors.transparent,
-                          foregroundColor: widget.index == i
-                              ? Colors.white
-                              : ReportPalette.ink,
-                          textStyle: const TextStyle(
-                              fontFamily: 'NotoSans',
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600))))),
-        const Spacer(),
-        const Text('Medical report assistant',
-            style: TextStyle(fontSize: 14, color: ReportPalette.muted)),
-      ]));
+  Widget _sidebar(bool expanded) => Container(
+        width: expanded ? 208 : 84,
+        decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(right: BorderSide(color: ReportPalette.border))),
+        padding:
+            EdgeInsets.symmetric(horizontal: expanded ? 16 : 12, vertical: 24),
+        child: Column(children: [
+          if (expanded)
+            const _Brand()
+          else
+            Image.asset('assets/images/arogya_pandit_logo.png',
+                width: 40, height: 40, semanticLabel: 'Medivaanii logo'),
+          const SizedBox(height: 40),
+          for (final i in _nav)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Tooltip(
+                  message: _labels[i],
+                  child: Material(
+                    color: (widget.index == i || i == 1 && widget.index == 2)
+                        ? ReportPalette.burgundy
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => widget.onNavigate(i),
+                      child: Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: expanded ? 14 : 0, vertical: 16),
+                          child: Row(
+                              mainAxisAlignment: expanded
+                                  ? MainAxisAlignment.start
+                                  : MainAxisAlignment.center,
+                              children: [
+                                Icon(_icons[i],
+                                    size: 22,
+                                    color: widget.index == i
+                                        ? Colors.white
+                                        : ReportPalette.muted),
+                                if (expanded) ...[
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                      child: Text(_labels[i],
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: widget.index == i
+                                                  ? Colors.white
+                                                  : ReportPalette.ink)))
+                                ],
+                              ])),
+                    ),
+                  )),
+            ),
+          const Spacer(),
+          if (expanded)
+            const Text('Clarity, in your language.',
+                style: TextStyle(fontSize: 12, color: ReportPalette.muted)),
+        ]),
+      );
 
-  Widget _languageControl({bool compact = false}) => PopupMenuButton<String>(
-      tooltip: 'Choose explanation language',
-      enabled: !_busy,
-      onSelected: widget.onLanguage,
-      itemBuilder: (_) => widget.languages
-          .map((language) => PopupMenuItem<String>(
-              value: language['name'],
-              height: 52,
-              child: Text('${language['native']} · ${language['name']}',
-                  style: const TextStyle(fontSize: 16))))
-          .toList(),
+  Widget _header(bool desktop) => Container(
+        padding:
+            EdgeInsets.symmetric(horizontal: desktop ? 24 : 16, vertical: 14),
+        decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: ReportPalette.border))),
+        child: desktop
+            ? Row(children: [
+                Expanded(
+                    child: Text(_labels[widget.index == 2 ? 1 : widget.index],
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700))),
+                _languages(),
+              ])
+            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const _Brand(),
+                const SizedBox(height: 12),
+                _languages(),
+              ]),
+      );
+
+  Widget _languages() => Semantics(
+      label: 'Explanation language',
       child: Container(
-          constraints: const BoxConstraints(minHeight: 48, minWidth: 72),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: ReportPalette.border),
-              borderRadius: BorderRadius.circular(12)),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(LucideIcons.languages,
-                size: 20, color: ReportPalette.burgundy),
-            const SizedBox(width: 8),
-            Text(compact ? _languageShort() : widget.language,
-                style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-            if (!compact) ...[
-              const SizedBox(width: 10),
-              const Icon(LucideIcons.chevronDown, size: 16)
-            ],
-          ])));
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+            color: ReportPalette.ground,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: ReportPalette.border)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          for (final language in widget.languages)
+            Flexible(
+                child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1),
+              child: Semantics(
+                  selected: widget.language == language['name'],
+                  child: TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () => widget.onLanguage(language['name']!),
+                    style: TextButton.styleFrom(
+                        minimumSize: const Size(66, 38),
+                        padding: const EdgeInsets.symmetric(horizontal: 13),
+                        backgroundColor: widget.language == language['name']
+                            ? ReportPalette.burgundy
+                            : Colors.transparent,
+                        foregroundColor: widget.language == language['name']
+                            ? Colors.white
+                            : ReportPalette.ink,
+                        shape: const StadiumBorder()),
+                    child: Text(language['native']!,
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                  )),
+            )),
+        ]),
+      ));
 
-  String _languageShort() => widget.languages
-      .firstWhere((l) => l['name'] == widget.language,
-          orElse: () => {'code': 'en'})['code']!
-      .toUpperCase();
-  Widget _page() => switch (widget.index) {
-        0 => _upload(),
-        1 => _explanationPage(),
-        2 => _suggestions(),
-        _ => _settings()
-      };
-
-  Widget _heading(String title, String subtitle) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title,
-            style: TextStyle(
-                fontSize: MediaQuery.sizeOf(context).width >= 1000 ? 38 : 28,
-                fontWeight: FontWeight.w700,
-                height: 1.18,
-                letterSpacing: -.8)),
-        const SizedBox(height: 14),
-        Text(subtitle,
-            style: const TextStyle(
-                fontSize: 17, height: 1.65, color: ReportPalette.muted)),
-        const SizedBox(height: 28),
-      ]);
-  Widget _surface(Widget child, {EdgeInsetsGeometry? padding}) => Container(
-      padding: padding ?? const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: ReportPalette.border),
-          borderRadius: BorderRadius.circular(14)),
-      child: child);
-
-  Widget _upload() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _heading('Your report, made clear.',
-            'Take a photo or upload your medical report. Read a simpler explanation in your preferred language.'),
-        if (widget.error != null) ...[
-          _notice(widget.error!, error: true),
-          const SizedBox(height: 20)
-        ],
-        LayoutBuilder(builder: (context, size) {
-          final upload = _surface(
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              const Icon(LucideIcons.fileText,
-                  color: ReportPalette.burgundy, size: 24),
-              const SizedBox(width: 12),
+  Widget _report(bool desktop) => LayoutBuilder(builder: (context, size) {
+        final rows = _rows;
+        final attention = rows
+            .where((r) =>
+                ['high', 'low', 'abnormal', 'critical'].contains(r['status']))
+            .length;
+        final review =
+            rows.where((r) => r['acceptance_state'] != 'eligible').length;
+        final toolbar = Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(children: [
               Expanded(
-                  child: Text('Add your report',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w600)))
-            ]),
-            const SizedBox(height: 28),
-            AnimatedSwitcher(
-                duration: _transition,
-                child: widget.loading
-                    ? _progress()
-                    : Column(key: const ValueKey('ready-upload'), children: [
-                        Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                                color: ReportPalette.rose,
-                                borderRadius: BorderRadius.circular(16)),
-                            child: const Icon(LucideIcons.scanText,
-                                size: 32, color: ReportPalette.burgundy)),
-                        const SizedBox(height: 20),
-                        const Text('A clear photo works too',
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 6),
-                        const Text('PDF, JPG, PNG or WebP · under 4 MB',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: ReportPalette.muted, fontSize: 16)),
-                        const SizedBox(height: 12),
-                        const Text('For clear, printed English reports.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 12),
-                        const Text(
-                            'Reports and voice questions are processed by Groq. Spoken answers use Microsoft Edge neural speech.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                color: ReportPalette.muted,
-                                fontSize: 12,
-                                height: 1.5)),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                                onPressed: _busy ? null : widget.onCamera,
-                                icon: const Icon(LucideIcons.camera, size: 20),
-                                label: const Text('Take a photo'))),
-                        const SizedBox(height: 12),
-                        Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            alignment: WrapAlignment.center,
-                            children: [
-                              OutlinedButton.icon(
-                                  onPressed: _busy ? null : widget.onPhoto,
-                                  icon: const Icon(LucideIcons.image, size: 20),
-                                  label: const Text('Choose photo')),
-                              OutlinedButton.icon(
-                                  onPressed: _busy ? null : widget.onUpload,
-                                  icon:
-                                      const Icon(LucideIcons.fileUp, size: 20),
-                                  label: const Text('Choose PDF')),
-                            ]),
-                        const SizedBox(height: 20),
-                        const Text(
-                            'Keep the whole page visible, with good light and no blur. One photo per upload.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: ReportPalette.muted)),
-                        const SizedBox(height: 12),
-                        const Text(
-                            'Take a photo opens the camera on supported phones. Computers offer a file chooser.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: ReportPalette.muted)),
-                        const SizedBox(height: 16),
-                        Text('Explanation language: ${widget.language}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 16, color: ReportPalette.muted)),
-                      ])),
-            const SizedBox(height: 8),
-          ]));
-          final example = _surface(
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('An example explanation',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 10),
-            const Text('See how medical terms become easier to understand.',
-                style: TextStyle(color: ReportPalette.muted)),
-            const SizedBox(height: 24),
-            _exampleTerm('Hemoglobin', 'Carries oxygen in your blood.'),
-            const Divider(height: 32),
-            _exampleTerm(
-                'White blood cells', 'Help your body fight infection.'),
-            const SizedBox(height: 20),
-            const Text('Illustrative content',
-                style: TextStyle(fontSize: 14, color: ReportPalette.muted)),
-          ]));
-          return size.maxWidth >= 760
-              ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Expanded(flex: 6, child: upload),
-                  const SizedBox(width: 24),
-                  Expanded(flex: 4, child: example)
-                ])
-              : Column(children: [upload, const SizedBox(height: 20), example]);
-        }),
-        if (widget.report != null && !widget.loading) ...[
-          const SizedBox(height: 24),
-          _surface(Wrap(
-              spacing: 20,
-              runSpacing: 16,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(widget.fileName ?? 'Your report',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const Text('Explanation ready',
-                    style: TextStyle(color: ReportPalette.sage)),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(widget.fileName ?? 'Your report',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 17)),
+                    const SizedBox(height: 3),
+                    Text(
+                        rows.isEmpty
+                            ? 'Report text available · measurements are not yet mapped'
+                            : '${rows.length} measurements · $attention outside report range${review > 0 ? ' · $review to check' : ''}',
+                        style: const TextStyle(
+                            fontSize: 13, color: ReportPalette.muted)),
+                  ])),
+              if (desktop)
                 OutlinedButton.icon(
-                    onPressed: () => widget.onNavigate(1),
-                    icon: const Icon(LucideIcons.arrowRight, size: 18),
-                    label: const Text('Open explanation')),
-              ]))
-        ],
-        const SizedBox(height: 32),
-        const Text('How it works',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 20),
-        _step('1', 'Upload',
-            'Choose your language. Take a photo or select a report.'),
-        _step('2', 'Understand',
-            'Read the explanation and review the extracted values.'),
-        _step('3', 'Listen or save',
-            'Hear the explanation or download a summary PDF.'),
-      ]);
+                    onPressed: widget.downloading ||
+                            !reportOutputAllowed(widget.report!)
+                        ? null
+                        : widget.onDownload,
+                    icon: const Icon(Icons.download_rounded, size: 18),
+                    label: const Text('Save summary'),
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(40, 42))),
+              const SizedBox(width: 8),
+              IconButton(
+                  tooltip: 'Upload another report',
+                  onPressed: () => widget.onNavigate(0),
+                  icon: const Icon(Icons.add_rounded)),
+            ]));
+        final source = ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: widget.sourceExplorer ??
+                _surface(const Center(
+                    child: Text(
+                        'Upload the original document to view its source.'))));
+        if (desktop)
+          return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1440),
+                  child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(children: [
+                        toolbar,
+                        Expanded(
+                            child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                              Expanded(flex: 52, child: source),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                  flex: 48,
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        if (widget.voicePanel != null)
+                                          ConstrainedBox(
+                                              constraints: BoxConstraints(
+                                                  maxHeight:
+                                                      (size.maxHeight - 112) *
+                                                          .61),
+                                              child: widget.voicePanel!),
+                                        const SizedBox(height: 16),
+                                        Expanded(child: _measurements()),
+                                      ])),
+                            ])),
+                      ]))));
+        return Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Column(children: [
+              toolbar,
+              SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<bool>(
+                      showSelectedIcon: false,
+                      segments: [
+                        ButtonSegment(
+                            value: true,
+                            icon: const Icon(Icons.description_outlined,
+                                size: 17),
+                            label: Text(_copy('Original report', 'मूल रिपोर्ट',
+                                'Informe original', '原始报告'))),
+                        ButtonSegment(
+                            value: false,
+                            icon: const Icon(Icons.format_list_bulleted_rounded,
+                                size: 17),
+                            label: Text(_copy('Measurements', 'जांच के नतीजे',
+                                'Resultados', '检测结果'))),
+                      ],
+                      selected: {_mobileSource},
+                      onSelectionChanged: (s) =>
+                          setState(() => _mobileSource = s.first))),
+              const SizedBox(height: 10),
+              Expanded(
+                  child: IndexedStack(
+                      index: _mobileSource ? 0 : 1,
+                      children: [source, _measurements()])),
+              const SizedBox(height: 10),
+              if (widget.voicePanel != null)
+                ConstrainedBox(
+                    constraints: BoxConstraints(
+                        maxHeight:
+                            (size.maxHeight * .48).clamp(230, 360).toDouble()),
+                    child: widget.voicePanel!),
+            ]));
+      });
 
-  Widget _exampleTerm(String name, String meaning) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(name,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        Text(meaning)
-      ]);
-  Widget _step(String number, String title, String body) => Padding(
-      padding: const EdgeInsets.only(bottom: 22),
+  Widget _measurements() {
+    final rows = _rows;
+    final visible = rows
+        .where((r) =>
+            r['test_name']
+                .toString()
+                .toLowerCase()
+                .contains(_query.toLowerCase()) &&
+            (_filter == 'all' ||
+                _filter == 'flagged' &&
+                    ['high', 'low', 'critical', 'abnormal']
+                        .contains(r['status']) ||
+                _filter == 'review' && r['acceptance_state'] != 'eligible'))
+        .toList();
+    return _surface(
+        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+              child: Row(children: [
+                Expanded(
+                    child: Text(
+                        _copy('Measurements', 'जांच के नतीजे', 'Resultados',
+                            '检测结果'),
+                        style: const TextStyle(
+                            fontSize: 19, fontWeight: FontWeight.w700))),
+                Text('${rows.length}',
+                    style: const TextStyle(
+                        fontSize: 14, color: ReportPalette.muted)),
+              ])),
+          Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: TextField(
+                  onChanged: (s) => setState(() => _query = s),
+                  decoration: InputDecoration(
+                      hintText: _copy('Find a test', 'जांच का नाम खोजें',
+                          'Buscar una prueba', '搜索检测项目'),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      isDense: true,
+                      filled: true,
+                      fillColor: ReportPalette.ground,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none)))),
+          Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final e in {
+                  'all': 'All results',
+                  'flagged': 'Outside range',
+                  'review': 'Needs review'
+                }.entries)
+                  FilterChip(
+                      label:
+                          Text(e.value, style: const TextStyle(fontSize: 12)),
+                      selected: _filter == e.key,
+                      showCheckmark: false,
+                      onSelected: (_) => setState(() => _filter = e.key),
+                      visualDensity: VisualDensity.compact),
+              ])),
+          if (widget.reviewSaving) const LinearProgressIndicator(minHeight: 2),
+          if (widget.reviewError != null)
+            Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(widget.reviewError!,
+                    style: const TextStyle(color: ReportPalette.burgundy))),
+          const Divider(height: 1),
+          Expanded(
+              child: ListView(padding: const EdgeInsets.all(12), children: [
+            if (rows.isEmpty)
+              Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                            'The report text is available. Its results have not been mapped into individual measurements yet.',
+                            style: TextStyle(fontSize: 16)),
+                        const SizedBox(height: 10),
+                        const Text(
+                            'The assistant can explain the text, but cannot point to a measurement until it is mapped.',
+                            style: TextStyle(
+                                fontSize: 14, color: ReportPalette.muted)),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                            onPressed: _busy ? null : widget.onReextract,
+                            icon: const Icon(Icons.document_scanner_outlined),
+                            label: const Text('Read results again')),
+                      ])),
+            if (rows.isNotEmpty && visible.isEmpty)
+              const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No measurements match this filter.')),
+            for (final row in visible) _measurement(row),
+            if (rows.isNotEmpty) _doctorQuestions(rows),
+          ])),
+        ]),
+        padding: EdgeInsets.zero);
+  }
+
+  Widget _measurement(Map<String, dynamic> row) {
+    final id = row['measurement_id'].toString();
+    final selected = widget.report?['selected_measurement_id'] == id;
+    final checked = row['acceptance_state'] == 'eligible';
+    final status = checked ? (row['status'] ?? 'unknown').toString() : 'review';
+    final labels = {
+      'normal': 'Within range',
+      'high': 'High',
+      'low': 'Low',
+      'critical': 'Flagged',
+      'abnormal': 'Flagged',
+      'unknown': 'Range unavailable',
+      'review': 'Check source'
+    };
+    final flagged = ['high', 'low', 'critical', 'abnormal'].contains(status);
+    final color = flagged
+        ? ReportPalette.burgundy
+        : status == 'normal'
+            ? ReportPalette.sage
+            : ReportPalette.muted;
+    return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Material(
+            color: selected ? const Color(0xFFF3F7F3) : Colors.white,
+            shape: RoundedRectangleBorder(
+                side: BorderSide(
+                    color: selected ? ReportPalette.sage : ReportPalette.border,
+                    width: selected ? 1.5 : 1),
+                borderRadius: BorderRadius.circular(12)),
+            child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => widget.onSelectMeasurement?.call(id, true),
+                child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                    child: Text(row['test_name'].toString(),
+                                        style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700))),
+                                const SizedBox(width: 8),
+                                Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 9, vertical: 4),
+                                    decoration: BoxDecoration(
+                                        color: ReportPalette.ground,
+                                        borderRadius: BorderRadius.circular(7)),
+                                    child: Text(
+                                        '${row['value']} ${row['unit'] ?? ''}',
+                                        style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700))),
+                              ]),
+                          const SizedBox(height: 8),
+                          Text(
+                              'Reference: ${(row['reference_range'] ?? '').toString().isEmpty ? 'Not printed' : row['reference_range']}',
+                              style: const TextStyle(
+                                  fontSize: 13, color: ReportPalette.muted)),
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                    color: flagged
+                                        ? ReportPalette.rose
+                                        : ReportPalette.sageLight,
+                                    borderRadius: BorderRadius.circular(6)),
+                                child: Text(labels[status] ?? 'Check source',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: color))),
+                            const Spacer(),
+                            IconButton(
+                                tooltip: 'Listen to ${row['test_name']}',
+                                onPressed: () =>
+                                    widget.onSelectMeasurement?.call(id, true),
+                                icon: const Icon(Icons.volume_up_outlined,
+                                    size: 20),
+                                style: IconButton.styleFrom(
+                                    minimumSize: const Size(40, 40),
+                                    foregroundColor: ReportPalette.sage)),
+                            IconButton(
+                                tooltip: 'Correct ${row['test_name']}',
+                                onPressed: widget.reviewSaving
+                                    ? null
+                                    : () => widget.onEditMeasurement?.call(id),
+                                icon: const Icon(Icons.edit_outlined, size: 19),
+                                style: IconButton.styleFrom(
+                                    minimumSize: const Size(40, 40))),
+                          ]),
+                        ])))));
+  }
+
+  Widget _doctorQuestions(List<Map<String, dynamic>> rows) {
+    final flagged = rows
+        .where((r) =>
+            r['acceptance_state'] == 'eligible' &&
+            ['high', 'low', 'critical', 'abnormal'].contains(r['status']))
+        .take(3)
+        .toList();
+    return ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+        title: const Text('Questions for your doctor',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        children: [
+          for (final row in flagged)
+            ListTile(
+                leading: const Icon(Icons.chat_bubble_outline, size: 18),
+                title: Text(
+                    'What could affect my ${row['test_name']} result of ${row['value']} ${row['unit'] ?? ''}?',
+                    style: const TextStyle(fontSize: 14)),
+                subtitle: const Text(
+                    'Ask whether follow-up is needed in your situation.',
+                    style: TextStyle(fontSize: 13))),
+          if (flagged.isEmpty)
+            const ListTile(
+                title: Text(
+                    'How do these results fit with my symptoms and medical history?',
+                    style: TextStyle(fontSize: 14))),
+          const ListTile(
+              title: Text(
+                  'Is there anything I should check or discuss at my next visit?',
+                  style: TextStyle(fontSize: 14))),
+        ]);
+  }
+
+  Widget _upload() => LayoutBuilder(builder: (context, size) {
+        final intro =
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('UNDERSTAND. ASK. FEEL INFORMED.',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                  color: ReportPalette.sage)),
+          const SizedBox(height: 20),
+          const Text('Your report.\nA clearer conversation.',
+              style: TextStyle(
+                  fontSize: 42,
+                  height: 1.15,
+                  letterSpacing: -1.4,
+                  fontWeight: FontWeight.w700)),
+          const SizedBox(height: 18),
+          const Text(
+              'Make sense of medical terms and numbers, in a language that feels like home.',
+              style: TextStyle(
+                  fontSize: 18, height: 1.6, color: ReportPalette.muted)),
+          const SizedBox(height: 30),
+          _step('01', 'Add your report',
+              'Upload a PDF, choose a photo, or use your camera.'),
+          _step('02', 'See it at the source',
+              'Review the numbers alongside the original report.'),
+          _step('03', 'Talk it through',
+              'Ask a question and hear a simple explanation.'),
+          const SizedBox(height: 10),
+          _surface(const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.auto_stories_outlined,
+                      color: ReportPalette.sage, size: 21),
+                  SizedBox(width: 10),
+                  Text('An example explanation',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 16))
+                ]),
+                SizedBox(height: 14),
+                Text('“What does hemoglobin measure?”',
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                SizedBox(height: 8),
+                Text(
+                    'Hemoglobin carries oxygen through your blood. Your doctor looks at this result alongside your other tests and how you feel.',
+                    style: TextStyle(fontSize: 16, height: 1.6)),
+                SizedBox(height: 12),
+                Text('Illustrative content · not your report',
+                    style: TextStyle(fontSize: 12, color: ReportPalette.muted)),
+              ])),
+        ]);
+        final upload = AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(30),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                    color: widget.dragging
+                        ? ReportPalette.sage
+                        : ReportPalette.border,
+                    width: widget.dragging ? 2 : 1)),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text('Add your medical report',
+                      style:
+                          TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  const Text('A PDF or a clear photo is all you need.',
+                      style: TextStyle(color: ReportPalette.muted)),
+                  const SizedBox(height: 28),
+                  if (widget.loading)
+                    _progress()
+                  else
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 36),
+                        decoration: BoxDecoration(
+                            color: ReportPalette.ground,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: ReportPalette.border)),
+                        child: Column(children: [
+                          Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: const BoxDecoration(
+                                  color: ReportPalette.rose,
+                                  shape: BoxShape.circle),
+                              child: const Icon(Icons.upload_file_outlined,
+                                  size: 34, color: ReportPalette.burgundy)),
+                          const SizedBox(height: 20),
+                          Text(
+                              widget.dragging
+                                  ? 'Drop your report here'
+                                  : 'Drag your report here',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          const Text('PDF, JPG, PNG or WebP · under 4 MB',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 14, color: ReportPalette.muted)),
+                          const SizedBox(height: 22),
+                          FilledButton.icon(
+                              onPressed: _busy ? null : widget.onUpload,
+                              icon: const Icon(Icons.upload_file_outlined,
+                                  size: 20),
+                              label: const Text('Choose PDF')),
+                        ])),
+                  const SizedBox(height: 18),
+                  Row(children: [
+                    Expanded(
+                        child: OutlinedButton.icon(
+                            onPressed: _busy ? null : widget.onCamera,
+                            icon:
+                                const Icon(Icons.camera_alt_outlined, size: 20),
+                            label: const Text('Take photo'))),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: OutlinedButton.icon(
+                            onPressed: _busy ? null : widget.onPhoto,
+                            icon: const Icon(Icons.image_outlined, size: 20),
+                            label: const Text('Choose photo')))
+                  ]),
+                  if (widget.error != null)
+                    Padding(
+                        padding: const EdgeInsets.only(top: 18),
+                        child: Text(widget.error!,
+                            style: const TextStyle(
+                                color: ReportPalette.burgundy))),
+                  const SizedBox(height: 22),
+                  const Text(
+                      'Keep the full page in view, with good light and no blur. For clear, printed English reports.',
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: ReportPalette.muted,
+                          height: 1.6)),
+                  const SizedBox(height: 18),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  const Text(
+                      'Reports and voice questions use Groq. Spoken answers use Microsoft Edge neural speech.',
+                      style: TextStyle(
+                          fontSize: 12,
+                          height: 1.6,
+                          color: ReportPalette.muted)),
+                  if (widget.report != null) ...[
+                    const SizedBox(height: 20),
+                    TextButton.icon(
+                        onPressed: () => widget.onNavigate(1),
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        label: const Text('Return to your current report'))
+                  ],
+                ]));
+        return size.maxWidth >= 800
+            ? Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: intro),
+                      const SizedBox(width: 56),
+                      Expanded(child: upload)
+                    ]))
+            : Column(children: [intro, const SizedBox(height: 28), upload]);
+      });
+
+  Widget _step(String n, String title, String body) => Padding(
+      padding: const EdgeInsets.only(bottom: 20),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
-            width: 32,
-            height: 32,
+            width: 34,
+            height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-                color: ReportPalette.rose,
+                color: ReportPalette.sageLight,
                 borderRadius: BorderRadius.circular(10)),
-            child: Text(number,
+            child: Text(n,
                 style: const TextStyle(
-                    color: ReportPalette.burgundy,
+                    fontSize: 12,
+                    color: ReportPalette.sage,
                     fontWeight: FontWeight.w700))),
         const SizedBox(width: 14),
         Expanded(
@@ -562,727 +923,76 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title,
               style:
-                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(body, style: const TextStyle(color: ReportPalette.muted)),
-        ])),
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 3),
+          Text(body,
+              style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
+        ]))
       ]));
-
-  Widget _progress() => Semantics(
-      liveRegion: true,
-      child: Column(key: const ValueKey('processing'), children: [
-        const SizedBox(height: 24),
-        if (!MediaQuery.disableAnimationsOf(context))
-          const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.5))
-        else
-          const Icon(LucideIcons.hourglass,
-              color: ReportPalette.burgundy, size: 28),
-        const SizedBox(height: 20),
-        if (widget.fileName != null) ...[
-          Text(widget.fileName!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 12),
-        ],
-        Text(
-            widget.loadingMessage.isEmpty
-                ? 'Reading your report'
-                : widget.loadingMessage,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        const Text('Your explanation will appear when processing finishes.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: ReportPalette.muted)),
-        const SizedBox(height: 24),
+  Widget _surface(Widget child,
+          {EdgeInsetsGeometry padding = const EdgeInsets.all(22)}) =>
+      Container(
+          padding: padding,
+          decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: ReportPalette.border),
+              borderRadius: BorderRadius.circular(16)),
+          child: child);
+  Widget _progress() => const Padding(
+      padding: EdgeInsets.all(32),
+      child: Column(children: [
+        CircularProgressIndicator(),
+        SizedBox(height: 20),
+        Text('Reading your report…')
       ]));
-
-  Widget _notice(String text, {bool error = false, VoidCallback? retry}) =>
-      Semantics(
-          liveRegion: true,
-          child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                  color: error ? ReportPalette.rose : ReportPalette.sageLight,
-                  borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                              error
-                                  ? LucideIcons.circleAlert
-                                  : LucideIcons.info,
-                              size: 21,
-                              color: error
-                                  ? ReportPalette.burgundy
-                                  : ReportPalette.sage),
-                          const SizedBox(width: 12),
-                          Expanded(child: Text(text))
-                        ]),
-                    if (retry != null)
-                      Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: TextButton.icon(
-                              onPressed: _busy ? null : retry,
-                              icon: const Icon(LucideIcons.rotateCcw, size: 18),
-                              label: const Text('Retry translation'))),
-                  ])));
-
-  Widget _empty(String title) =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _heading(title,
-            'Add a report photo or PDF to read your explanation, review values, and listen in your preferred language.'),
-        _surface(widget.loading
-            ? _progress()
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(LucideIcons.fileText,
-                    size: 36, color: ReportPalette.burgundy),
-                const SizedBox(height: 20),
-                const Text('Your report will appear here.',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 20),
-                FilledButton.icon(
-                    onPressed: () => widget.onNavigate(0),
-                    icon: const Icon(LucideIcons.fileUp, size: 18),
-                    label: const Text('Upload a report')),
-              ])),
-      ]);
-
-  Widget _reportActions() => Wrap(spacing: 12, runSpacing: 12, children: [
+  Widget _empty() =>
+      _surface(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('A clearer view starts with your report.',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        const Text(
+            'Upload a PDF or a clear photo to see your results and start a conversation.'),
+        const SizedBox(height: 24),
         FilledButton.icon(
-            onPressed: _busy || widget.downloading ? null : widget.onDownload,
-            icon: Icon(
-                widget.downloading
-                    ? LucideIcons.hourglass
-                    : LucideIcons.download,
-                size: 18),
-            label: Text(widget.downloading
-                ? 'Preparing PDF…'
-                : 'Download summary PDF')),
-        OutlinedButton.icon(
-            onPressed: _busy ? null : () => widget.onNavigate(0),
-            icon: const Icon(LucideIcons.fileUp, size: 18),
-            label: const Text('Upload another')),
-        if (widget.onReview != null)
-          OutlinedButton.icon(
-              onPressed: _busy ? null : widget.onReview,
-              icon: const Icon(LucideIcons.scanText, size: 18),
-              label: const Text('Review source & correct results')),
-      ]);
-
-  Widget _explanationPage() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (widget.report != null && widget.voicePanel != null) ...[
-        widget.voicePanel!,
-        const SizedBox(height: 28),
-      ],
-      _reportExplanationContent(),
-    ]);
-  }
-
-  Widget _reportExplanationContent() {
-    if (widget.restoring) return _notice('Restoring your saved report…');
-    if (widget.report == null) return _empty('Your report, explained.');
-    final allowed = reportOutputAllowed(widget.report!);
-    final labs = eligibleReportLabValues(widget.report!);
-    final legacy = reportQualityState(widget.report!) == 'legacy_unverified';
-    if (legacy || !allowed) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _heading(
-            legacy ? 'Read the original again.' : 'Check your source fields.',
-            widget.fileName ?? 'Your report'),
-        _notice(legacy
-            ? 'This saved report used an older extractor. Your original and corrections are retained. Read the original again to recover patient results.'
-            : 'Explanations are paused. Check the fields marked for review against the original before using these results.'),
-        const SizedBox(height: 20),
-        if (legacy)
-          OutlinedButton.icon(
-              onPressed:
-                  widget.reviewSaving ? null : widget.onReextract ?? () {},
-              icon: const Icon(LucideIcons.scanText, size: 18),
-              label: Text(widget.reviewSaving
-                  ? 'Reading original…'
-                  : 'Read original again')),
-        if (widget.reviewError != null)
-          _notice(widget.reviewError!, error: true),
-        const SizedBox(height: 20),
-        if (widget.sourceExplorer != null) widget.sourceExplorer!,
-        if (widget.sourceExplorer == null && widget.onConfirmReview != null)
-          ReportReviewPanel(
-              report: widget.report!,
-              sourcePreview: widget.sourcePreview,
-              onOpenSource: widget.onOpenSource,
-              onConfirm: widget.onConfirmReview!,
-              onReextract: widget.onReextract,
-              busy: widget.reviewSaving),
-      ]);
-    }
-    if (widget.reviewing && widget.onConfirmReview != null) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _heading(
-            'Review your report.', widget.fileName ?? 'Your uploaded report'),
-        _notice(reportCoverageText(widget.report!)),
-        const SizedBox(height: 20),
-        if (widget.reviewError != null)
-          _notice(widget.reviewError!, error: true),
-        if ((widget.report!['unapplied_corrections'] as List? ?? [])
-            .isNotEmpty) ...[
-          _notice(
-              'Saved corrections could not be matched uniquely. Compare them with the original before applying them.'),
-          for (final correction
-              in widget.report!['unapplied_corrections'] as List)
-            Text(
-                'Saved correction · ${correction['reviewed_fields']['test_name']}: ${correction['reviewed_fields']['value']} ${correction['reviewed_fields']['unit']}'),
-          const SizedBox(height: 20),
-        ],
-        if (widget.sourceExplorer != null) ...[
-          widget.sourceExplorer!,
-          const SizedBox(height: 20),
-          Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
-                  onPressed: widget.reviewSaving
-                      ? null
-                      : () => widget.onConfirmReview!(
-                          reportLabValues(widget.report!['parsed_data'])),
-                  icon: const Icon(LucideIcons.arrowRight, size: 18),
-                  label: Text(widget.reviewSaving
-                      ? 'Saving source review…'
-                      : 'Continue to explanation'))),
-        ] else
-          ReportReviewPanel(
-              key: ValueKey(widget.report!['parsed_data'].toString()),
-              report: widget.report!,
-              sourcePreview: widget.sourcePreview,
-              onOpenSource: widget.onOpenSource,
-              onReextract: widget.onReextract,
-              onConfirm: widget.onConfirmReview!,
-              busy: widget.reviewSaving,
-              error: widget.reviewError),
-      ]);
-    }
-    final translated = _text('translated_explanation');
-    final isEnglish = widget.language == 'English';
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _heading(
-          'Your report, explained.', widget.fileName ?? 'Your uploaded report'),
-      _reportActions(),
-      const SizedBox(height: 24),
-      if ((widget.report!['unapplied_corrections'] as List? ?? [])
-          .isNotEmpty) ...[
-        _notice(
-            'Some saved corrections could not be matched uniquely. They remain saved below; compare them with the original before applying them.'),
-        for (final correction
-            in widget.report!['unapplied_corrections'] as List)
-          Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                  'Saved correction · ${correction['reviewed_fields']['test_name']}: ${correction['reviewed_fields']['value']} ${correction['reviewed_fields']['unit']}')),
-        const SizedBox(height: 20),
-      ],
-      _notice(
-          '${reportQualityState(widget.report!) == 'partial' ? 'Partial extraction · ' : ''}${reportCoverageText(widget.report!)}'),
-      const SizedBox(height: 20),
-      if (widget.storageError != null) ...[
-        _notice(widget.storageError!, error: true),
-        const SizedBox(height: 16)
-      ],
-      if (_text('report_overview').isNotEmpty) ...[
-        _notice(_text('report_overview')),
-        const SizedBox(height: 20)
-      ],
-      if ((widget.report!['review'] is Map) &&
-          widget.report!['review']['confirmed'] == true) ...[
-        const Text('Extraction reviewed · Current report kept on this browser.',
-            style: TextStyle(color: ReportPalette.muted, fontSize: 14)),
-        const SizedBox(height: 16),
-      ],
-      if (widget.audioError != null) ...[
-        _notice(widget.audioError!, error: true),
-        const SizedBox(height: 20),
-      ],
-      if (widget.translating) ...[
-        _notice(
-            'Translating to ${widget.language}… The English explanation is available below.'),
-        const SizedBox(height: 20)
-      ],
-      if (!isEnglish &&
-          !widget.translating &&
-          (translated.isEmpty || widget.translationError != null)) ...[
-        _notice(
-            widget.voicePanel != null
-                ? 'The voice assistant answers in ${widget.language}. The written source overview below is in English.'
-                : 'Translation unavailable. The English explanation is still available.',
-            error: widget.voicePanel == null,
-            retry:
-                widget.voicePanel == null ? widget.onRetryTranslation : null),
-        const SizedBox(height: 20)
-      ],
-      Align(
-          alignment: Alignment.centerLeft,
-          child: SegmentedButton<int>(
-              showSelectedIcon: false,
-              segments: [
-                const ButtonSegment(value: 0, label: Text('Overview')),
-                ButtonSegment(
-                    value: 1, label: Text('Lab values (${labs.length})')),
-                if (widget.sourceExplorer != null)
-                  const ButtonSegment(value: 2, label: Text('Explorer')),
-              ],
-              selected: {
-                _reportView == 2 && widget.sourceExplorer == null
-                    ? 0
-                    : _reportView
-              },
-              onSelectionChanged: (value) =>
-                  setState(() => _reportView = value.first))),
-      const SizedBox(height: 24),
-      AnimatedSwitcher(
-          duration: _transition,
-          child: _reportView == 2 && widget.sourceExplorer != null
-              ? widget.sourceExplorer!
-              : _reportView == 1
-                  ? _labs(labs)
-                  : Column(
-                      key: const ValueKey('overview'),
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                          _reading(
-                              isEnglish || translated.isEmpty
-                                  ? 'Simple explanation · English'
-                                  : 'Simple explanation · ${widget.language}',
-                              isEnglish || translated.isEmpty
-                                  ? _explanation
-                                  : translated,
-                              language: isEnglish || translated.isEmpty
-                                  ? 'English'
-                                  : widget.language),
-                          if (!isEnglish && translated.isNotEmpty) ...[
-                            const SizedBox(height: 20),
-                            ExpansionTile(
-                                tilePadding: EdgeInsets.zero,
-                                title: const Text('English explanation'),
-                                children: [
-                                  _reading('Original generated explanation',
-                                      _explanation,
-                                      language: 'English')
-                                ])
-                          ],
-                          if (_text('medical_summary').isNotEmpty) ...[
-                            const SizedBox(height: 20),
-                            _reading('Medical summary · English',
-                                _text('medical_summary'),
-                                language: 'English')
-                          ],
-                        ])),
-      const SizedBox(height: 24),
-      if ((widget.report!['extracted_text'] ?? '')
-          .toString()
-          .trim()
-          .isNotEmpty) ...[
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          title: Text(widget.report!['input_type'] == 'photo'
-              ? 'Text read from your photo'
-              : 'Text read from your report'),
-          subtitle: const Text(
-              'Check names, numbers and units against the original.'),
-          children: [
-            Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: SelectionArea(
-                    child: Text(widget.report!['extracted_text'].toString(),
-                        style: const TextStyle(fontSize: 17, height: 1.75))))
-          ],
-        ),
-        const SizedBox(height: 20),
-      ],
-      if (widget.onAskQuestion != null) ...[
-        Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
-                child: _surface(ReportQuestions(
-                    key: ValueKey(
-                        '${widget.language}:${widget.report!['parsed_data']}'),
-                    language: widget.language,
-                    onAsk: widget.onAskQuestion!,
-                    onReview: widget.onReview ?? () {})))),
-        const SizedBox(height: 24),
-      ],
-      _notice(
-          'These explanations help you read the report. Discuss your results with your clinician.'),
-    ]);
-  }
-
-  Widget _reading(String title, String text, {String? language}) => Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
-          child: _surface(
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title,
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
-            if (text.isNotEmpty && widget.speechEnabled) ...[
-              _audio(professionalReportText(text), language ?? widget.language),
-              const SizedBox(height: 20)
-            ],
-            if (text.isEmpty)
-              const Text('This explanation is not available for the report.')
-            else
-              SelectionArea(
-                  child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final block in reportDocument(text))
-                    _documentBlock(block)
-                ],
-              )),
-          ]))));
-
-  Widget _documentBlock(ReportBlock block) {
-    const body = TextStyle(
-        fontFamily: 'NotoSans',
-        fontSize: 16,
-        height: 1.65,
-        letterSpacing: 0,
-        color: ReportPalette.ink);
-    if (block.kind == ReportBlockKind.heading) {
-      return Padding(
-          padding: const EdgeInsets.only(top: 22, bottom: 10),
-          child: Semantics(
-              header: true,
-              child: Text(block.text,
-                  style: body.copyWith(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35))));
-    }
-    if (block.kind == ReportBlockKind.field) {
-      return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text.rich(
-              TextSpan(children: [
-                TextSpan(
-                    text: '${block.label}: ',
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                TextSpan(text: block.text),
-              ]),
-              style: body));
-    }
-    if (block.kind == ReportBlockKind.notice) {
-      return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-              color: ReportPalette.ground,
-              border: Border(
-                  left: BorderSide(color: ReportPalette.burgundy, width: 3))),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(block.label!,
-                style: body.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text(block.text, style: body),
-          ]));
-    }
-    if (block.kind == ReportBlockKind.bullet ||
-        block.kind == ReportBlockKind.numbered) {
-      return Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(
-                width: 24,
-                child: block.number != null
-                    ? Text('${block.number}.',
-                        style: body.copyWith(color: ReportPalette.muted))
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 11),
-                        child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                                width: 4,
-                                height: 4,
-                                decoration: const BoxDecoration(
-                                    color: ReportPalette.muted,
-                                    shape: BoxShape.circle))))),
-            Expanded(child: Text(block.text, style: body)),
-          ]));
-    }
-    return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Text(block.text, style: body));
-  }
-
-  Widget _audio(String text, String language) {
-    final active = widget.activeSpeech == text;
-    final playing = active && widget.speaking;
-    final paused = active && widget.paused;
-    return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-            color: ReportPalette.sageLight,
-            borderRadius: BorderRadius.circular(12)),
-        child: Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              IconButton.filled(
-                  tooltip: paused ? 'Resume narration' : 'Play narration',
-                  onPressed: _busy || playing || widget.audioPreparing
-                      ? null
-                      : paused
-                          ? widget.onResume
-                          : () => widget.onSpeak(text, language),
-                  icon: const Icon(LucideIcons.play, size: 20)),
-              IconButton(
-                  tooltip: 'Pause narration',
-                  onPressed: playing ? widget.onPause : null,
-                  icon: const Icon(LucideIcons.pause, size: 20)),
-              IconButton(
-                  tooltip: 'Stop narration',
-                  onPressed:
-                      playing || paused || (active && widget.audioPreparing)
-                          ? widget.onStop
-                          : null,
-                  icon: const Icon(LucideIcons.square, size: 18)),
-              AnimatedSwitcher(
-                  duration: _transition,
-                  child: Text(
-                      active && widget.audioPreparing
-                          ? 'Preparing audio…'
-                          : playing
-                              ? 'Playing'
-                              : paused
-                                  ? 'Paused'
-                                  : 'Listen to explanation',
-                      key: ValueKey(playing
-                          ? 'playing'
-                          : paused
-                              ? 'paused'
-                              : 'idle'),
-                      style: const TextStyle(
-                          fontSize: 14, color: ReportPalette.sage))),
-            ]));
-  }
-
-  Widget _labs(List<Map<String, dynamic>> labs) => Column(
-          key: const ValueKey('lab-values'),
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _notice(
-                'Review these extracted values, units and flags against your original report. Extraction can contain errors.'),
-            const SizedBox(height: 20),
-            if (labs.isEmpty)
-              _surface(const Text(
-                  'No structured lab values were returned. Review the explanation and your original report.'))
-            else
-              _surface(Column(children: [
-                for (var i = 0; i < labs.length; i++) ...[
-                  if (i > 0) const Divider(height: 32),
-                  _labRow(labs[i]),
-                ]
-              ])),
-          ]);
-
-  Widget _labRow(Map<String, dynamic> row) {
-    final flag = (row['status'] ?? 'Not provided').toString();
-    final flagged = ['low', 'high', 'critical'].contains(flag.toLowerCase());
-    final rawReference =
-        (row['reference_range'] ?? row['normal_range'] ?? '').toString().trim();
-    final reference = rawReference.isEmpty ? 'Not provided' : rawReference;
-    final statusLabel = switch (row['status_source']) {
-      'report' => 'Report flag: $flag',
-      'reference_range' => 'Compared with report range: $flag',
-      'user_review' => 'Flag entered during review: $flag',
-      'reviewed_range' => 'Compared with corrected range: $flag',
-      'unknown' => 'Flag unavailable',
-      _ => 'Extracted status: $flag',
-    };
-    return LayoutBuilder(builder: (context, size) {
-      final value =
-          '${row['value'] ?? 'Not provided'} ${row['unit'] ?? ''}'.trim();
-      final label =
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text((row['test_name'] ?? row['name'] ?? 'Unnamed test').toString(),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()])),
-      ]);
-      final detail =
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Reference: $reference', style: const TextStyle(fontSize: 16)),
-        const SizedBox(height: 8),
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(flagged ? LucideIcons.circleAlert : LucideIcons.info,
-              size: 17,
-              color: flagged ? ReportPalette.burgundy : ReportPalette.sage),
-          const SizedBox(width: 6),
-          Flexible(
-              child: Text(statusLabel,
-                  style: TextStyle(
-                      fontSize: 16,
-                      color: flagged
-                          ? ReportPalette.burgundy
-                          : ReportPalette.sage)))
-        ]),
-      ]);
-      return size.maxWidth >= 620
-          ? Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Expanded(child: label), Expanded(child: detail)])
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [label, const SizedBox(height: 14), detail]);
-    });
-  }
-
-  Widget _suggestions() {
-    if (widget.report != null && !reportOutputAllowed(widget.report!)) {
-      return _explanationPage();
-    }
-    if (widget.report == null) return _empty('Questions & next steps.');
-    final translated = widget.language != 'English';
-    final disease = translated
-        ? (_text('disease_explanation_lang').isNotEmpty
-            ? _text('disease_explanation_lang')
-            : _text('disease_explanation_hi'))
-        : _text('disease_explanation_en');
-    final plan = translated
-        ? (_text('solution_plan_lang').isNotEmpty
-            ? _text('solution_plan_lang')
-            : _text('solution_plan_hi'))
-        : _text('solution_plan_en');
-    final suggestions =
-        widget.report![translated ? 'translated_suggestions' : 'suggestions'];
-    final list = suggestions is List
-        ? suggestions
-            .map((s) => s.toString())
-            .where((s) => s.trim().isNotEmpty)
-            .toList()
-        : <String>[];
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _heading('Questions & next steps.',
-          'Use these explanations to prepare for a conversation with your clinician.'),
-      _reportActions(),
-      const SizedBox(height: 24),
-      if (widget.audioError != null) ...[
-        _notice(widget.audioError!, error: true),
-        const SizedBox(height: 20),
-      ],
-      if (widget.translating) ...[
-        _notice('Translating to ${widget.language}…'),
-        const SizedBox(height: 20)
-      ],
-      if (translated &&
-          !widget.translating &&
-          disease.isEmpty &&
-          plan.isEmpty) ...[
-        _notice(
-            'Translation unavailable. Open Explanation to read the English summary.',
-            error: true,
-            retry: widget.onRetryTranslation),
-        const SizedBox(height: 20)
-      ],
-      if (disease.isNotEmpty) ...[
-        _reading('Condition & term education', disease),
-        const SizedBox(height: 20)
-      ],
-      if (plan.isNotEmpty) ...[
-        _reading('Generated follow-up information', plan),
-        const SizedBox(height: 20)
-      ],
-      if (list.isNotEmpty) ...[
-        _reading('Suggestions · ${widget.language}', list.join('\n\n')),
-        const SizedBox(height: 20)
-      ],
-      _surface(
-          const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Questions for your appointment',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-        SizedBox(height: 16),
-        Text('What do these results mean for me?'),
-        SizedBox(height: 12),
-        Text('Do any values need follow-up?'),
-        SizedBox(height: 12),
-        Text('When should I repeat these tests?'),
-      ])),
-      const SizedBox(height: 24),
-      _notice(
-          'Generated information is educational. Your clinician can advise you using your symptoms and medical history.'),
-    ]);
-  }
-
+            onPressed: () => widget.onNavigate(0),
+            icon: const Icon(Icons.upload_file_outlined),
+            label: const Text('Add a report'))
+      ]));
   Widget _settings() =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _heading('Make it work for you.',
-            'Choose how you want to read and listen to your explanations.'),
-        _surface(
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Explanation language',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 10),
-          const Text(
-              'Choose the language for your explanation. You can change it from any screen.'),
-          const SizedBox(height: 20),
-          _languageControl(),
-          const Divider(height: 48),
-          SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Read explanations aloud',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              subtitle: const Text(
-                  'Show audio controls for summaries and suggestions.',
-                  style: TextStyle(fontSize: 16, height: 1.6)),
-              value: widget.speechEnabled,
-              onChanged: widget.onSpeechEnabled),
-          const SizedBox(height: 12),
-          const Text(
-              'Narration follows your selected language. Audio starts when you press Play.',
-              style: TextStyle(color: ReportPalette.muted)),
-        ])),
+        const Text('Your preferences',
+            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        const Text(
+            'Change your explanation language in the header, on any screen.',
+            style: TextStyle(color: ReportPalette.muted)),
         const SizedBox(height: 28),
-        if (widget.report != null && widget.onClearSavedReport != null) ...[
+        if (widget.report != null)
           _surface(
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Current report',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+            const Text('Saved on this browser',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
+            Text(widget.fileName ?? 'Your current report'),
+            const SizedBox(height: 8),
             const Text(
-                'The last report and its original document are kept in this browser so they can be reopened after a refresh.'),
-            if (widget.storageError != null) Text(widget.storageError!),
-            const SizedBox(height: 12),
-            OutlinedButton(
+                'Your report and corrections stay available after a refresh. Clear them when using a shared device.',
+                style: TextStyle(color: ReportPalette.muted)),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
                 onPressed: _busy ? null : widget.onClearSavedReport,
-                child: const Text('Clear saved report from this browser')),
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('Clear saved report'))
           ])),
-          const SizedBox(height: 20),
-        ],
+        const SizedBox(height: 20),
         _surface(const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Brand(),
-              SizedBox(height: 20),
+              SizedBox(height: 18),
               Text(
-                  'Medivaanii helps you read medical reports in simpler language and prepare questions for your healthcare professional.'),
-              SizedBox(height: 16),
-              Text(
-                  'Educational information. Discuss your results with your clinician.',
-                  style: TextStyle(color: ReportPalette.muted)),
+                  'Medivaanii helps you understand the words and numbers in a medical report. Your doctor can interpret them with your symptoms and history.',
+                  style: TextStyle(fontSize: 16, height: 1.6))
             ])),
       ]);
 }
@@ -1293,14 +1003,13 @@ class _Brand extends StatelessWidget {
   Widget build(BuildContext context) =>
       Row(mainAxisSize: MainAxisSize.min, children: [
         Image.asset('assets/images/arogya_pandit_logo.png',
-            width: 40, height: 40, semanticLabel: 'Medivaanii logo'),
+            width: 36, height: 36, semanticLabel: 'Medivaanii logo'),
         const SizedBox(width: 10),
         const Flexible(
             child: Text('Medivaanii',
                 style: TextStyle(
                     fontSize: 21,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: -.6,
-                    color: ReportPalette.ink))),
+                    letterSpacing: -.6)))
       ]);
 }

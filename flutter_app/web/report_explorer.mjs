@@ -6,9 +6,11 @@ const canvas = $('#document'), photo = $('#photo'), stage = $('#stage'), overlay
 const inspector = $('#inspector'), status = $('#status'), scroller = $('#scroller');
 const pageSelect = $('#page'), previous = $('#previous'), next = $('#next');
 let report = {}, labs = [], sources = [], layout = [], pdf, current = 1, renderTask;
-let lines = [], selection, zoomed = false, renderVersion = 0, selectionVersion = 0;
+let lines = [], selection, zoom = 1, renderVersion = 0, selectionVersion = 0;
 let recoveryAttempted = false, recoveryWork, sourceUrl;
 const pageLines = new Map();
+const sourceOnly = new URLSearchParams(location.search).get('mode') === 'source';
+if(sourceOnly) document.documentElement.classList.add('source-only');
 const photoMode = new URLSearchParams(location.search).get('type') === 'photo';
 const text = (tag, value, className) => {
   const node = document.createElement(tag); node.textContent = String(value ?? '');
@@ -34,7 +36,7 @@ addEventListener('message', event => {
   } else $('.intro p').textContent = 'Tap a number in your report. See its source and what the test measures.';
   if(selection?.id && !selectedMeasurement(labs,selection.id)) selection=null;
   makeSelectors();
-  const id=report.voice_cited_measurement_ids?.[0] || selection?.id || report.selected_measurement_id || labs[0]?.measurement_id;
+  const id=report.voice_cited_measurement_ids?.[0] || report.selected_measurement_id || selection?.id || labs[0]?.measurement_id;
   if(pdf || photo.naturalWidth){if(id)locateLab(id);else render();}else drawHighlights();
 });
 if(parent !== window) parent.postMessage(JSON.stringify({type:'medivaanii-explorer-ready'}),location.origin);
@@ -53,7 +55,7 @@ function makeSelectors() {
       const flag=text('small',lab.acceptance_state==='eligible'?resultLabel(lab):'Needs source review','test-state');
       button.append(name,value,flag);button.dataset.measurementId=lab.measurement_id;
       button.setAttribute('aria-label',`Explore ${lab.test_name}`);button.setAttribute('aria-pressed',String(lab.measurement_id===selection?.id));
-      button.onclick=()=>locateLab(lab.measurement_id);$('#tests').append(button);
+      button.onclick=()=>locateLab(lab.measurement_id,'value',true);$('#tests').append(button);
     }
   }
 }
@@ -111,7 +113,7 @@ async function recoverLocations() {
   } })().finally(() => { recoveryWork = null; });
   return recoveryWork;
 }
-async function locateLab(id, field='value') {
+async function locateLab(id, field='value', userInitiated=false) {
   const version = ++selectionVersion;
   const row=selectedMeasurement(labs,id), evidence=sources.find(source=>source.measurement_id===id);
   const source=sourceSelection(row);
@@ -122,7 +124,7 @@ async function locateLab(id, field='value') {
   if(canLocate){current=selectedField.page;pageSelect.value=current;await render();if(version!==selectionVersion)return;scrollToSelection();}
   else drawHighlights();
   showInspector();makeSelectors();focusSection(inspector);
-  if(parent!==window)parent.postMessage(JSON.stringify({type:'medivaanii-explorer-selection',measurement_id:id,page:canLocate?current:null,source_fields:row?.source_fields || {}}),location.origin);
+  if(parent!==window)parent.postMessage(JSON.stringify({type:'medivaanii-explorer-selection',measurement_id:id,user_initiated:userInitiated,page:canLocate?current:null,source_fields:row?.source_fields || {}}),location.origin);
 }
 function chooseLine(line) {
   ++selectionVersion;
@@ -151,7 +153,7 @@ function drawHighlights() {
         button.setAttribute('aria-label',`Select original ${row.test_name} ${key.replaceAll('_',' ')}: ${field.text}`);
         button.title=`${row.test_name} · ${key.replaceAll('_',' ')}`;
         const selected=selection?.id===row.measurement_id;button.setAttribute('aria-pressed',String(selected));if(selected)button.classList.add('selected');if(report.voice_cited_measurement_ids?.includes(row.measurement_id))button.classList.add('voice-cited');
-        button.onclick=()=>locateLab(row.measurement_id,key);overlay.append(button);count++;
+        button.onclick=()=>locateLab(row.measurement_id,key,true);overlay.append(button);count++;
       }
     }
   }
@@ -238,7 +240,7 @@ function showInspector() {
 async function render() {
   const version = ++renderVersion;
   if(renderTask) {renderTask.cancel();try{await renderTask.promise;}catch(_){} }
-  const width = Math.max(220,scroller.clientWidth - (matchMedia('(max-width:720px)').matches?24:40)) * (zoomed?1.65:1);
+  const width = Math.max(220,scroller.clientWidth - (matchMedia('(max-width:720px)').matches?24:40)) * zoom;
   stage.style.width = width+'px';
   if(photoMode) {if(photo.naturalWidth){stage.style.height = width * photo.naturalHeight/photo.naturalWidth+'px';await recoverLocations();lines=layout.filter(line=>line.page===1);drawHighlights();status.textContent='';}return;}
   if(!pdf) return;
@@ -252,7 +254,10 @@ async function render() {
   try {await renderTask.promise; if(version!==renderVersion)return;lines=await linesFor(current);if(version!==renderVersion)return;drawHighlights();status.textContent='';}
   catch(error){if(error.name!=='RenderingCancelledException')status.textContent='This page could not be displayed. Check the original report.';}
 }
-$('#zoom').onclick = () => {zoomed=!zoomed;$('#zoom').textContent=zoomed?'Fit page':'Zoom in';$('#zoom').setAttribute('aria-label',zoomed?'Fit report to width':'Enlarge report');render().then(scrollToSelection);};
+function setZoom(value) {zoom=Math.max(.7,Math.min(3,value));$('#zoom').textContent=Math.round(zoom*100)+'% · Fit';render().then(scrollToSelection);}
+$('#zoom').onclick=()=>setZoom(1);
+$('#zoom-in').onclick=()=>setZoom(zoom+.2);
+$('#zoom-out').onclick=()=>setZoom(zoom-.2);
 function changePage(page) {++selectionVersion;current=page;pageSelect.value=current;render();if(selection)showInspector();}
 pageSelect.onchange=()=>changePage(Number(pageSelect.value));previous.onclick=()=>changePage(current-1);next.onclick=()=>changePage(current+1);
 let oldWidth = 0;

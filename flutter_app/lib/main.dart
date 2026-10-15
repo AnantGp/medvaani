@@ -13,7 +13,6 @@ import 'report_review_widgets.dart' show editReportResult;
 import 'browser_report_store.dart';
 import 'browser_explorer_bridge.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
@@ -72,6 +71,9 @@ class _HomePageState extends State<HomePage> {
   StreamSubscription<html.Event>? _cameraCancellation;
 
   final FlutterTts _tts = FlutterTts();
+  final _voiceController = VoicePanelController();
+  StreamSubscription<html.MouseEvent>? _dropOver, _dropLeave, _dropFile;
+  bool _dragging = false;
 
   // Data state
   Map<String, dynamic>? _reportData;
@@ -80,10 +82,8 @@ class _HomePageState extends State<HomePage> {
   Uint8List? _sourceBytes;
   html.IFrameElement? _explorerFrame;
   final _explorerBridge = BrowserExplorerBridge();
-  final _explorerAnchor = GlobalKey();
   int _explorerFrameGeneration = 0;
   StreamSubscription<html.Event>? _explorerFrameLoad;
-  double _explorerHeight = 980;
   String? _sourceUrl, _reviewError, _storageError;
   bool _reviewOpen = false, _reviewSaving = false, _restoringReport = false;
   bool _isLoading = false;
@@ -105,6 +105,37 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _initTts();
     _restoreReport();
+    _dropOver = html.document.onDragOver.listen((event) {
+      event.preventDefault();
+      if (mounted && _currentIndex == 0 && !_dragging) {
+        setState(() => _dragging = true);
+      }
+    });
+    _dropLeave = html.document.onDragLeave.listen((event) {
+      if (mounted && _dragging) setState(() => _dragging = false);
+    });
+    _dropFile = html.document.onDrop.listen((event) async {
+      event.preventDefault();
+      if (mounted) setState(() => _dragging = false);
+      final files = event.dataTransfer.files;
+      if (_currentIndex != 0 || _isLoading || files == null || files.isEmpty) {
+        return;
+      }
+      final file = files.first;
+      if (file.size > 4000000) {
+        setState(() => _uploadError = 'Choose a report under 4 MB.');
+        return;
+      }
+      final reader = html.FileReader();
+      final loaded = reader.onLoad.first;
+      reader.readAsArrayBuffer(file);
+      await loaded;
+      if (!mounted) return;
+      final data = reader.result;
+      await _processFileBytes(
+          data is ByteBuffer ? data.asUint8List() : data as Uint8List,
+          file.name);
+    });
   }
 
   void _onExplorerMessage(String message) {
@@ -113,13 +144,6 @@ class _HomePageState extends State<HomePage> {
       final data = jsonDecode(message);
       if (data is! Map) return;
       if (data['type'] == 'medivaanii-explorer-ready') _sendExplorerReport();
-      if (data['type'] == 'medivaanii-explorer-height' &&
-          data['height'] is num) {
-        final height = (data['height'] as num).clamp(650, 3000).toDouble();
-        if ((height - _explorerHeight).abs() > 2) {
-          setState(() => _explorerHeight = height);
-        }
-      }
       if (data['type'] == 'medivaanii-explorer-layout' &&
           data['layout'] is List &&
           _reportData != null) {
@@ -131,21 +155,19 @@ class _HomePageState extends State<HomePage> {
           _reportData != null &&
           reportLabValues(_reportData!['parsed_data'])
               .any((row) => row['measurement_id'] == data['measurement_id'])) {
-        _reportData = {
-          ..._reportData!,
-          'selected_measurement_id': data['measurement_id']
-        };
-        _saveReport();
+        if (data['user_initiated'] == true) {
+          _selectMeasurement(data['measurement_id'] as String, true);
+        } else if (_reportData!['selected_measurement_id'] !=
+            data['measurement_id']) {
+          setState(() => _reportData = {
+                ..._reportData!,
+                'selected_measurement_id': data['measurement_id']
+              });
+        }
       }
       if (data['type'] == 'medivaanii-explorer-edit' &&
           data['measurement_id'] is String) {
         _editExplorerResult(data['measurement_id'] as String);
-      }
-      if (data['type'] == 'medivaanii-explorer-focus' && data['top'] is num) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _focusExplorerSection((data['top'] as num).toDouble());
-        });
-        WidgetsBinding.instance.scheduleFrame();
       }
     } on FormatException {/* Ignore malformed frame messages. */}
   }
@@ -178,26 +200,19 @@ class _HomePageState extends State<HomePage> {
     _sendExplorerReport();
   }
 
-  void _focusExplorerSection(double top) {
-    final anchor = _explorerAnchor.currentContext;
-    if (anchor == null || !top.isFinite) return;
-    final scrollable = Scrollable.maybeOf(anchor);
-    final renderObject = anchor.findRenderObject();
-    if (scrollable == null || renderObject == null) return;
-    final viewport = RenderAbstractViewport.maybeOf(renderObject);
-    if (viewport == null) return;
-    final position = scrollable.position;
-    final offset = (viewport.getOffsetToReveal(renderObject, 0).offset + top)
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
-    if (MediaQuery.disableAnimationsOf(context) ||
-        MediaQuery.of(context).accessibleNavigation) {
-      position.jumpTo(offset);
-    } else {
-      position.animateTo(offset,
-          duration: const Duration(milliseconds: 190),
-          curve: Curves.easeOutCubic);
-    }
+  void _selectMeasurement(String id, bool speak) {
+    if (_reportData == null) return;
+    final matches = workspaceMeasurements(_reportData)
+        .where((row) => row['measurement_id'] == id);
+    if (matches.isEmpty) return;
+    final row = matches.first;
+    setState(() => _reportData = {
+          ..._reportData!,
+          'selected_measurement_id': id,
+          'voice_cited_measurement_ids': <String>[]
+        });
+    _sendExplorerReport();
+    if (speak) _voiceController.explain(row);
   }
 
   String get _sourceMime => (_fileName ?? '').toLowerCase().endsWith('.pdf')
@@ -325,28 +340,23 @@ class _HomePageState extends State<HomePage> {
   Widget? _sourceExplorer() {
     if (_sourceUrl == null || _reportData == null) return null;
     final url =
-        '${Uri.base.resolve('report_explorer.html')}?type=${_sourceMime == 'application/pdf' ? 'pdf' : 'photo'}#${Uri.encodeComponent(_sourceUrl!)}';
-    return SizedBox(
-      key: _explorerAnchor,
-      height: _explorerHeight,
-      child: HtmlElementView.fromTagName(
-        key: ValueKey('explorer:$_sourceUrl'),
-        tagName: 'iframe',
-        onElementCreated: (element) {
-          final frame = element as html.IFrameElement;
-          _explorerFrame = frame;
-          frame.id = 'medivaanii-explorer-${++_explorerFrameGeneration}';
-          _explorerBridge.watch(frame.id, _onExplorerMessage);
-          _explorerFrameLoad?.cancel();
-          frame.title = 'Interactive report explorer';
-          frame.style.border = '0';
-          frame.style.width = '100%';
-          frame.style.height = '100%';
-          _explorerFrameLoad =
-              frame.onLoad.listen((_) => _sendExplorerReport());
-          frame.src = url;
-        },
-      ),
+        '${Uri.base.resolve('report_explorer.html')}?mode=source&type=${_sourceMime == 'application/pdf' ? 'pdf' : 'photo'}#${Uri.encodeComponent(_sourceUrl!)}';
+    return HtmlElementView.fromTagName(
+      key: ValueKey('explorer:$_sourceUrl'),
+      tagName: 'iframe',
+      onElementCreated: (element) {
+        final frame = element as html.IFrameElement;
+        _explorerFrame = frame;
+        frame.id = 'medivaanii-explorer-${++_explorerFrameGeneration}';
+        _explorerBridge.watch(frame.id, _onExplorerMessage);
+        _explorerFrameLoad?.cancel();
+        frame.title = 'Interactive report explorer';
+        frame.style.border = '0';
+        frame.style.width = '100%';
+        frame.style.height = '100%';
+        _explorerFrameLoad = frame.onLoad.listen((_) => _sendExplorerReport());
+        frame.src = url;
+      },
     );
   }
 
@@ -1245,10 +1255,14 @@ class _HomePageState extends State<HomePage> {
         storageError: _storageError,
         sourcePreview: _sourcePreview(),
         sourceExplorer: _sourceExplorer(),
+        onSelectMeasurement: _selectMeasurement,
+        onEditMeasurement: _editExplorerResult,
+        dragging: _dragging,
         voicePanel: _reportData == null
             ? null
             : VoicePanel(
                 key: ValueKey(_reportGeneration),
+                controller: _voiceController,
                 report: _reportData!,
                 language: _languages.firstWhere(
                     (entry) => entry['name'] == _selectedLanguage)['code']!,
@@ -1315,6 +1329,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _dropOver?.cancel();
+    _dropLeave?.cancel();
+    _dropFile?.cancel();
     _explorerBridge.stop();
     _explorerFrameLoad?.cancel();
     if (_sourceUrl != null) html.Url.revokeObjectUrl(_sourceUrl!);

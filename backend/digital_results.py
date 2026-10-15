@@ -153,31 +153,63 @@ def extract_digital_results(pages, source_digest):
                                 'source_quote': line['text'],
                                 'status': 'unknown', 'status_source': 'unknown', 'issues': []})
         if not headers:
-            # Explicit named result lines are a separate narrow layout. Booking
-            # IDs, prose and guideline rows never match this clinical identity.
-            for i, line in enumerate(lines):
-                match = re.match(r'^(Hemoglobin|Haemoglobin|Glucose|Creatinine|TSH|Thyroid stimulating hormone|Vitamin D|Vitamin B12|Platelets|WBC|White blood cells)\s*:\s*', line['text'], re.I)
-                if not match:
-                    continue
-                context = result_context(l['text'] for l in lines[:i])
-                if context in {'historical', 'guideline'}:
-                    diagnostics.append({'code': 'nonmeasurement_row', 'page': number, 'record_type': context})
-                    continue
-                if context != 'current':
-                    diagnostics.append({'code': 'unresolved_result_region', 'page': number, 'reason': 'current_result_context_missing'})
-                    continue
-                words = line['words']
-                vi = next((j for j, w in enumerate(words) if value_kind(w['text']) != 'unreadable'), None)
-                if vi is None:
-                    diagnostics.append({'code': 'unresolved_result_region', 'page': number})
-                    continue
-                name = match[1]
-                fields = {k: source_field(v, number, line['method']) for k, v in [('test_name', words[:vi]), ('value', words[vi:vi+1]), ('unit', words[vi+1:])] if v}
-                fields['test_name']['raw_cell_text'] = fields['test_name']['text']
-                fields['test_name']['text'] = name
-                records.append({'measurement_id': measurement_id(source_digest, number, 'named_line', fields['value']['box']),
-                                'record_type': 'measurement', 'test_name': name, 'canonical_test': canonical_test(name),
-                                'panel': 'Laboratory results', 'value': fields['value']['text'], 'unit': fields.get('unit', {}).get('text', ''),
-                                'reference_range': '', 'sample_date': sample_date, 'specimen': specimen, 'source_fields': fields,
-                                'source_quote': line['text'], 'issues': []})
+            records.extend(extract_summary_results(lines, number, source_digest, sample_date, specimen))
     return records, diagnostics
+
+
+def extract_summary_results(lines, page, digest, sample_date=None, specimen=None):
+    """Explicit Name: value/unit results beneath a patient-results heading.
+
+    Supports exported summary PDFs without treating reference labels, booking
+    metadata or guideline prose as additional patient measurements.
+    """
+    rows = []
+    numeric = r'[<>≤≥]?\s*[+-]?\d[\d,]*(?:\.\d+)?'
+    qualitative = r'non[- ]?reactive|not detected|negative|positive|reactive|detected|absent|nil|trace'
+    pattern = re.compile(r'^\s*[•●·\-]?\s*([A-Za-z][A-Za-z0-9 /()%.,+\-]{1,75}):\s*(' + numeric + '|' + qualitative + r')\s*(.*?)\s*$', re.I)
+    for i, line in enumerate(lines):
+        match = pattern.match(line['text'])
+        if not match or result_context(l['text'] for l in lines[:i]) != 'current':
+            continue
+        name, value, unit = [part.strip() for part in match.groups()]
+        if nonmeasurement_identity(name) or re.search(r'\b(?:results? extracted|page|generated|patient|date|id)\b', name, re.I):
+            continue
+        unit = re.sub(r'\s*\((?:high|low|normal|abnormal)\)\s*$', '', unit, flags=re.I).strip()
+        if len(unit)>32 or re.search(r'\b(?:means|might|doctor|should|report)\b', unit, re.I):
+            continue
+        words = line.get('words', [])
+        # Preserve real PDF word rectangles. A combined value/unit token uses
+        # the same source rectangle for its two explicitly split text fields.
+        vi = next((j for j,w in enumerate(words) if re.match(r'^[<>≤≥]?[+\-]?\d', w['text']) or w['text'].casefold() == value.casefold()), None)
+        if vi is None:
+            continue
+        def field(part, items):
+            found = source_field(items, page, line['method'])
+            if found:
+                found['raw_cell_text'] = found['text']
+                found['text'] = part
+            return found
+        fields = {'test_name': field(name, words[:vi] or words),
+                  'value': field(value, words[vi:vi+1])}
+        if unit:
+            fields['unit'] = field(unit, words[vi+1:] or words[vi:vi+1])
+        reference = ''
+        for following in lines[i+1:i+5]:
+            rm = re.match(r'^Reference\s+(?:range|interval)\s*:\s*(.+)$', following['text'], re.I)
+            if rm:
+                reference = rm[1].strip()
+                fwords = following.get('words', [])
+                first = next((j for j,w in enumerate(fwords) if re.search(r'\d|negative|positive',w['text'],re.I)), 0)
+                ref = source_field(fwords[first:], page, following['method'])
+                if ref:
+                    ref.update(raw_cell_text=ref['text'],text=reference,relationship='labeled_following_reference')
+                    fields['reference_range'] = ref
+                break
+            if pattern.match(following['text']):
+                break
+        rows.append({'measurement_id':measurement_id(digest,page,'summary_result',fields['value']['box']),
+                     'record_type':'measurement','test_name':name,'canonical_test':canonical_test(name),
+                     'panel':'Results in this report','value':value,'unit':unit,'reference_range':reference,
+                     'sample_date':sample_date,'specimen':specimen,'source_fields':{k:v for k,v in fields.items() if v},
+                     'source_quote':line['text'],'extraction_method':'summary_result','status':'unknown','status_source':'unknown','issues':[]})
+    return rows

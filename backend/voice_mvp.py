@@ -67,7 +67,7 @@ def report_context(report, question):
     fields = ('measurement_id', 'test_name', 'canonical_test', 'value', 'unit', 'reference_range',
               'status', 'status_source', 'acceptance_state', 'corrections')
     measurements = [{key: row.get(key) for key in fields if row.get(key) is not None}
-                    for row in primary_labs(parsed)]
+                    for row in primary_labs(parsed) if row.get('acceptance_state') != 'rejected']
     notes = parsed.get('source_narratives', [])
     raw = str(report.get('extracted_text') or report.get('medical_summary') or report.get('simple_explanation') or '')
     # Every extracted measurement is included. For very long supplementary
@@ -99,7 +99,7 @@ Keep two things separate: what the test measures in general, and what this repor
 If extraction is partial/blocked or an OCR field is uncertain, explain that limitation. Do not present uncertain numbers as verified.
 If a result is corrected by the user, identify it as a corrected value. Preserve negative/positive/non-reactive wording.
 Use cited_measurement_ids only from the supplied records and only when that record supports your answer.
-For narrative-only answers, an empty citation list is appropriate; say you are explaining extracted report text.
+For narrative-only answers, an empty citation list is appropriate; say you are explaining extracted report text. If the measurements array is empty, say that individual measurements have not been mapped yet. You may explain report text, but do not present a list of numeric patient results as mapped or verified. Ask the user to use Read results again to map them first.
 If long_text_passages_selected is true, all measurement rows are still present but not all supplementary text; ask for a specific section if needed.
 Return JSON only: {{"spoken_answer":"...","cited_measurement_ids":["..."]}}.
 REPORT DATA:\n{json.dumps(context, ensure_ascii=False)}'''

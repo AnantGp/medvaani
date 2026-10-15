@@ -40,3 +40,20 @@ button:disabled{opacity:.45;cursor:default}button:hover:enabled{background:#edf3
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 .source-cell.voice-cited{border:2px solid #3f6050;background:#3f605024;box-shadow:0 0 0 2px #3f605012}
+
+/* The Flutter workspace owns the result list and assistant. This embedded mode
+   is a full-height source pane, with its own independent document scrolling. */
+.source-only, .source-only body, .source-only .explorer, .source-only .workspace {height:100%; min-height:0; overflow:hidden}
+.source-only .intro, .source-only .results-pane {display:none}
+.source-only .workspace {display:block}
+.source-only .document-pane {height:100%;display:flex;flex-direction:column;border-radius:16px}
+.source-only .document-heading {padding:16px 18px 10px}
+.source-only .document-heading p {max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.source-only .toolbar {padding:0 16px 12px;gap:6px;flex-shrink:0}
+.source-only .toolbar button, .source-only .toolbar select {min-height:44px}
+.source-only #zoom-in,.source-only #zoom-out {min-width:44px;padding:4px;font-size:24px}
+.source-only #zoom {font-size:12px;white-space:nowrap;padding:6px 8px}
+.source-only #scroller {flex:1;height:auto;min-height:0;padding:16px}
+.source-only .legend {font-size:12px;padding:0 18px 10px}
+.source-only .source-footnote {font-size:11px;padding:10px 16px;flex-shrink:0}
+@media(max-width:480px){.source-only .quiet-tag {display:none}.source-only .toolbar{gap:4px;padding-inline:8px}.source-only #previous,.source-only #next{width:36px}.source-only #zoom-in,.source-only #zoom-out{min-width:36px}.source-only .document-heading{padding:12px}.source-only .legend{font-size:11px;padding-inline:12px}.source-only .toolbar select{font-size:12px;padding-inline:4px}.source-only #scroller{padding:8px}}
