@@ -1,8 +1,18 @@
 {
-  "version": 2,
-  "buildCommand": "git clone https://github.com/flutter/flutter.git -b stable --depth 1 ~/flutter && export PATH=$PATH:~/flutter/bin && flutter pub get && flutter build web --release --dart-define=API_BASE_URL=${API_BASE_URL:-https://medical-translation-5.onrender.com}",
-  "outputDirectory": "build/web",
-  "installCommand": "echo skip",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "installCommand": "true",
+  "buildCommand": "bash scripts/build_vercel.sh",
+  "outputDirectory": "flutter_app/build/web",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "includeFiles": "backend/**",
+      "excludeFiles": "{.git/**,.impeccable/**,docs/**,flutter_app/**,backend/.local/**,backend/.env*,backend/*.db,backend/test*,backend/__pycache__/**,**/*.pyc}"
+    }
+  },
+  "rewrites": [
+    {"source": "/api/:path*", "destination": "/api/index.py"},
+    {"source": "/((?!api/).*)", "destination": "/index.html"}
+  ]
 }

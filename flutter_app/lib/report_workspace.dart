@@ -425,7 +425,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                         const Text('A clear photo works too',
                             textAlign: TextAlign.center),
                         const SizedBox(height: 6),
-                        const Text('PDF, JPG, PNG or WebP · up to 10 MB',
+                        const Text('PDF, JPG, PNG or WebP · under 4 MB',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                                 color: ReportPalette.muted, fontSize: 16)),
@@ -433,6 +433,14 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                         const Text('For clear, printed English reports.',
                             textAlign: TextAlign.center,
                             style: TextStyle(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 12),
+                        const Text(
+                            'Reports and voice questions are processed by Groq. Spoken answers use Microsoft Edge neural speech.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: ReportPalette.muted,
+                                fontSize: 12,
+                                height: 1.5)),
                         const SizedBox(height: 24),
                         SizedBox(
                             width: double.infinity,
@@ -809,9 +817,12 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
           !widget.translating &&
           (translated.isEmpty || widget.translationError != null)) ...[
         _notice(
-            'Translation unavailable. The English explanation is still available.',
-            error: true,
-            retry: widget.onRetryTranslation),
+            widget.voicePanel != null
+                ? 'The voice assistant answers in ${widget.language}. The written source overview below is in English.'
+                : 'Translation unavailable. The English explanation is still available.',
+            error: widget.voicePanel == null,
+            retry:
+                widget.voicePanel == null ? widget.onRetryTranslation : null),
         const SizedBox(height: 20)
       ],
       Align(

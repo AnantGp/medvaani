@@ -10,6 +10,11 @@ from starlette.responses import JSONResponse, StreamingResponse
 from starlette.requests import Request
 from starlette.routing import Route
 import os
+from pathlib import Path
+from starlette.concurrency import run_in_threadpool
+if os.getenv('VERCEL') != '1':
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).with_name('.env.local'))
 import tempfile
 from starlette.datastructures import UploadFile
 from typing import Optional, List, Dict
@@ -31,11 +36,13 @@ import report_review
 from db import MedicalDatabase
 from mvp_report_store import ReportState
 from voice_mvp import routes as voice_routes
-voice_state = ReportState(os.path.join(os.path.dirname(__file__), '.local', 'voice_mvp.sqlite3'))
+from report_snapshot import resolve_report
+IS_VERCEL = os.getenv('VERCEL') == '1'
+voice_state = ReportState('/tmp/medivaanii.db' if IS_VERCEL else os.path.join(os.path.dirname(__file__), '.local', 'voice_mvp.sqlite3'))
 sync_voice_report, voice_turn = voice_routes(voice_state)
 
 # Initialize database
-db = MedicalDatabase()
+db = MedicalDatabase('/tmp/medivaanii.db' if IS_VERCEL else 'medical_reports.db')
 
 
 # Job tracking
@@ -44,7 +51,7 @@ job_lock = threading.Lock()
 
 # Thread pool for background processing
 executor = ThreadPoolExecutor(max_workers=4)
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_UPLOAD_BYTES = 4_000_000
 REPORT_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
 
 # ============== API Endpoints ==============
@@ -65,7 +72,7 @@ async def upload_report(request: Request):
         if not content:
             return JSONResponse({"detail": "This file is empty. Choose another report."}, status_code=400)
         if len(content) > MAX_UPLOAD_BYTES:
-            return JSONResponse({"detail": "This file is larger than 10 MB. Choose a smaller photo or PDF."}, status_code=413)
+            return JSONResponse({"detail": "Choose a photo or PDF under 4 MB."}, status_code=413)
 
         patient_id = form.get("patient_id")
         language = "English"  # Voice language is selected independently; extraction uses no translation provider.
@@ -87,6 +94,15 @@ async def upload_report(request: Request):
                 "input_type": "pdf" if extension == ".pdf" else "photo",
             }
 
+        if IS_VERCEL:
+            # A serverless request cannot leave work in a process-local job and
+            # expect a later poll to reach the same instance.
+            await run_in_threadpool(process_report_async, job_id)
+            with job_lock:
+                completed = processing_jobs.pop(job_id)
+            if completed['status'] != 'completed':
+                return JSONResponse({'detail': completed.get('error', 'This report could not be read.')}, status_code=422)
+            return JSONResponse(completed['result'], headers={'Cache-Control': 'no-store'})
         background = BackgroundTask(process_report_async, job_id)
 
         return JSONResponse({
@@ -120,7 +136,7 @@ async def source_layout_report(request: Request):
         content = await file.read(MAX_UPLOAD_BYTES + 1)
         await file.close()
         if not content or len(content) > MAX_UPLOAD_BYTES:
-            return JSONResponse({'detail':'Choose a nonempty report up to 10 MB.'}, status_code=413 if content else 400)
+            return JSONResponse({'detail':'Choose a nonempty report under 4 MB.'}, status_code=413 if content else 400)
         with tempfile.NamedTemporaryFile(prefix='medivaanii_source_',suffix=extension,delete=False) as buffer:
             temp_path = buffer.name
             buffer.write(content)
@@ -198,8 +214,9 @@ def process_report_async(job_id: str):
         if not is_medical:
             raise ValueError(reason)
         update_progress(30, "Associating patient results with their source cells...")
-        candidates, diagnostics = extract_digital_results(document['pages'], document['source_digest'])
-        document['candidates'] = candidates
+        native_pages = [page for page in document['pages'] if page.get('ocr_method') != 'groq_vision']
+        candidates, diagnostics = extract_digital_results(native_pages, document['source_digest'])
+        document['candidates'] = candidates + document.get('candidates', [])
         document['diagnostics'].extend(diagnostics)
         _, quality = validate_document(document)
         if docling_worker is not None and quality['state'] != 'ready':
@@ -218,8 +235,8 @@ def process_report_async(job_id: str):
                 document['diagnostics'].append({'code': 'worker_timeout' if isinstance(error, TimeoutError) else 'worker_failed'})
         initial_state = agents.get_default_state(raw_text, patient_id=patient_id, target_lang=language)
         result = agents.validation_agent(agents.parse_agent(initial_state, document=document))
-        if job.get('input_type') == 'photo' and not result['is_valid']:
-            raise ValueError("We could not read medical results from this photo. Take a clearer photo with the values in focus, or upload a PDF.")
+        # An uncertain image can still be shown for source review and voice
+        # explanation, with its OCR limitations carried into the context.
         update_progress(50, "Checking source fields and extraction coverage...")
         result = agents.summary_agent(result)
         result = agents.simplify_agent(result)
@@ -278,8 +295,7 @@ async def review_report(request: Request):
         report = payload.get("report")
         if not isinstance(report, dict):
             raise ValueError("Upload a report before reviewing results.")
-        if report.get('report_id'):
-            report = voice_state.get(report['report_id'])
+        report = resolve_report(payload, voice_state)
         result = report_review.apply_review(report, payload.get("labs"), agents.infer_status_from_reference, agents.parse_numeric_value)
         language = str(payload.get("language", "English"))
         result["target_language"] = language
@@ -329,7 +345,7 @@ async def reextract_report(request: Request):
         data = await file.read(MAX_UPLOAD_BYTES + 1)
         await file.close()
         if not data or len(data) > MAX_UPLOAD_BYTES:
-            raise ValueError('Choose a nonempty report up to 10 MB.')
+            raise ValueError('Choose a nonempty report under 4 MB.')
         parsed = report_review.parsed_report(old.get('parsed_data', {}))
         digest = parsed.get('document', {}).get('source_digest')
         if digest and digest != hashlib.sha256(data).hexdigest():
@@ -640,7 +656,7 @@ async def synthesize_speech(request: Request):
         return JSONResponse({'detail': str(error)}, status_code=503)
 
 
-app = Starlette(debug=True, routes=[
+app = Starlette(debug=not IS_VERCEL, routes=[
     Route("/", lambda request: JSONResponse({
         "message": "Medical CDSS API - Clinical Decision Support System",
         "version": "2.0.0",

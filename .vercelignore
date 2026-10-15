@@ -1,0 +1,17 @@
+.git
+.impeccable
+docs
+backend/.env*
+backend/.local
+backend/*.db
+backend/__pycache__
+backend/test*
+flutter_app/.dart_tool
+flutter_app/build
+flutter_app/test
+flutter_app/tool
+flutter_app/android
+flutter_app/ios
+flutter_app/linux
+flutter_app/macos
+flutter_app/windows

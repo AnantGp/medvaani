@@ -1,6 +1,7 @@
 import os
 import importlib.util
 import hashlib
+import shutil
 from pathlib import Path
 
 
@@ -29,20 +30,27 @@ def read_document(file_path: str):
     from report_records import ExtractedDocument
     path = Path(file_path)
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    pages, diagnostics = [], []
+    pages, diagnostics, candidates = [], [], []
+    cloud_ocr = os.getenv('MEDIVAANII_FORCE_VISION') == '1' or not shutil.which('tesseract')
     if path.suffix.lower() != '.pdf':
         from PIL import Image, ImageOps
-        lines = []
-        text = extract_from_image(str(path), layout=lines)
         with Image.open(path) as source:
             corrected = ImageOps.exif_transpose(source)
             width, height = corrected.size
-        pages.append({'page': 1, 'width': width, 'height': height,
-                      'words': [w for l in lines for w in l['words']], 'lines': lines, 'regions': []})
+            if cloud_ocr:
+                from groq_vision import scan_image
+                scanned, candidates = scan_image(corrected, digest)
+                text = scanned['extracted_text']
+                pages.append(scanned)
+        if not cloud_ocr:
+            lines = []
+            text = extract_from_image(str(path), layout=lines)
+            pages.append({'page': 1, 'width': width, 'height': height,
+                          'words': [w for l in lines for w in l['words']], 'lines': lines, 'regions': []})
         input_type = 'photo'
     else:
         import pdfplumber
-        from pdf2image import convert_from_path
+        vision_pages = 0
         try:
             with pdfplumber.open(path) as pdf:
                 if len(pdf.pages) > 100:
@@ -52,6 +60,22 @@ def read_document(file_path: str):
                         raw_words = page.extract_words(x_tolerance=3, y_tolerance=3)
                         image_area = sum(max(0, im['x1'] - im['x0']) * max(0, im['bottom'] - im['top']) for im in page.images)
                         if not raw_words or (len(raw_words) < 25 and image_area > page.width * page.height * .5):
+                            if cloud_ocr:
+                                if vision_pages >= int(os.getenv('MEDIVAANII_MAX_VISION_PAGES', '8')):
+                                    raise ValueError('Cloud OCR page allowance exceeded for this upload.')
+                                from groq_vision import scan_image
+                                import pypdfium2 as pdfium
+                                with pdfium.PdfDocument(str(path)) as rendered:
+                                    rendered_page = rendered[number - 1]
+                                    image = rendered_page.render(scale=min(3, 2400 / max(page.width, page.height))).to_pil()
+                                    scanned, extra = scan_image(image, digest, number)
+                                    image.close()
+                                    rendered_page.close()
+                                pages.append(scanned)
+                                candidates.extend(extra)
+                                vision_pages += 1
+                                continue
+                            from pdf2image import convert_from_path
                             image = convert_from_path(str(path), first_page=number, last_page=number, size=2000)[0]
                             lines = []
                             read_ocr(image, layout=lines, page=number)
@@ -65,7 +89,11 @@ def read_document(file_path: str):
                                       'words': words, 'lines': lines, 'regions': []})
                         if not words:
                             diagnostics.append({'code': 'page_failed', 'page': number})
-                    except Exception:
+                    except Exception as exc:
+                        # Preserve an actionable provider error for the user.
+                        from groq_provider import GroqError
+                        if isinstance(exc, GroqError):
+                            raise ValueError(str(exc)) from exc
                         diagnostics.append({'code': 'page_failed', 'page': number})
                         pages.append({'page': number, 'width': page.width, 'height': page.height,
                                       'words': [], 'lines': [], 'regions': []})
@@ -73,12 +101,12 @@ def read_document(file_path: str):
             raise
         except Exception as exc:
             raise ValueError('We could not read this PDF. Choose an unlocked original PDF or a clearer report photo.') from exc
-        text = '\n'.join(l['text'] for p in pages for l in p['lines'])
+        text = '\n'.join(p.get('extracted_text') or '\n'.join(l['text'] for l in p['lines']) for p in pages)
         input_type = 'pdf'
     if not text.strip():
         raise ValueError('We could not read the report. Choose a clearer photo or original PDF.')
     return ExtractedDocument(source_digest=digest, input_type=input_type, extracted_text=text,
-                             pages=pages, candidates=[], diagnostics=diagnostics)
+                             pages=pages, candidates=candidates, diagnostics=diagnostics)
 
 
 def extract_text(file_path: str, *, layout=None) -> str:
@@ -86,6 +114,11 @@ def extract_text(file_path: str, *, layout=None) -> str:
     Extract text from image or PDF file
     Supports: JPG, JPEG, PNG, PDF
     """
+    if os.getenv('VERCEL') == '1' or os.getenv('MEDIVAANII_FORCE_VISION') == '1':
+        document = read_document(file_path)
+        if layout is not None:
+            layout.extend(line for page in document['pages'] for line in page.get('lines', []))
+        return document['extracted_text']
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == '.pdf':

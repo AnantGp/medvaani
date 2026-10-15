@@ -8,6 +8,7 @@ import 'report_workspace.dart';
 import 'report_pdf.dart';
 import 'report_data.dart';
 import 'voice_panel.dart';
+import 'report_snapshot.dart';
 import 'report_review_widgets.dart' show editReportResult;
 import 'browser_report_store.dart';
 import 'browser_explorer_bridge.dart';
@@ -382,7 +383,7 @@ class _HomePageState extends State<HomePage> {
           .post(_buildApiUrl('/report/review'),
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({
-                'report': _reportData,
+                'report': reportSnapshot(_reportData!),
                 'labs': rows,
                 'language': _selectedLanguage
               }))
@@ -394,7 +395,7 @@ class _HomePageState extends State<HomePage> {
             (result['detail'] ?? 'Review could not be saved.').toString());
       }
       setState(() {
-        _reportData = result;
+        _reportData = {..._reportData!, ...result};
         _reviewOpen = false;
         _currentIndex = 1;
       });
@@ -636,11 +637,12 @@ class _HomePageState extends State<HomePage> {
 
   static const String _baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8001',
+    defaultValue: '/api',
   );
 
   Uri _buildApiUrl(String path) {
     final configured = Uri.parse(_baseUrl);
+    if (!configured.hasScheme) return Uri.base.resolve('$_baseUrl$path');
     if (['localhost', '127.0.0.1', '::1'].contains(configured.host)) {
       return Uri.base.resolve('/api$path');
     }
@@ -697,8 +699,8 @@ class _HomePageState extends State<HomePage> {
       }
       final file = files.first;
       _clearCameraInput();
-      if (file.size > 10 * 1024 * 1024) {
-        if (mounted) _showError('Choose a photo smaller than 10 MB.');
+      if (file.size > 4000000) {
+        if (mounted) _showError('Choose a photo smaller than 4 MB.');
         return;
       }
       try {
@@ -729,10 +731,10 @@ class _HomePageState extends State<HomePage> {
       _showError('Choose a PDF, JPG, PNG or WebP report.');
       return;
     }
-    if (bytes.isEmpty || bytes.length > 10 * 1024 * 1024) {
+    if (bytes.isEmpty || bytes.length > 4000000) {
       _showError(bytes.isEmpty
           ? 'This file is empty. Choose another report.'
-          : 'Choose a file smaller than 10 MB.');
+          : 'Choose a file smaller than 4 MB.');
       return;
     }
     final photo = extension != 'pdf';
@@ -760,7 +762,7 @@ class _HomePageState extends State<HomePage> {
           .add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
       request.fields['language'] = 'English';
       final streamed =
-          await request.send().timeout(const Duration(seconds: 60));
+          await request.send().timeout(const Duration(seconds: 300));
       final response = await http.Response.fromStream(streamed);
       if (!mounted || generation != _reportGeneration) return;
       final data = jsonDecode(response.body) as Map<String, dynamic>;

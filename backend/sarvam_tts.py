@@ -93,7 +93,7 @@ def _split_text(text: str, max_len: int = MAX_CHARS) -> list:
     return chunks
 
 
-def synthesize(text: str, language_code: str = "en") -> bytes:
+def synthesize(text: str, language_code: str = "en", *, audio_codec: str = "wav") -> bytes:
     """
     Synthesize `text` using Sarvam Bulbul v3.
     Returns raw MP3 bytes (base64-decoded from the API response).
@@ -120,7 +120,7 @@ def synthesize(text: str, language_code: str = "en") -> bytes:
                 pace=1.0,
                 speech_sample_rate=22050,
                 enable_preprocessing=True,
-                output_audio_codec="wav",
+                output_audio_codec=audio_codec,
             )
             # response.audios is a list of base64-encoded audio strings.
             # Each call with a single `text` returns exactly one audio item.

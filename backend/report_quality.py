@@ -84,7 +84,7 @@ def _validated_row(original):
         supported = (row.get('section') in {'findings', 'diagnosis', 'impression'} and row.get('text')
                      and row['text'] == field.get('text') and valid_box(field.get('box'))
                      and isinstance(field.get('page'), int) and field['page'] > 0)
-        if field.get('method') in {'ocr', 'docling_ocr'} and 'text' not in row.get('source_checked_fields', []):
+        if field.get('method') in {'ocr', 'docling_ocr', 'groq_vision'} and 'text' not in row.get('source_checked_fields', []):
             supported = False
         row.update(acceptance_state='eligible' if supported else 'needs_review',
                    issues=[] if supported else [{'code': 'source_missing', 'field': 'text'}])
@@ -114,7 +114,7 @@ def _validated_row(original):
             continue
         if str(field['text']).strip() != text and not (corrected.get('confirmed') is True and corrected.get('value') == text):
             issue('source_mismatch', key)
-        if field.get('method') in {'ocr', 'docling_ocr'} and key not in row.get('source_checked_fields', []) and not corrected.get('confirmed'):
+        if field.get('method') in {'ocr', 'docling_ocr', 'groq_vision'} and key not in row.get('source_checked_fields', []) and not corrected.get('confirmed'):
             issue('ocr_source_check', key)
     value_source = fields.get('value', {})
     vbox = value_source.get('box')
@@ -138,7 +138,7 @@ def _validated_row(original):
     source = 'unknown'
     corrected_fields = any(corrections.get(k, {}).get('confirmed') for k in ('test_name', 'value', 'unit', 'reference_range'))
     flag = fields.get('flag', {})
-    if flag.get('method') in {'ocr', 'docling_ocr'} and 'flag' not in row.get('source_checked_fields', []) and not corrections.get('status', {}).get('confirmed'):
+    if flag.get('method') in {'ocr', 'docling_ocr', 'groq_vision'} and 'flag' not in row.get('source_checked_fields', []) and not corrections.get('status', {}).get('confirmed'):
         issue('ocr_source_check', 'flag')
     reported = {'h': 'high', 'high': 'high', 'l': 'low', 'low': 'low', 'normal': 'normal', 'n': 'normal',
                 'abnormal': 'abnormal', 'critical': 'critical'}.get(str(flag.get('text', '')).strip().casefold())

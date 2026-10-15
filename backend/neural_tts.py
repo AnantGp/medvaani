@@ -21,6 +21,8 @@ class NeuralSpeechError(Exception):
 
 def _sarvam_mp3(text, language):
     import sarvam_tts
+    if os.getenv('VERCEL') == '1':
+        return sarvam_tts.synthesize(text, language, audio_codec='mp3')
     wav = sarvam_tts.synthesize(text, language)
     with tempfile.TemporaryDirectory(prefix='medivaanii_neural_') as folder:
         source, target = Path(folder) / 'voice.wav', Path(folder) / 'voice.mp3'

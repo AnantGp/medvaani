@@ -1,11 +1,12 @@
-starlette
-uvicorn
-pytesseract
-pillow
-python-multipart
-pypdf
+# Vercel runtime: no Torch, Docling, faster-whisper, ONNX or model weights.
+starlette>=0.47,<2
+uvicorn>=0.34,<1
+python-multipart>=0.0.20,<1
+httpx>=0.28,<1
+python-dotenv>=1.1,<2
 pdfplumber==0.11.9
-pdf2image
-anthropic
-python-dotenv
-langsmith
+pypdfium2>=5,<6
+pillow>=11,<13
+pypdf>=5,<7
+edge-tts>=7.3.1,<8
+sarvamai>=0.1.30,<1

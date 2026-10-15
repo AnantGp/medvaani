@@ -6,6 +6,8 @@ import os
 import re
 import subprocess
 import threading
+import time
+from contextlib import asynccontextmanager
 
 import httpx
 from starlette.concurrency import run_in_threadpool
@@ -13,11 +15,22 @@ from starlette.datastructures import UploadFile
 from starlette.responses import JSONResponse
 from report_review import parsed_report, primary_labs
 from neural_tts import synthesize, NeuralSpeechError
+import groq_provider
+from report_snapshot import resolve_report, recent_history
 
 LANGUAGES = {'en': 'English', 'hi': 'Hindi', 'es': 'Spanish', 'zh': 'Mandarin Chinese'}
 _whisper = None
 _whisper_lock = threading.Lock()
 _turn_lock = asyncio.Semaphore(1)
+
+
+@asynccontextmanager
+async def turn_slot():
+    if groq_provider.configured():
+        yield
+    else:
+        async with _turn_lock:
+            yield
 
 
 def transcribe(data, language, vocabulary=()):
@@ -92,7 +105,7 @@ REPORT DATA:\n{json.dumps(context, ensure_ascii=False)}'''
     messages = [{'role': 'system', 'content': prompt}, *history, {'role': 'user', 'content': question}]
     locale_instruction = {
         'en': 'Answer in simple English.',
-        'hi': 'उत्तर केवल सरल हिन्दी में, देवनागरी लिपि में दें। उर्दू या अरबी लिपि का प्रयोग न करें।',
+        'hi': 'आप किसी गांव के व्यक्ति से आराम से बात कर रहे हैं। केवल सहज, रोज़ बोलने वाली हिन्दी और देवनागरी लिखें। आप कहकर बात करें। जांच, खून, कम, ज़्यादा जैसे सीधे शब्द लें। आंकिक मान, मूल्यांकन, निर्धारित परास जैसे कठिन या किताबी शब्द न लें। Test names जैसे HbA1c, TSH, Ferritin पहचान में आने लायक रखें। आंकड़े और इकाइयां केवल इस व्यक्ति की रिपोर्ट से लें। केवल एक नतीजे से बीमारी होने या न होने का फैसला न करें। उर्दू या अरबी लिपि न लिखें।',
         'es': 'Responde únicamente en español sencillo.',
         'zh': '请只用简单的简体中文回答。',
     }[language]
@@ -107,13 +120,19 @@ REPORT DATA:\n{json.dumps(context, ensure_ascii=False)}'''
         schema['properties']['spoken_answer']['pattern'] = '^[^\u0600-\u06ff]*$'
     context_bytes = sum(len(message['content'].encode('utf-8')) for message in messages)
     context_size = 4096 if context_bytes < 10000 else 8192 if context_bytes < 22000 else 16384
-    async with httpx.AsyncClient(timeout=240) as client:
-        response = await client.post(os.getenv('MEDIVAANII_OLLAMA_URL', 'http://127.0.0.1:11434') + '/api/chat', json={
-            'model': os.getenv('MEDIVAANII_LLM_MODEL', 'qwen3:1.7b'), 'messages': messages,
-            'format': schema, 'stream': False, 'think': False, 'keep_alive': '30m',
-            'options': {'temperature': 0.15, 'num_ctx': context_size, 'num_predict': 384}})
-        response.raise_for_status()
-    result = json.loads(response.json()['message']['content'])
+    if groq_provider.configured():
+        result, model = await groq_provider.chat_json(messages, max_tokens=500)
+    elif os.getenv('VERCEL') == '1':
+        raise groq_provider.GroqError('Set GROQ_API_KEY in the Vercel project environment.')
+    else:
+        async with httpx.AsyncClient(timeout=240) as client:
+            response = await client.post(os.getenv('MEDIVAANII_OLLAMA_URL', 'http://127.0.0.1:11434') + '/api/chat', json={
+                'model': os.getenv('MEDIVAANII_LLM_MODEL', 'qwen3:1.7b'), 'messages': messages,
+                'format': schema, 'stream': False, 'think': False, 'keep_alive': '30m',
+                'options': {'temperature': 0.15, 'num_ctx': context_size, 'num_predict': 384}})
+            response.raise_for_status()
+        result = json.loads(response.json()['message']['content'])
+        model = os.getenv('MEDIVAANII_LLM_MODEL', 'qwen3:1.7b')
     text = result.get('spoken_answer')
     if not isinstance(text, str) or not text.strip():
         raise ValueError('The model did not return an explanation. Try a shorter question.')
@@ -122,7 +141,8 @@ REPORT DATA:\n{json.dumps(context, ensure_ascii=False)}'''
     if not isinstance(cited, list):
         raise ValueError('The model returned invalid source citations. Please ask again.')
     result = {'spoken_answer': text.strip()[:2400],
-              'cited_measurement_ids': list(dict.fromkeys(item for item in cited if isinstance(item, str) and item in known))}
+              'cited_measurement_ids': list(dict.fromkeys(item for item in cited if isinstance(item, str) and item in known)),
+              'llm_model': model}
     return result, context['long_text_passages_selected']
 
 
@@ -139,6 +159,8 @@ def routes(store):
             return JSONResponse({'detail': str(error)}, status_code=400)
 
     async def turn(request):
+        started = time.monotonic()
+        timings = {}
         try:
             if 'multipart/form-data' in request.headers.get('content-type', ''):
                 body = await request.form()
@@ -147,30 +169,49 @@ def routes(store):
             language = body.get('language')
             if language not in LANGUAGES:
                 raise ValueError('Choose English, Hindi, Spanish or Mandarin (en, hi, es, zh).')
-            report_id = str(body.get('report_id', ''))
-            report = store.get(report_id)
+            report = resolve_report(body, store)
+            report_id = report['report_id']
+            history = recent_history(body.get('history')) if body.get('history') is not None else store.history(report_id, language)
             action = str(body.get('action', '')).casefold()
             question = str(body.get('text', '')).strip()
             audio = body.get('audio')
-            async with _turn_lock:
+            async with turn_slot():
                 if isinstance(audio, UploadFile):
-                    data = await audio.read(8 * 1024 * 1024 + 1)
+                    data = await audio.read(2_000_001)
                     await audio.close()
-                    if not data or len(data) > 8 * 1024 * 1024:
-                        raise ValueError('Send a nonempty audio question under 8 MB.')
+                    if not data or len(data) > 2_000_000:
+                        raise ValueError('Send a nonempty audio question under 2 MB.')
                     vocabulary = [row.get('test_name', '') for row in primary_labs(parsed_report(report.get('parsed_data', {})))]
-                    question = await run_in_threadpool(transcribe, data, language, vocabulary)
+                    stage = time.monotonic()
+                    if groq_provider.configured():
+                        question = await groq_provider.transcribe(data, language, vocabulary, audio.filename or 'question.webm')
+                    elif os.getenv('VERCEL') == '1':
+                        raise groq_provider.GroqError('Set GROQ_API_KEY in the Vercel project environment.')
+                    else:
+                        question = await run_in_threadpool(transcribe, data, language, vocabulary)
+                    timings['asr_ms'] = round((time.monotonic() - stage) * 1000)
+                last = body.get('last_answer')
+                if isinstance(last, str):
+                    last = json.loads(last)
+                if not isinstance(last, dict) or not isinstance(last.get('spoken_answer'), str):
+                    last = None
                 if action in ('repeat', 'slower'):
-                    result = store.last(report_id, language)
+                    result = last or store.last(report_id, language)
                     selected_passages = False
                 else:
                     if action == 'simpler':
-                        last = store.last(report_id, language)
+                        last = last or store.last(report_id, language)
                         question = 'Explain this more simply, using everyday words: ' + last['spoken_answer']
                     if not question or len(question) > 4000:
                         raise ValueError('Ask a question or use Repeat, Slower or Simpler after an answer.')
-                    result, selected_passages = await answer(report, store.history(report_id, language), question, language)
+                    stage = time.monotonic()
+                    result, selected_passages = await answer(report, history, question, language)
+                    timings['llm_ms'] = round((time.monotonic() - stage) * 1000)
+                known = {row.get('measurement_id') for row in primary_labs(parsed_report(report.get('parsed_data', {})))}
+                result['cited_measurement_ids'] = [id for id in result.get('cited_measurement_ids', []) if isinstance(id, str) and id in known]
+                stage = time.monotonic()
                 speech, speech_info = await synthesize(result['spoken_answer'], language, slower=action == 'slower')
+                timings['tts_ms'] = round((time.monotonic() - stage) * 1000)
                 if store.get(report_id).get('parsed_data') != report.get('parsed_data'):
                     return JSONResponse({'detail': 'The report was corrected. Ask again using the updated results.'}, status_code=409)
                 if action not in ('repeat', 'slower'):
@@ -178,13 +219,20 @@ def routes(store):
             return JSONResponse({**result, 'report_id': report_id, 'language': language, 'transcript': question,
                                  'audio_base64': base64.b64encode(speech).decode(), 'audio_mime': 'audio/mpeg',
                                  **speech_info,
+                                 'timings': {**timings, 'total_ms': round((time.monotonic() - started) * 1000)},
                                  'long_text_passages_selected': selected_passages}, headers={'Cache-Control': 'no-store'})
         except (ValueError, TypeError, KeyError, json.JSONDecodeError) as error:
             return JSONResponse({'detail': str(error)}, status_code=400)
         except NeuralSpeechError as error:
             return JSONResponse({'detail': str(error)}, status_code=503)
+        except groq_provider.GroqError as error:
+            return JSONResponse({'detail': str(error)}, status_code=error.status)
         except httpx.HTTPError:
+            if groq_provider.configured() or os.getenv('VERCEL') == '1':
+                return JSONResponse({'detail': 'The hosted AI service could not be reached. Please try again.'}, status_code=503)
             return JSONResponse({'detail': 'The local language model is unavailable or still loading. Start Ollama and pull qwen3:1.7b, then try again.'}, status_code=503)
         except Exception:
+            if groq_provider.configured() or os.getenv('VERCEL') == '1':
+                return JSONResponse({'detail': 'Voice processing could not finish. Please ask again.'}, status_code=503)
             return JSONResponse({'detail': 'Voice processing failed. Check the Whisper model and local language model installation.'}, status_code=503)
     return sync_report, turn

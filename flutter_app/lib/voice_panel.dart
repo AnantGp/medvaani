@@ -6,6 +6,7 @@ import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'report_data.dart';
+import 'report_snapshot.dart';
 
 class VoicePanel extends StatefulWidget {
   const VoicePanel(
@@ -35,6 +36,8 @@ class _VoicePanelState extends State<VoicePanel> {
   String? _audioUrl, _error;
   String _answer = '', _transcript = '';
   List<String> _citations = [];
+  final List<Map<String, String>> _history = [];
+  Map<String, dynamic>? _lastAnswer;
   final List<html.Blob> _chunks = [];
   Timer? _recordLimit;
   StreamSubscription<html.BlobEvent>? _recordData;
@@ -114,6 +117,8 @@ class _VoicePanelState extends State<VoicePanel> {
       _answer = '';
       _transcript = '';
       _citations = [];
+      _history.clear();
+      _lastAnswer = null;
       _error = null;
     }
   }
@@ -224,24 +229,28 @@ class _VoicePanelState extends State<VoicePanel> {
       _error = null;
     });
     try {
-      // Sync the current displayed/corrected report; no auth or revision system.
-      final sync = await client
-          .post(widget.apiUrl('/report/sync'),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'report': widget.report}))
-          .timeout(const Duration(seconds: 30));
-      if (sync.statusCode != 200) {
+      final snapshot = reportSnapshot(widget.report);
+      final reportId = (snapshot['report_id'] ?? '').toString();
+      final encodedSnapshot = jsonEncode(snapshot);
+      if (utf8.encode(encodedSnapshot).length > 2000000) {
         throw const FormatException(
-            'The report could not be saved for this conversation.');
+            'This report is too large for the free pilot. Try a shorter report.');
       }
-      final reportId = (jsonDecode(sync.body) as Map)['report_id'].toString();
-      if (!mounted || generation != _generation) return;
-      widget.onReportId(reportId);
       http.Response response;
       if (audio != null) {
+        if (audio.length > 2000000) {
+          throw const FormatException(
+              'Keep each spoken question under 2 MB. Try a shorter recording.');
+        }
         final request =
             http.MultipartRequest('POST', widget.apiUrl('/voice/turn'));
-        request.fields.addAll({'report_id': reportId, 'language': language});
+        request.fields.addAll({
+          'report_id': reportId,
+          'language': language,
+          'report_snapshot': encodedSnapshot,
+          'history': jsonEncode(_history),
+          if (_lastAnswer != null) 'last_answer': jsonEncode(_lastAnswer),
+        });
         request.files.add(http.MultipartFile.fromBytes('audio', audio,
             filename: 'question.webm'));
         response = await http.Response.fromStream(
@@ -254,6 +263,9 @@ class _VoicePanelState extends State<VoicePanel> {
                   'report_id': reportId,
                   'language': language,
                   'text': text,
+                  'report_snapshot': snapshot,
+                  'history': _history,
+                  if (_lastAnswer != null) 'last_answer': _lastAnswer,
                   if (action != null) 'action': action,
                 }))
             .timeout(const Duration(seconds: 360));
@@ -266,6 +278,19 @@ class _VoicePanelState extends State<VoicePanel> {
       }
       final citations =
           (data['cited_measurement_ids'] as List).whereType<String>().toList();
+      widget.onReportId(data['report_id'].toString());
+      _lastAnswer = {
+        'spoken_answer': data['spoken_answer'],
+        'cited_measurement_ids': citations,
+        'llm_model': data['llm_model'],
+      };
+      if (action != 'repeat' && action != 'slower') {
+        _history.addAll([
+          {'role': 'user', 'content': (data['transcript'] ?? text).toString()},
+          {'role': 'assistant', 'content': jsonEncode(_lastAnswer)},
+        ]);
+        if (_history.length > 8) _history.removeRange(0, _history.length - 8);
+      }
       setState(() {
         _answer = data['spoken_answer'].toString();
         _transcript = (data['transcript'] ?? '').toString();

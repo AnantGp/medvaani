@@ -161,8 +161,9 @@ function drawHighlights() {
     Object.assign(button.style,{left:x*100+'%',top:y*100+'%',width:w*100+'%',height:h*100+'%'});
     button.setAttribute('aria-label',`Read original source line: ${line.text}`);button.onclick=()=>chooseLine(line);overlay.append(button);
   }
-  const ocr=lines.some(line=>line.method==='ocr');$('#method').textContent=ocr?'OCR locations':photoMode?'Photo':'PDF source';
-  $('#source-note').textContent=ocr?'OCR may misread characters. Check every photo field before using its explanation.':count?'Outlines mark exact original result cells; selecting a measurement highlights its name, value, unit and supplied reference.':'No source-backed measurement locations are available on this page.';
+  const vision=lines.some(line=>line.method==='groq_vision') || labs.some(row=>Object.values(row.source_fields||{}).some(field=>field.page===current && field.method==='groq_vision'));
+  const ocr=lines.some(line=>line.method==='ocr');$('#method').textContent=vision?'AI-estimated row locations':ocr?'OCR locations':photoMode?'Photo':'PDF source';
+  $('#source-note').textContent=vision?'AI estimates these row locations. Compare the original image and check each field before relying on it.':ocr?'OCR may misread characters. Check every photo field before using its explanation.':count?'Outlines mark exact original result cells; selecting a measurement highlights its name, value, unit and supplied reference.':'No source-backed measurement locations are available on this page.';
   for(const button of document.querySelectorAll('#tests button'))button.setAttribute('aria-pressed',String(button.dataset.measurementId===selection?.id));
 }
 function scrollToSelection() {
@@ -208,7 +209,7 @@ function showInspector() {
   const sourceBox = document.createElement('div'); sourceBox.className = 'source-box';
   sourceBox.append(text('div',line?`Report source · Page ${line.page}`:'Report source','label'));
   sourceBox.append(text('p',line?.text || evidence?.source_quote || 'No exact source quote is available for this result.','source-quote'));
-  sourceBox.append(text('p',line ? line.page!==current ? `This source is on page ${line.page}. Select that page to see its highlight.` : line.method === 'ocr' ? 'Highlighted at its OCR location. Confirm the number in the image.' : 'This is the highlighted text in your original PDF.' : 'Extracted quote only. Its position in the original has not been confirmed.','source-detail'));
+  sourceBox.append(text('p',line ? line.page!==current ? `This source is on page ${line.page}. Select that page to see its highlight.` : line.method === 'groq_vision' ? 'AI-estimated row location. Confirm this text against the original image; this is not an exact source-cell match.' : line.method === 'ocr' ? 'Highlighted at its OCR location. Confirm the number in the image.' : 'This is the highlighted text in your original PDF.' : 'Extracted quote only. Its position in the original has not been confirmed.','source-detail'));
   inspector.append(sourceBox);
   if(!line) inspector.append(text('p','We could not uniquely match an exact source line. Check the original report; no highlight has been placed.','unmatched'));
   const qualityAllowed=['ready','partial'].includes(report.extraction_quality?.state);
