@@ -21,6 +21,7 @@ from typing import Optional, List, Dict
 from datetime import datetime
 import json
 import uuid
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import threading
 
@@ -37,6 +38,7 @@ from db import MedicalDatabase
 from mvp_report_store import ReportState
 from voice_mvp import routes as voice_routes
 from report_snapshot import resolve_report
+from document_guard import require_medical_report, NonMedicalReportError
 IS_VERCEL = os.getenv('VERCEL') == '1'
 voice_state = ReportState('/tmp/medivaanii.db' if IS_VERCEL else os.path.join(os.path.dirname(__file__), '.local', 'voice_mvp.sqlite3'))
 sync_voice_report, voice_turn = voice_routes(voice_state)
@@ -101,7 +103,8 @@ async def upload_report(request: Request):
             with job_lock:
                 completed = processing_jobs.pop(job_id)
             if completed['status'] != 'completed':
-                return JSONResponse({'detail': completed.get('error', 'This report could not be read.')}, status_code=422)
+                return JSONResponse({'detail': completed.get('error', 'This report could not be read.'),
+                                     'code': completed.get('error_code', 'report_unreadable')}, status_code=422)
             return JSONResponse(completed['result'], headers={'Cache-Control': 'no-store'})
         background = BackgroundTask(process_report_async, job_id)
 
@@ -210,9 +213,7 @@ def process_report_async(job_id: str):
         if not raw_text or len(raw_text.strip()) < 10:
             raise ValueError("Could not read this document. Choose a clearer photo or PDF.")
         update_progress(15, "Checking your report...")
-        is_medical, reason = agents.is_medical_document(raw_text)
-        if not is_medical:
-            raise ValueError(reason)
+        asyncio.run(require_medical_report({'extracted_text': raw_text}))
         update_progress(30, "Associating patient results with their source cells...")
         native_pages = [page for page in document['pages'] if page.get('ocr_method') != 'groq_vision']
         candidates, diagnostics = extract_digital_results(native_pages, document['source_digest'])
@@ -278,6 +279,7 @@ def process_report_async(job_id: str):
             processing_jobs[job_id]["progress"] = processing_jobs[job_id].get("progress", 0)
             processing_jobs[job_id]["message"] = f"Processing failed: {str(e)}"
             processing_jobs[job_id]["error"] = str(e)
+            processing_jobs[job_id]["error_code"] = 'not_medical_report' if isinstance(e, NonMedicalReportError) else 'report_unreadable'
             processing_jobs[job_id]["failed_at"] = datetime.now().isoformat()
 
     finally:
@@ -295,12 +297,14 @@ async def review_report(request: Request):
         report = payload.get("report")
         if not isinstance(report, dict):
             raise ValueError("Upload a report before reviewing results.")
-        report = resolve_report(payload, voice_state)
+        report = await resolve_report(payload, voice_state)
         result = report_review.apply_review(report, payload.get("labs"), agents.infer_status_from_reference, agents.parse_numeric_value)
         language = str(payload.get("language", "English"))
         result["target_language"] = language
         result = voice_state.save(result)
         return JSONResponse(result)
+    except NonMedicalReportError as error:
+        return JSONResponse({'detail': str(error), 'code': 'not_medical_report'}, status_code=422)
     except (ValueError, TypeError, KeyError) as error:
         return JSONResponse({"detail": str(error)}, status_code=400)
 
@@ -313,6 +317,7 @@ async def question_report(request: Request):
         report = payload.get("report")
         if not isinstance(report, dict):
             raise ValueError("Upload a report before asking questions.")
+        await require_medical_report(report)
         result = report_review.answer_question(report, payload.get("question"))
         language = str(payload.get("language", "English"))
         result["answer_language"] = "English"
@@ -322,6 +327,8 @@ async def question_report(request: Request):
                 result["answer"] = translated
                 result["answer_language"] = language
         return JSONResponse(result)
+    except NonMedicalReportError as error:
+        return JSONResponse({'detail': str(error), 'code': 'not_medical_report'}, status_code=422)
     except (ValueError, TypeError, KeyError) as error:
         return JSONResponse({"detail": str(error)}, status_code=400)
 
@@ -570,6 +577,7 @@ async def process_text_report(request: Request):
 
         if not text:
             return JSONResponse({"detail": "Missing text field"}, status_code=400)
+        await require_medical_report({'extracted_text': text})
 
         state = agents.get_default_state(
             raw_text=text,
@@ -589,6 +597,8 @@ async def process_text_report(request: Request):
 
         return JSONResponse(content=response)
 
+    except NonMedicalReportError as e:
+        return JSONResponse({'detail': str(e), 'code': 'not_medical_report'}, status_code=422)
     except Exception as e:
         return JSONResponse({"detail": str(e)}, status_code=500)
 
@@ -599,6 +609,7 @@ async def retranslate_report(request: Request):
         body = await request.json()
         if not can_generate_report_output(body):
             return JSONResponse({'detail': 'Read the original source again or check uncertain fields before translating this report.'}, status_code=409)
+        await require_medical_report(body)
         parsed_data     = body.get("parsed_data", "")
         language        = body.get("language", "Hindi")
         suggestions     = body.get("suggestions", [])
@@ -632,6 +643,8 @@ async def retranslate_report(request: Request):
         response = agents.format_final_response(state)
         return JSONResponse(content=response)
 
+    except NonMedicalReportError as e:
+        return JSONResponse({'detail': str(e), 'code': 'not_medical_report'}, status_code=422)
     except Exception as e:
         return JSONResponse({"detail": str(e)}, status_code=500)
 

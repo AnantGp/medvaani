@@ -454,7 +454,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                       ConstrainedBox(
                                           constraints: BoxConstraints(
                                               maxHeight:
-                                                  (size.maxHeight - 112) * .57),
+                                                  (size.maxHeight - 112) * .70),
                                           child: widget.voicePanel!),
                                     const SizedBox(height: 16),
                                     Expanded(child: _measurements()),

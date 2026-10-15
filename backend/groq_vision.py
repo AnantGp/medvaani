@@ -8,8 +8,13 @@ from report_records import measurement_id
 from report_quality import valid_box
 from digital_results import canonical_test
 
-PROMPT = '''Transcribe this medical report page. Return only a JSON object:
-{"text":"all readable text, preserving table rows and labels", "measurements":[
+PROMPT = '''Transcribe this document exactly, without assuming it is medical.
+First decide whether this page is an actual patient medical record. Resumes/CVs,
+invoices, articles, educational material and unrelated photos are not patient
+reports, even if they mention medical projects or test names. For these pages,
+set is_patient_medical_report to false and return an empty measurements list.
+Return only a JSON object:
+{"is_patient_medical_report":true/false, "text":"all readable original text, preserving table rows and labels", "measurements":[
 {"test_name":"exact printed patient test name", "value":"exact patient value",
 "unit":"exact printed unit or empty", "reference_range":"exact reference or empty",
 "flag":"exact H/L/normal flag or empty", "row_box":[0.1,0.2,0.8,0.03]}]}.
@@ -36,7 +41,7 @@ def scan_image(image, digest, page=1):
         vision=True, max_tokens=6500))
     raw = str(result.get('text', '')).strip()
     rows, lines = [], []
-    items = result.get('measurements', [])
+    items = result.get('measurements', []) if result.get('is_patient_medical_report') is True else []
     if not isinstance(items, list):
         items = []
     for index, item in enumerate(items[:200]):

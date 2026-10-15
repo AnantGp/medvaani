@@ -1,12 +1,13 @@
 """Small client snapshots restore the single-user MVP after serverless cold starts."""
 import json
 import os
+from document_guard import require_medical_report
 
 KEYS = {'report_id', 'parsed_data', 'extraction_version', 'extracted_text',
         'extraction_quality', 'input_type', 'report_date', 'review', 'target_language'}
 
 
-def resolve_report(body, store):
+async def resolve_report(body, store):
     snapshot = body.get('report') or body.get('report_snapshot')
     if isinstance(snapshot, str):
         snapshot = json.loads(snapshot)
@@ -21,10 +22,13 @@ def resolve_report(body, store):
             raise ValueError('The report snapshot does not match this report.')
         if report_id:
             snapshot['report_id'] = report_id
+        await require_medical_report(snapshot)
         return store.save(snapshot)
     if os.getenv('VERCEL') == '1':
         raise ValueError('Send the current report snapshot with this request to restore the conversation.')
-    return store.get(str(body.get('report_id', '')))
+    report = store.get(str(body.get('report_id', '')))
+    await require_medical_report(report)
+    return report
 
 
 def recent_history(value):

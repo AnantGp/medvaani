@@ -240,11 +240,38 @@ class _HomePageState extends State<HomePage> {
       if (!mounted || generation != _reportGeneration || saved == null) return;
       final snapshot = jsonDecode(saved.payload) as Map<String, dynamic>;
       if (snapshot['version'] != 1 || snapshot['report'] is! Map) return;
+      final restored =
+          restoredReport(Map<String, dynamic>.from(snapshot['report'] as Map));
+      // Older browser saves may predate document-purpose validation.
+      // The server checks original text again, including after a cold start.
+      try {
+        final response = await http
+            .post(_buildApiUrl('/report/sync'),
+                headers: {'Content-Type': 'application/json'},
+                body: jsonEncode({'report': reportSnapshot(restored)}))
+            .timeout(const Duration(seconds: 20));
+        if (!mounted || generation != _reportGeneration) return;
+        if (response.statusCode == 422) {
+          final error = jsonDecode(response.body) as Map<String, dynamic>;
+          if (error['code'] == 'not_medical_report') {
+            await _reportStore.clear();
+            _setSource(null);
+            setState(() {
+              _reportData = null;
+              _currentIndex = 0;
+              _uploadError = error['detail'].toString();
+            });
+            return;
+          }
+        }
+      } catch (_) {
+        // Preserve the local source when offline. Voice and review endpoints
+        // independently validate it before generating or accepting results.
+      }
       _fileName = snapshot['filename'] as String?;
       _setSource(saved.sourceBytes);
       setState(() {
-        _reportData = restoredReport(
-            Map<String, dynamic>.from(snapshot['report'] as Map));
+        _reportData = restored;
         final language = snapshot['language'];
         if (_languages.any((item) => item['name'] == language)) {
           _selectedLanguage = language.toString();
