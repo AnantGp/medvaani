@@ -4,6 +4,14 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {matchesSource,sourceForLine,safeBox,educationFor,resultLabel} from '../flutter_app/web/report_explorer_core.mjs';
 import {selectedMeasurement, sourceSelection, groupMeasurements, sourceAtPoint, educationForMeasurement} from '../flutter_app/web/report_explorer_core.mjs';
+import {sourceMimeType} from '../flutter_app/web/source_document.mjs';
+test('viewer routes raw PDF, PNG, JPEG and WebP bytes without a server URL', () => {
+  assert.equal(sourceMimeType(new TextEncoder().encode('%PDF-1.7\n')), 'application/pdf');
+  assert.equal(sourceMimeType(new Uint8Array([137,80,78,71,13,10,26,10])), 'image/png');
+  assert.equal(sourceMimeType(new Uint8Array([255,216,255,224])), 'image/jpeg');
+  assert.equal(sourceMimeType(new TextEncoder().encode('RIFF0000WEBP')), 'image/webp');
+  assert.equal(sourceMimeType(new TextEncoder().encode('not a PDF')), null);
+});
 const row = {measurement_id:'physical-source',record_type:'measurement',acceptance_state:'eligible',test_name:'Creatinine',value:'0.9',unit:'mg/dL',panel:'Kidney function',source_fields:{test_name:{text:'Creatinine',page:17,box:[.1,.3,.2,.02]},value:{text:'1.8',page:17,box:[.4,.3,.08,.02]}}};
 test('selection_survives_group_filter_and_reordering',()=>{
   const other = {...row,measurement_id:'other',test_name:'WBC',panel:'Blood count'};

@@ -1,5 +1,6 @@
 import {getDocument, GlobalWorkerOptions, Util} from './vendor/pdfjs/pdf.mjs';
 import {safeBox, resultLabel, educationForMeasurement, selectedMeasurement, sourceSelection, groupMeasurements, sourceAtPoint} from './report_explorer_core.mjs';
+import {sourceMimeType} from './source_document.mjs';
 GlobalWorkerOptions.workerSrc = new URL('./vendor/pdfjs/pdf.worker.mjs', location.href).href;
 const $ = selector => document.querySelector(selector);
 const canvas = $('#document'), photo = $('#photo'), stage = $('#stage'), overlay = $('#highlights');
@@ -7,11 +8,11 @@ const inspector = $('#inspector'), status = $('#status'), scroller = $('#scrolle
 const pageSelect = $('#page'), previous = $('#previous'), next = $('#next');
 let report = {}, labs = [], sources = [], layout = [], pdf, current = 1, renderTask;
 let lines = [], selection, zoom = 1, renderVersion = 0, selectionVersion = 0;
-let recoveryAttempted = false, recoveryWork, sourceUrl;
+let recoveryAttempted = false, recoveryWork, sourceUrl, sourceBlob, sourceIdentity;
+let photoMode = false, sourceVersion = 0;
 const pageLines = new Map();
 const sourceOnly = new URLSearchParams(location.search).get('mode') === 'source';
 if(sourceOnly) document.documentElement.classList.add('source-only');
-const photoMode = new URLSearchParams(location.search).get('type') === 'photo';
 const text = (tag, value, className) => {
   const node = document.createElement(tag); node.textContent = String(value ?? '');
   if (className) node.className = className; return node;
@@ -21,7 +22,15 @@ function sendHeight() {
 }
 new ResizeObserver(sendHeight).observe(document.body);
 addEventListener('message', event => {
-  if (event.origin !== location.origin || event.source !== parent || typeof event.data !== 'string') return;
+  if (event.origin !== location.origin || event.source !== parent) return;
+  if (event.data?.type === 'medivaanii-explorer-source' && event.data.bytes instanceof Uint8Array) {
+    if (sourceIdentity !== event.data.identity) {
+      sourceIdentity = event.data.identity;
+      loadSource(event.data.bytes, event.data.filename);
+    }
+    return;
+  }
+  if (typeof event.data !== 'string') return;
   let message; try { message = JSON.parse(event.data); } catch (_) { return; }
   if (message.type !== 'medivaanii-explorer-report' || !message.report || typeof message.report !== 'object') return;
   report = message.report;
@@ -100,9 +109,11 @@ async function recoverLocations() {
   recoveryAttempted = true;
   status.textContent = 'Locating text in the original image…';
   recoveryWork = (async () => { try {
-    const source = await (await fetch(sourceUrl)).blob();
+    const source = sourceBlob;
+    if (!source) throw new Error('Original bytes unavailable');
     const form = new FormData();
-    form.append('file',source,photoMode?'original.jpg':'original.pdf');
+    const extension = {'image/png':'png','image/webp':'webp','image/jpeg':'jpg'}[source.type] || 'pdf';
+    form.append('file',source,`original.${extension}`);
     const response = await fetch('/api/report/source-layout',{method:'POST',body:form,signal:AbortSignal.timeout(120000)});
     if(!response.ok) throw new Error('Source unavailable');
     const result = await response.json();
@@ -242,7 +253,23 @@ async function render() {
   if(renderTask) {renderTask.cancel();try{await renderTask.promise;}catch(_){} }
   const width = Math.max(220,scroller.clientWidth - (matchMedia('(max-width:720px)').matches?24:40)) * zoom;
   stage.style.width = width+'px';
-  if(photoMode) {if(photo.naturalWidth){stage.style.height = width * photo.naturalHeight/photo.naturalWidth+'px';await recoverLocations();lines=layout.filter(line=>line.page===1);drawHighlights();status.textContent='';}return;}
+  if(photoMode) {
+    if(photo.naturalWidth) {
+      const height = width * photo.naturalHeight/photo.naturalWidth;
+      const ratio = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(width * ratio); canvas.height = Math.floor(height * ratio);
+      canvas.style.width = width+'px'; canvas.style.height = height+'px';
+      stage.style.height = height+'px';
+      canvas.setAttribute('aria-label', 'Original report photo · Page 1 of 1');
+      canvas.getContext('2d').drawImage(photo, 0, 0, canvas.width, canvas.height);
+      // Reading the image never waits for OCR or a serverless source URL.
+      status.textContent = '';
+      await recoverLocations();
+      if(version !== renderVersion)return;
+      lines=layout.filter(line=>line.page===1);drawHighlights();status.textContent='';
+    }
+    return;
+  }
   if(!pdf) return;
   previous.disabled=current<=1; next.disabled=current>=pdf.numPages;
   const page = await pdf.getPage(current); if(version!==renderVersion)return;
@@ -262,15 +289,52 @@ function changePage(page) {++selectionVersion;current=page;pageSelect.value=curr
 pageSelect.onchange=()=>changePage(Number(pageSelect.value));previous.onclick=()=>changePage(current-1);next.onclick=()=>changePage(current+1);
 let oldWidth = 0;
 new ResizeObserver(()=>{const width=scroller.clientWidth;if(width!==oldWidth){oldWidth=width;render();}}).observe(scroller);
-try {
-  const url=decodeURIComponent(location.hash.slice(1));
-  if(!url.startsWith('blob:'+location.origin+'/'))throw new Error('Invalid local source');
-  sourceUrl = url;
-  if(photoMode) {
-    canvas.hidden=true; photo.hidden=false; photo.onload=()=>{const id=selection?.id || report.selected_measurement_id || labs[0]?.measurement_id;id?locateLab(id):render();}; photo.onerror=()=>{status.textContent='The original photo could not be displayed. Upload the report again.';};photo.src=url;
-    const option=text('option','Photo · Page 1');option.value=1;pageSelect.append(option);
-  } else {
-    pdf=await getDocument({url,isEvalSupported:false,cMapUrl:new URL('./vendor/pdfjs/cmaps/',location.href).href,cMapPacked:true,standardFontDataUrl:new URL('./vendor/pdfjs/standard_fonts/',location.href).href,wasmUrl:new URL('./vendor/pdfjs/wasm/',location.href).href}).promise;
-    for(let i=1;i<=pdf.numPages;i++){const option=text('option',`Page ${i} of ${pdf.numPages}`);option.value=i;pageSelect.append(option);}pageSelect.disabled=false;const id=selection?.id || report.selected_measurement_id || labs[0]?.measurement_id;id?await locateLab(id):await render();
+async function loadSource(bytes, filename) {
+  const version = ++sourceVersion;
+  try {
+    const mime = sourceMimeType(bytes);
+    if (!mime) throw new Error('Unsupported source');
+    if (renderTask) {renderTask.cancel();try{await renderTask.promise;}catch(_){} }
+    if (pdf) {await pdf.destroy();pdf = null;}
+    if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+    sourceBlob = new Blob([bytes], {type:mime});
+    sourceUrl = URL.createObjectURL(sourceBlob);
+    photoMode = mime !== 'application/pdf';
+    current = 1; zoom = 1; pageLines.clear(); pageSelect.replaceChildren();
+    recoveryAttempted = false; canvas.hidden = false; photo.hidden = true;
+    $('#filename').textContent = filename || 'Your uploaded report';
+    $('#method').textContent = photoMode ? 'Photo source' : 'PDF source';
+    status.textContent = 'Loading your original report…';
+    if (photoMode) {
+      const option = text('option','Photo · Page 1');option.value=1;pageSelect.append(option);
+      pageSelect.disabled=true;previous.disabled=true;next.disabled=true;
+      photo.src = sourceUrl;
+      await photo.decode();
+    } else {
+      // PDF.js may transfer its array to a worker. Keep a separate copy of the
+      // uploaded bytes for source overlays/recovery and browser persistence.
+      const loaded = await getDocument({data:bytes.slice(),isEvalSupported:false,cMapUrl:new URL('./vendor/pdfjs/cmaps/',location.href).href,cMapPacked:true,standardFontDataUrl:new URL('./vendor/pdfjs/standard_fonts/',location.href).href,wasmUrl:new URL('./vendor/pdfjs/wasm/',location.href).href}).promise;
+      if (version !== sourceVersion) {await loaded.destroy();return;}
+      pdf = loaded;
+      for(let i=1;i<=pdf.numPages;i++){const option=text('option',`Page ${i} of ${pdf.numPages}`);option.value=i;pageSelect.append(option);}
+      pageSelect.disabled=false;
+    }
+    if (version !== sourceVersion)return;
+    const id=selection?.id || report.selected_measurement_id || labs[0]?.measurement_id;
+    id?await locateLab(id):await render();
+  } catch (_) {
+    if (version === sourceVersion)status.textContent='The original document could not be displayed. Choose the PDF or a clear PNG, JPG or WebP report again.';
   }
-} catch (_) {status.textContent='The original document is unavailable. Upload your report again to use the explorer.';}
+}
+
+// Compatibility for direct local preview links. Only browser-created blob
+// URLs are allowed; /tmp or other remote document URLs are never used.
+if (location.hash.length > 1) {
+  try {
+    const url = decodeURIComponent(location.hash.slice(1));
+    if(!url.startsWith('blob:'+location.origin+'/'))throw new Error('Invalid local source');
+    const response = await fetch(url);
+    await loadSource(new Uint8Array(await response.arrayBuffer()));
+  } catch (_) {status.textContent='The local source is unavailable. Open this report from the workspace.';}
+}
+addEventListener('beforeunload', () => {if(sourceUrl)URL.revokeObjectURL(sourceUrl);});

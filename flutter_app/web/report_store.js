@@ -60,6 +60,16 @@ window.medivaaniiExplorerBridge = (() => {
       const listener = listeners.get(frameId);
       if (listener) removeEventListener('message', listener);
       listeners.delete(frameId);
+    },
+    source(frameId, bytes, identity, filename) {
+      const frame = findFrame(document, frameId);
+      if (frame?.contentWindow && bytes instanceof Uint8Array) {
+        // Structured clone keeps the browser's original bytes intact. The
+        // viewer never needs a serverless temporary file URL.
+        frame.contentWindow.postMessage({
+          type: 'medivaanii-explorer-source', bytes, identity, filename
+        }, location.origin);
+      }
     }
   };
 })();

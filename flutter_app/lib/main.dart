@@ -12,6 +12,7 @@ import 'report_snapshot.dart';
 import 'report_review_widgets.dart' show editReportResult;
 import 'browser_report_store.dart';
 import 'browser_explorer_bridge.dart';
+import 'source_document.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
@@ -81,10 +82,13 @@ class _HomePageState extends State<HomePage> {
   final _reportStore = BrowserReportStore();
   Future<void> _storageWork = Future.value();
   Uint8List? _sourceBytes;
+  String _sourceMime = 'application/octet-stream';
+  int _sourceGeneration = 0, _viewerRevision = 0;
   html.IFrameElement? _explorerFrame;
   final _explorerBridge = BrowserExplorerBridge();
   int _explorerFrameGeneration = 0;
   StreamSubscription<html.Event>? _explorerFrameLoad;
+  html.ResizeObserver? _explorerAttachObserver;
   String? _sourceUrl, _reviewError, _storageError;
   bool _reviewOpen = false, _reviewSaving = false, _restoringReport = false;
   bool _isLoading = false;
@@ -144,7 +148,10 @@ class _HomePageState extends State<HomePage> {
     try {
       final data = jsonDecode(message);
       if (data is! Map) return;
-      if (data['type'] == 'medivaanii-explorer-ready') _sendExplorerReport();
+      if (data['type'] == 'medivaanii-explorer-ready') {
+        _sendExplorerSource();
+        _sendExplorerReport();
+      }
       if (data['type'] == 'medivaanii-explorer-layout' &&
           data['layout'] is List &&
           _reportData != null) {
@@ -216,17 +223,17 @@ class _HomePageState extends State<HomePage> {
     if (speak) _voiceController.explain(row);
   }
 
-  String get _sourceMime => (_fileName ?? '').toLowerCase().endsWith('.pdf')
-      ? 'application/pdf'
-      : (_fileName ?? '').toLowerCase().endsWith('.png')
-          ? 'image/png'
-          : (_fileName ?? '').toLowerCase().endsWith('.webp')
-              ? 'image/webp'
-              : 'image/jpeg';
-
   void _setSource(Uint8List? bytes) {
+    _sourceGeneration++;
+    _explorerAttachObserver?.disconnect();
+    _explorerBridge.stop();
+    _explorerFrameLoad?.cancel();
+    _explorerFrame = null;
     if (_sourceUrl != null) html.Url.revokeObjectUrl(_sourceUrl!);
     _sourceBytes = bytes;
+    _sourceMime = bytes == null
+        ? 'application/octet-stream'
+        : sourceMimeType(bytes) ?? 'application/octet-stream';
     _sourceUrl = bytes == null
         ? null
         : html.Url.createObjectUrlFromBlob(html.Blob([bytes], _sourceMime));
@@ -269,6 +276,7 @@ class _HomePageState extends State<HomePage> {
         // independently validate it before generating or accepting results.
       }
       _fileName = snapshot['filename'] as String?;
+      _viewerRevision = (snapshot['viewer_revision'] as num?)?.toInt() ?? 0;
       _setSource(saved.sourceBytes);
       setState(() {
         _reportData = restored;
@@ -297,7 +305,8 @@ class _HomePageState extends State<HomePage> {
       'report': _reportData,
       'filename': _fileName,
       'language': _selectedLanguage,
-      'review_open': _reviewOpen
+      'review_open': _reviewOpen,
+      'viewer_revision': _viewerRevision
     });
     final bytes = _sourceBytes;
     final mime = _sourceMime;
@@ -366,11 +375,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget? _sourceExplorer() {
-    if (_sourceUrl == null || _reportData == null) return null;
-    final url =
-        '${Uri.base.resolve('report_explorer.html')}?mode=source&type=${_sourceMime == 'application/pdf' ? 'pdf' : 'photo'}#${Uri.encodeComponent(_sourceUrl!)}';
+    if (_sourceBytes == null || _reportData == null) return null;
+    final url = '${Uri.base.resolve('report_explorer.html')}?mode=source';
     return HtmlElementView.fromTagName(
-      key: ValueKey('explorer:$_sourceUrl'),
+      key:
+          ValueKey('explorer:${_reportData!['report_id'] ?? _reportGeneration}:'
+              '$_viewerRevision:$_sourceGeneration'),
       tagName: 'iframe',
       onElementCreated: (element) {
         final frame = element as html.IFrameElement;
@@ -378,14 +388,33 @@ class _HomePageState extends State<HomePage> {
         frame.id = 'medivaanii-explorer-${++_explorerFrameGeneration}';
         _explorerBridge.watch(frame.id, _onExplorerMessage);
         _explorerFrameLoad?.cancel();
+        _explorerAttachObserver?.disconnect();
         frame.title = 'Interactive report explorer';
         frame.style.border = '0';
         frame.style.width = '100%';
         frame.style.height = '100%';
-        _explorerFrameLoad = frame.onLoad.listen((_) => _sendExplorerReport());
-        frame.src = url;
+        _explorerFrameLoad = frame.onLoad.listen((_) {
+          _sendExplorerSource();
+          _sendExplorerReport();
+        });
+        // Flutter creates this element before attaching its platform view.
+        // Loading earlier can leave Chrome's restored-report frame blank.
+        final observer = html.ResizeObserver((entries, observer) {
+          if (frame.isConnected == true) {
+            observer.disconnect();
+            if (mounted && identical(_explorerFrame, frame)) frame.src = url;
+          }
+        });
+        _explorerAttachObserver = observer;
+        observer.observe(frame);
       },
     );
+  }
+
+  void _sendExplorerSource() {
+    if (!mounted || _sourceBytes == null || _reportData == null) return;
+    _explorerBridge.source(_sourceBytes!, '$_sourceGeneration:$_viewerRevision',
+        _fileName ?? 'Your uploaded report');
   }
 
   void _sendExplorerReport() {
@@ -434,6 +463,7 @@ class _HomePageState extends State<HomePage> {
       }
       setState(() {
         _reportData = {..._reportData!, ...result};
+        _viewerRevision++;
         _reviewOpen = false;
         _currentIndex = 1;
       });
@@ -470,6 +500,11 @@ class _HomePageState extends State<HomePage> {
       migrationBytes = selected.files.first.bytes;
       migrationName = selected.files.first.name;
     }
+    final migrationMime = sourceMimeType(migrationBytes!);
+    if (migrationMime == null) {
+      _showError('Choose a PDF, JPG, PNG or WebP report.');
+      return;
+    }
     final generation = _reportGeneration;
     setState(() {
       _reviewSaving = true;
@@ -479,11 +514,9 @@ class _HomePageState extends State<HomePage> {
     try {
       final request =
           http.MultipartRequest('POST', _buildApiUrl('/report/reextract'));
-      request.files.add(http.MultipartFile.fromBytes('file', migrationBytes!,
-          filename: migrationName ??
-              (_sourceMime == 'application/pdf'
-                  ? 'original.pdf'
-                  : 'original.png')));
+      request.files.add(http.MultipartFile.fromBytes('file', migrationBytes,
+          filename:
+              sourceUploadName(migrationName ?? 'original', migrationMime)));
       request.fields['report'] = jsonEncode(_reportData);
       final response = await http.Response.fromStream(
           await request.send().timeout(const Duration(seconds: 660)));
@@ -761,8 +794,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _processFileBytes(Uint8List bytes, String fileName) async {
     if (!mounted) return;
-    final extension = fileName.split('.').last.toLowerCase();
-    if (!['pdf', 'jpg', 'jpeg', 'png', 'webp'].contains(extension)) {
+    final mime = sourceMimeType(bytes);
+    if (mime == null) {
       _showError('Choose a PDF, JPG, PNG or WebP report.');
       return;
     }
@@ -772,7 +805,7 @@ class _HomePageState extends State<HomePage> {
           : 'Choose a file smaller than 4 MB.');
       return;
     }
-    final photo = extension != 'pdf';
+    final photo = mime != 'application/pdf';
     final generation = ++_reportGeneration;
     _translationGeneration++;
     _pollingTimer?.cancel();
@@ -781,6 +814,7 @@ class _HomePageState extends State<HomePage> {
       _isLoading = true;
       _isTranslating = false;
       _reportData = null;
+      _viewerRevision = 0;
       _uploadError = null;
       _translationError = null;
       _audioError = null;
@@ -793,8 +827,8 @@ class _HomePageState extends State<HomePage> {
     _setSource(bytes);
     try {
       final request = http.MultipartRequest('POST', _buildApiUrl('/upload'));
-      request.files
-          .add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+      request.files.add(http.MultipartFile.fromBytes('file', bytes,
+          filename: sourceUploadName(fileName, mime)));
       request.fields['language'] = 'English';
       final streamed =
           await request.send().timeout(const Duration(seconds: 300));
@@ -821,6 +855,7 @@ class _HomePageState extends State<HomePage> {
       if (mounted && generation == _reportGeneration) {
         setState(() {
           _isLoading = false;
+          _setSource(null);
           _uploadError = error is FormatException
               ? error.message
               : 'We could not upload this report. Check your connection and try again.';
@@ -879,6 +914,7 @@ class _HomePageState extends State<HomePage> {
         if (mounted && generation == _reportGeneration) {
           setState(() {
             _isLoading = false;
+            _setSource(null);
             _uploadError = error is FormatException
                 ? error.message
                 : 'We could not finish reading this report. Check your connection and try again.';
@@ -1362,6 +1398,7 @@ class _HomePageState extends State<HomePage> {
     _dropFile?.cancel();
     _explorerBridge.stop();
     _explorerFrameLoad?.cancel();
+    _explorerAttachObserver?.disconnect();
     if (_sourceUrl != null) html.Url.revokeObjectUrl(_sourceUrl!);
     _clearCameraInput();
     _speakGeneration++;
