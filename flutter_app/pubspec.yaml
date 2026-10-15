@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.6
+  flutter_svg: ^2.3.0
   http: ^1.2.1
   flutter_tts: ^3.8.5
   fl_chart: ^0.69.0
@@ -71,6 +72,7 @@ flutter:
         - asset: assets/fonts/NotoSansMalayalam-Regular.ttf
 
   assets:
+    - assets/body_systems/
     - assets/fonts/NotoSansSC-OFL.txt
     - assets/fonts/NotoSansTelugu-OFL.txt
     - assets/fonts/NotoSansGujarati-OFL.txt

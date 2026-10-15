@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'report_data.dart';
 import 'report_snapshot.dart';
+import 'body_systems.dart';
 
 class VoicePanelController {
   Future<void> Function(Map<String, dynamic> row)? _explain;
@@ -124,6 +125,11 @@ class _VoicePanelState extends State<VoicePanel> {
   }
 
   Future<void> _explainRow(Map<String, dynamic> row) async {
+    // Do not pair a newly selected organ with the previous test's answer.
+    setState(() {
+      _answer = '';
+      _citations = [];
+    });
     final name = row['test_name'];
     final question = {
       'en':
@@ -378,7 +384,9 @@ class _VoicePanelState extends State<VoicePanel> {
       for (final row in workspaceMeasurements(widget.report))
         row['measurement_id']: row
     };
-    final selected = rows[widget.report['selected_measurement_id']];
+    final selected = rows[widget.report['selected_measurement_id']] ??
+        (rows.isEmpty ? null : rows.values.first);
+    final system = bodySystemForTest((selected?['test_name'] ?? '').toString());
     final sentences = _answer
         .split(RegExp(r'(?<=[।。])|(?<=[.!?])\s+'))
         .where((s) => s.trim().isNotEmpty)
@@ -439,38 +447,96 @@ class _VoicePanelState extends State<VoicePanel> {
             Flexible(
                 fit: FlexFit.loose,
                 child: Container(
-                  constraints: BoxConstraints(maxHeight: mobile ? 84 : 144),
+                  constraints: BoxConstraints(maxHeight: mobile ? 190 : 228),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                       color: const Color(0xfff5f7f3),
                       borderRadius: BorderRadius.circular(10)),
-                  child: SingleChildScrollView(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        for (var i = 0; i < content.length; i++)
-                          Padding(
-                              padding: EdgeInsets.only(
-                                  bottom: i == content.length - 1 ? 0 : 8),
-                              child: Row(
+                  child: LayoutBuilder(builder: (context, space) {
+                    final compact = mobile || space.maxHeight < 170;
+                    return SingleChildScrollView(
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          SizedBox(
+                              width: compact ? 88 : 132,
+                              child: ActiveBodyVisual(
+                                  key: ValueKey('active-body-${system.name}'),
+                                  system: system,
+                                  language: widget.language,
+                                  compact: compact)),
+                          SizedBox(width: compact ? 10 : 16),
+                          Expanded(
+                              child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (content.length > 2) ...[
-                                      const Text('•',
-                                          style: TextStyle(
-                                              fontSize: 19,
-                                              height: 1.5,
-                                              color: green)),
-                                      const SizedBox(width: 9)
-                                    ],
-                                    Expanded(
-                                        child: Text(content[i].trim(),
-                                            style: TextStyle(
-                                                fontSize: mobile ? 18 : 19,
-                                                height: 1.5,
-                                                color: ink))),
-                                  ])),
-                      ])),
+                                Text(system.title(widget.language),
+                                    style: const TextStyle(
+                                        fontSize: 17,
+                                        height: 1.4,
+                                        fontWeight: FontWeight.w700,
+                                        color: green)),
+                                if (system != BodySystem.general) ...[
+                                  const SizedBox(height: 3),
+                                  Text(system.location(widget.language),
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          height: 1.4,
+                                          color: green)),
+                                ],
+                                const SizedBox(height: 6),
+                                if (_answer.isEmpty) ...[
+                                  Text(system.role(widget.language),
+                                      style: TextStyle(
+                                          fontSize: mobile ? 15 : 16,
+                                          height: 1.5,
+                                          color: green)),
+                                  const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 10),
+                                      child: Divider(
+                                          height: 1, color: Color(0xffd4e0d7))),
+                                ],
+                                for (var i = 0; i < content.length; i++)
+                                  Padding(
+                                      padding: EdgeInsets.only(
+                                          bottom:
+                                              i == content.length - 1 ? 0 : 8),
+                                      child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (content.length > 2) ...[
+                                              const Text('•',
+                                                  style: TextStyle(
+                                                      fontSize: 19,
+                                                      height: 1.5,
+                                                      color: green)),
+                                              const SizedBox(width: 9)
+                                            ],
+                                            Expanded(
+                                                child: Text(content[i].trim(),
+                                                    style: TextStyle(
+                                                        fontSize:
+                                                            mobile ? 18 : 19,
+                                                        height: 1.5,
+                                                        color: ink))),
+                                          ])),
+                                if (_answer.isNotEmpty) ...[
+                                  const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 10),
+                                      child: Divider(
+                                          height: 1, color: Color(0xffd4e0d7))),
+                                  Text(system.role(widget.language),
+                                      style: TextStyle(
+                                          fontSize: mobile ? 15 : 16,
+                                          height: 1.5,
+                                          color: green)),
+                                ],
+                              ])),
+                        ]));
+                  }),
                 )),
             if (_citations.isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -583,8 +649,8 @@ class _VoicePanelState extends State<VoicePanel> {
 
   Widget _referenceChip(Map<String, dynamic> row, VoidCallback select) =>
       ActionChip(
-        avatar: const Icon(Icons.description_outlined,
-            size: 15, color: Color(0xff3f6050)),
+        avatar: BodySystemIcon(bodySystemForTest(row['test_name'].toString()),
+            size: 22),
         label: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

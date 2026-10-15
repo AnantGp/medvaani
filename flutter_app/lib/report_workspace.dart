@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'report_data.dart';
+import 'body_systems.dart';
 
 class ReportPalette {
   static const ground = Color(0xFFF7F5F1);
@@ -194,6 +195,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   String _query = '';
   String _filter = 'all';
   bool _mobileSource = true;
+  bool _showSearch = false;
   static const _nav = [0, 1, 3];
   static const _labels = ['Upload report', 'Report workspace', '', 'Settings'];
   static const _icons = [
@@ -441,24 +443,22 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                             child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                              Expanded(flex: 52, child: source),
+                              Expanded(child: source),
                               const SizedBox(width: 20),
                               Expanded(
-                                  flex: 48,
                                   child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.stretch,
                                       children: [
-                                        if (widget.voicePanel != null)
-                                          ConstrainedBox(
-                                              constraints: BoxConstraints(
-                                                  maxHeight:
-                                                      (size.maxHeight - 112) *
-                                                          .61),
-                                              child: widget.voicePanel!),
-                                        const SizedBox(height: 16),
-                                        Expanded(child: _measurements()),
-                                      ])),
+                                    if (widget.voicePanel != null)
+                                      ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                              maxHeight:
+                                                  (size.maxHeight - 112) * .57),
+                                          child: widget.voicePanel!),
+                                    const SizedBox(height: 16),
+                                    Expanded(child: _measurements()),
+                                  ])),
                             ])),
                       ]))));
         return Padding(
@@ -496,7 +496,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 ConstrainedBox(
                     constraints: BoxConstraints(
                         maxHeight:
-                            (size.maxHeight * .48).clamp(230, 360).toDouble()),
+                            (size.maxHeight * .52).clamp(260, 400).toDouble()),
                     child: widget.voicePanel!),
             ]));
       });
@@ -515,10 +515,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                         .contains(r['status']) ||
                 _filter == 'review' && r['acceptance_state'] != 'eligible'))
         .toList();
+    final groups = groupMeasurementsByBodySystem(visible);
     return _surface(
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
               child: Row(children: [
                 Expanded(
                     child: Text(
@@ -529,6 +530,17 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 Text('${rows.length}',
                     style: const TextStyle(
                         fontSize: 14, color: ReportPalette.muted)),
+                IconButton(
+                    tooltip: _showSearch ? 'Close search' : 'Find a test',
+                    onPressed: () => setState(() {
+                          _showSearch = !_showSearch;
+                          if (!_showSearch) _query = '';
+                        }),
+                    icon: Icon(
+                        _showSearch
+                            ? Icons.close_rounded
+                            : Icons.search_rounded,
+                        size: 21)),
                 PopupMenuButton<String>(
                     tooltip: 'Filter measurements',
                     initialValue: _filter,
@@ -544,20 +556,21 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                 value: entry.key, child: Text(entry.value)),
                         ]),
               ])),
-          Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: TextField(
-                  onChanged: (s) => setState(() => _query = s),
-                  decoration: InputDecoration(
-                      hintText: _copy('Find a test', 'जांच का नाम खोजें',
-                          'Buscar una prueba', '搜索检测项目'),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      isDense: true,
-                      filled: true,
-                      fillColor: ReportPalette.ground,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none)))),
+          if (_showSearch)
+            Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: TextField(
+                    onChanged: (s) => setState(() => _query = s),
+                    decoration: InputDecoration(
+                        hintText: _copy('Find a test', 'जांच का नाम खोजें',
+                            'Buscar una prueba', '搜索检测项目'),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        isDense: true,
+                        filled: true,
+                        fillColor: ReportPalette.ground,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none)))),
           if (widget.reviewSaving) const LinearProgressIndicator(minHeight: 2),
           if (widget.reviewError != null)
             Padding(
@@ -591,12 +604,42 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
               const Padding(
                   padding: EdgeInsets.all(20),
                   child: Text('No measurements match this filter.')),
-            for (final row in visible) _measurement(row),
+            for (final group in groups.entries) ...[
+              _systemHeader(group.key, group.value.length),
+              for (final row in group.value) _measurement(row),
+            ],
             if (rows.isNotEmpty) _doctorQuestions(rows),
           ])),
         ]),
         padding: EdgeInsets.zero);
   }
+
+  String get _languageCode => switch (widget.language) {
+        'Hindi' => 'hi',
+        'Spanish' => 'es',
+        'Mandarin' => 'zh',
+        _ => 'en',
+      };
+
+  Widget _systemHeader(BodySystem system, int count) => Semantics(
+        header: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+          child: Row(children: [
+            BodySystemIcon(system),
+            const SizedBox(width: 9),
+            Expanded(
+                child: Text(system.title(_languageCode),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        height: 1.4,
+                        fontWeight: FontWeight.w700))),
+            Text('$count',
+                style:
+                    const TextStyle(fontSize: 13, color: ReportPalette.muted)),
+          ]),
+        ),
+      );
 
   Widget _measurement(Map<String, dynamic> row) {
     final id = row['measurement_id'].toString();

@@ -59,3 +59,5 @@ button:disabled{opacity:.45;cursor:default}button:hover:enabled{background:#edf3
 @media(max-width:480px){.source-only .quiet-tag {display:none}.source-only .toolbar{gap:4px;padding-inline:8px}.source-only #previous,.source-only #next{width:36px}.source-only #zoom-in,.source-only #zoom-out{min-width:36px}.source-only .document-heading{padding:12px}.source-only .legend{font-size:11px;padding-inline:12px}.source-only .toolbar select{font-size:12px;padding-inline:4px}.source-only #scroller{padding:8px}}
 
 @media(max-width:480px){.source-only .document-heading p,.source-only .legend{display:none}.source-only .document-heading h2{font-size:16px}.source-only .document-heading{padding:10px 12px}.source-only .source-footnote{padding:7px 10px;font-size:10px;line-height:1.4}}
+
+@media(max-width:480px){.source-only .toolbar{flex-wrap:nowrap}.source-only .toolbar select{min-width:60px}.source-only #previous,.source-only #next{min-width:36px}}
