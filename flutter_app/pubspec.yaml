@@ -1,0 +1,83 @@
+name: medical_cdss
+description: AI-based Medical Report System
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  http: ^1.2.1
+  flutter_tts: ^3.8.5
+  fl_chart: ^0.69.0
+  file_picker: ^8.1.6
+  pdf: ^3.11.1
+  lucide_icons_flutter: 3.1.25
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+# Patched local copy of flutter_tts 3.8.5: fixes a bug in the web (Chrome)
+# implementation where switching to a language with no matching system
+# voice left the engine permanently pinned to the previous voice — causing
+# silent/garbled playback for translated text. See vendor/flutter_tts/lib
+# /flutter_tts_web.dart for details. Safe to remove once upstream fixes
+# https://github.com/dlutton/flutter_tts (no such fix exists yet as of
+# package version 3.8.5).
+dependency_overrides:
+  flutter_tts:
+    path: vendor/flutter_tts
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans-Regular.ttf
+        - asset: assets/fonts/NotoSans-Bold.ttf
+          weight: 700
+    - family: NotoDevanagari
+      fonts:
+        - asset: assets/fonts/NotoSansDevanagari-Regular.ttf
+        - asset: assets/fonts/NotoSansDevanagari-Bold.ttf
+          weight: 700
+    - family: NotoBengali
+      fonts:
+        - asset: assets/fonts/NotoSansBengali-Regular.ttf
+    - family: NotoTamil
+      fonts:
+        - asset: assets/fonts/NotoSansTamil-Regular.ttf
+    - family: NotoTelugu
+      fonts:
+        - asset: assets/fonts/NotoSansTelugu-Regular.ttf
+    - family: NotoGujarati
+      fonts:
+        - asset: assets/fonts/NotoSansGujarati-Regular.ttf
+    - family: NotoKannada
+      fonts:
+        - asset: assets/fonts/NotoSansKannada-Regular.ttf
+    - family: NotoMalayalam
+      fonts:
+        - asset: assets/fonts/NotoSansMalayalam-Regular.ttf
+
+  assets:
+    - assets/fonts/NotoSansTelugu-OFL.txt
+    - assets/fonts/NotoSansGujarati-OFL.txt
+    - assets/fonts/NotoSansKannada-OFL.txt
+    - assets/fonts/NotoSansMalayalam-OFL.txt
+    - assets/images/medisimple_logo.jpg
+    - assets/images/arogya_pandit_logo.png
+    - assets/fonts/NotoSans-Regular.ttf
+    - assets/fonts/NotoSans-Bold.ttf
+    - assets/fonts/NotoSansDevanagari-Regular.ttf
+    - assets/fonts/NotoSansDevanagari-Bold.ttf
+    - assets/fonts/NotoSansTamil-Regular.ttf
+    - assets/fonts/NotoSansBengali-Regular.ttf
+    - assets/fonts/NotoSansArabic-Regular.ttf

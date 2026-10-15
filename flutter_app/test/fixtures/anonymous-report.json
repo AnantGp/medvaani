@@ -1,0 +1,975 @@
+{
+  "status": "success",
+  "extraction_version": 4,
+  "extraction_quality": {
+    "state": "ready",
+    "eligible_count": 4,
+    "needs_review_count": 0,
+    "eligible_narrative_count": 0,
+    "unresolved_result_regions": 0,
+    "processed_pages": [
+      1
+    ],
+    "failed_pages": [],
+    "issues": [],
+    "coverage_basis": "Detected source result sections and candidate rows"
+  },
+  "patient_id": null,
+  "report_date": "2026-01-14",
+  "parsed_data": "{\"schema_version\": 4, \"document\": {\"source_digest\": \"f602e305a1970ba260811cd9730ade995b81c88cfa6e4d94162bd402b7267ca3\", \"input_type\": \"pdf\", \"diagnostics\": [], \"pages\": [{\"page\": 1, \"width\": 600, \"height\": 800}]}, \"lab_values\": [{\"measurement_id\": \"fcd90230f3677c36f9440776\", \"record_type\": \"measurement\", \"test_name\": \"Creatinine\", \"canonical_test\": \"creatinine\", \"panel\": \"Laboratory Results\", \"value\": \"1.8\", \"value_kind\": \"scalar\", \"unit\": \"mg/dL\", \"reference_range\": \"0.6-1.2\", \"reference_kind\": \"numeric\", \"sample_date\": \"2026-01-14\", \"specimen\": \"Serum\", \"source_fields\": {\"test_name\": {\"text\": \"Creatinine\", \"page\": 1, \"box\": [0.06666666666666667, 0.19008750000000008, 0.07595, 0.012500000000000011], \"method\": \"native\"}, \"value\": {\"text\": \"1.8\", \"page\": 1, \"box\": [0.425, 0.19008750000000008, 0.023166666666666613, 0.012500000000000011], \"method\": \"native\"}, \"unit\": {\"text\": \"mg/dL\", \"page\": 1, \"box\": [0.6083333333333333, 0.19008750000000008, 0.04631666666666667, 0.012500000000000011], \"method\": \"native\"}, \"reference_range\": {\"text\": \"0.6-1.2\", \"page\": 1, \"box\": [0.7416666666666667, 0.19008750000000008, 0.05188333333333328, 0.012500000000000011], \"method\": \"native\", \"boxes\": [[0.7416666666666667, 0.19008750000000008, 0.05188333333333328, 0.012500000000000011]]}}, \"source_quote\": \"Creatinine 1.8 mg/dL 0.6-1.2\", \"status\": \"high\", \"status_source\": \"reference_range\", \"issues\": [], \"normalized_unit\": \"mg/dl\", \"acceptance_state\": \"eligible\"}, {\"measurement_id\": \"87a273427f5df181cd460d06\", \"record_type\": \"measurement\", \"test_name\": \"Platelets\", \"canonical_test\": \"\", \"panel\": \"Laboratory Results\", \"value\": \"240\", \"value_kind\": \"scalar\", \"unit\": \"10^3/\\u00b5L\", \"reference_range\": \"150-450\", \"reference_kind\": \"numeric\", \"sample_date\": \"2026-01-14\", \"specimen\": \"Serum\", \"source_fields\": {\"test_name\": {\"text\": \"Platelets\", \"page\": 1, \"box\": [0.06666666666666667, 0.2625875000000001, 0.06391666666666666, 0.012500000000000011], \"method\": \"native\"}, \"value\": {\"text\": \"240\", \"page\": 1, \"box\": [0.425, 0.2625875000000001, 0.02779999999999999, 0.012500000000000011], \"method\": \"native\"}, \"unit\": {\"text\": \"10^3/\\u00b5L\", \"page\": 1, \"box\": [0.6083333333333333, 0.2625875000000001, 0.05878333333333341, 0.012500000000000011], \"method\": \"native\"}, \"reference_range\": {\"text\": \"150-450\", \"page\": 1, \"box\": [0.7416666666666667, 0.2625875000000001, 0.06115000000000004, 0.012500000000000011], \"method\": \"native\", \"boxes\": [[0.7416666666666667, 0.2625875000000001, 0.06115000000000004, 0.012500000000000011]]}}, \"source_quote\": \"Platelets 240 10^3/\\u00b5L 150-450\", \"status\": \"normal\", \"status_source\": \"reference_range\", \"issues\": [], \"normalized_unit\": \"10^3/ul\", \"acceptance_state\": \"eligible\"}, {\"measurement_id\": \"2b7527517453f6b1c48bd682\", \"record_type\": \"measurement\", \"test_name\": \"Hemoglobin\", \"canonical_test\": \"hemoglobin\", \"panel\": \"Laboratory Results\", \"value\": \"11.2\", \"value_kind\": \"scalar\", \"unit\": \"g/dL\", \"reference_range\": \"12-16\", \"reference_kind\": \"numeric\", \"sample_date\": \"2026-01-14\", \"specimen\": \"Serum\", \"source_fields\": {\"test_name\": {\"text\": \"Hemoglobin\", \"page\": 1, \"box\": [0.06666666666666667, 0.33508750000000004, 0.08891666666666669, 0.012500000000000011], \"method\": \"native\"}, \"value\": {\"text\": \"11.2\", \"page\": 1, \"box\": [0.425, 0.33508750000000004, 0.032433333333333314, 0.012500000000000011], \"method\": \"native\"}, \"unit\": {\"text\": \"g/dL\", \"page\": 1, \"box\": [0.6083333333333333, 0.33508750000000004, 0.032433333333333314, 0.012500000000000011], \"method\": \"native\"}, \"reference_range\": {\"text\": \"12-16\", \"page\": 1, \"box\": [0.7416666666666667, 0.33508750000000004, 0.042616666666666636, 0.012500000000000011], \"method\": \"native\", \"boxes\": [[0.7416666666666667, 0.33508750000000004, 0.042616666666666636, 0.012500000000000011]]}}, \"source_quote\": \"Hemoglobin 11.2 g/dL 12-16\", \"status\": \"low\", \"status_source\": \"reference_range\", \"issues\": [], \"normalized_unit\": \"g/dl\", \"acceptance_state\": \"eligible\"}, {\"measurement_id\": \"636818fb7446668e99b00c9a\", \"record_type\": \"measurement\", \"test_name\": \"WBC\", \"canonical_test\": \"\", \"panel\": \"Laboratory Results\", \"value\": \"6800\", \"value_kind\": \"scalar\", \"unit\": \"/uL\", \"reference_range\": \"4000-11000\", \"reference_kind\": \"numeric\", \"sample_date\": \"2026-01-14\", \"specimen\": \"Serum\", \"source_fields\": {\"test_name\": {\"text\": \"WBC\", \"page\": 1, \"box\": [0.06666666666666667, 0.4075875, 0.03888333333333334, 0.012500000000000011], \"method\": \"native\"}, \"value\": {\"text\": \"6800\", \"page\": 1, \"box\": [0.425, 0.4075875, 0.03706666666666669, 0.012500000000000011], \"method\": \"native\"}, \"unit\": {\"text\": \"/uL\", \"page\": 1, \"box\": [0.6083333333333333, 0.4075875, 0.02316666666666667, 0.012500000000000011], \"method\": \"native\"}, \"reference_range\": {\"text\": \"4000-11000\", \"page\": 1, \"box\": [0.7416666666666667, 0.4075875, 0.08894999999999997, 0.012500000000000011], \"method\": \"native\", \"boxes\": [[0.7416666666666667, 0.4075875, 0.08894999999999997, 0.012500000000000011]]}}, \"source_quote\": \"WBC 6800 /uL 4000-11000\", \"status\": \"normal\", \"status_source\": \"reference_range\", \"issues\": [], \"normalized_unit\": \"/ul\", \"acceptance_state\": \"eligible\"}], \"source_narratives\": [], \"findings\": [], \"diagnosis\": [], \"patient_name\": null, \"report_date\": \"2026-01-14\", \"lab_type\": null, \"extraction_quality\": {\"state\": \"ready\", \"eligible_count\": 4, \"needs_review_count\": 0, \"eligible_narrative_count\": 0, \"unresolved_result_regions\": 0, \"processed_pages\": [1], \"failed_pages\": [], \"issues\": [], \"coverage_basis\": \"Detected source result sections and candidate rows\"}}",
+  "validation": "{\n  \"is_valid\": true,\n  \"validation_errors\": [],\n  \"warnings\": [],\n  \"confidence_score\": null,\n  \"needs_review\": true,\n  \"review_notes\": \"Extraction has not been checked against the original report\"\n}",
+  "medical_summary": "Report date: 2026-01-14\n4 laboratory results extracted. 2 results have abnormal flags or compare outside the supplied reference range. 2 results are marked normal or compare within the supplied reference range.\n• Creatinine: 1.8 mg/dL — high\n• Platelets: 240 10^3/µL — normal\n• Hemoglobin: 11.2 g/dL — low\n• WBC: 6800 /uL — normal\nFlags and range comparisons describe the report; they do not establish a diagnosis.",
+  "simple_explanation": "4 laboratory results extracted. 2 results have abnormal flags or compare outside the supplied reference range. 2 results are marked normal or compare within the supplied reference range.\n\nResults in this report:\n• Creatinine: 1.8 mg/dL\nThe extracted value is above the reference range shown in this report.\nReference range: 0.6-1.2\n\n• Platelets: 240 10^3/µL\nThe extracted value is within the reference range shown in this report.\nReference range: 150-450\n\n• Hemoglobin: 11.2 g/dL\nThe extracted value is below the reference range shown in this report.\nReference range: 12-16\n\n• WBC: 6800 /uL\nThe extracted value is within the reference range shown in this report.\nReference range: 4000-11000\n\nWhat should you do next?\n1. Check the extracted names, numbers, units and flags against your original report.\n2. Discuss flagged or uncertain results with your healthcare professional.\n\nImportant: A reference-range comparison does not establish a diagnosis or an overall assessment of your health.",
+  "translated_explanation": "4 laboratory results extracted. 2 results have abnormal flags or compare outside the supplied reference range. 2 results are marked normal or compare within the supplied reference range.\n\nResults in this report:\n• Creatinine: 1.8 mg/dL\nThe extracted value is above the reference range shown in this report.\nReference range: 0.6-1.2\n\n• Platelets: 240 10^3/µL\nThe extracted value is within the reference range shown in this report.\nReference range: 150-450\n\n• Hemoglobin: 11.2 g/dL\nThe extracted value is below the reference range shown in this report.\nReference range: 12-16\n\n• WBC: 6800 /uL\nThe extracted value is within the reference range shown in this report.\nReference range: 4000-11000\n\nWhat should you do next?\n1. Check the extracted names, numbers, units and flags against your original report.\n2. Discuss flagged or uncertain results with your healthcare professional.\n\nImportant: A reference-range comparison does not establish a diagnosis or an overall assessment of your health.",
+  "target_language": "English",
+  "temporal_analysis": "",
+  "causal_analysis": "{\n  \"risk_probability\": null,\n  \"causal_factors\": [],\n  \"causal_explanation\": \"Clinical risk and causes are not assessed from these extracted results.\",\n  \"risk_level\": \"not_assessed\",\n  \"reasoning_chain\": \"Report-grounded explanation; no diagnosis or clinical risk score\",\n  \"confidence\": null\n}",
+  "risk_probability": null,
+  "suggestions": [
+    "Check the extracted results against the original report.",
+    "Ask your healthcare professional what the flagged or uncertain results mean in your situation.",
+    "Bring this report and relevant previous reports to your appointment."
+  ],
+  "translated_suggestions": [
+    "Check the extracted results against the original report.",
+    "Ask your healthcare professional what the flagged or uncertain results mean in your situation.",
+    "Bring this report and relevant previous reports to your appointment."
+  ],
+  "disease_explanation_en": "",
+  "solution_plan_en": "1. Check the extracted results against the original report.\n2. Ask your healthcare professional what the flagged or uncertain results mean in your situation.\n3. Bring this report and relevant previous reports to your appointment.",
+  "disease_explanation_hi": "",
+  "solution_plan_hi": "1. Check the extracted results against the original report.\n2. Ask your healthcare professional what the flagged or uncertain results mean in your situation.\n3. Bring this report and relevant previous reports to your appointment.",
+  "extracted_text": "Healthians Labs\nSample Collected On : 14/Jan/2026\nSample Type : Serum\nTest Name Value Unit Bio. Ref Interval\nLaboratory Results\nCreatinine 1.8 mg/dL 0.6-1.2\nMethod: Laboratory method\nMachine: Synthetic analyser\nPlatelets 240 10^3/µL 150-450\nMethod: Laboratory method\nMachine: Synthetic analyser\nHemoglobin 11.2 g/dL 12-16\nMethod: Laboratory method\nMachine: Synthetic analyser\nWBC 6800 /uL 4000-11000\nMethod: Laboratory method\nMachine: Synthetic analyser",
+  "input_type": "pdf",
+  "source_evidence": [
+    {
+      "lab_id": 0,
+      "measurement_id": "fcd90230f3677c36f9440776",
+      "source_fields": {
+        "test_name": {
+          "text": "Creatinine",
+          "page": 1,
+          "box": [
+            0.06666666666666667,
+            0.19008750000000008,
+            0.07595,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "value": {
+          "text": "1.8",
+          "page": 1,
+          "box": [
+            0.425,
+            0.19008750000000008,
+            0.023166666666666613,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "unit": {
+          "text": "mg/dL",
+          "page": 1,
+          "box": [
+            0.6083333333333333,
+            0.19008750000000008,
+            0.04631666666666667,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "reference_range": {
+          "text": "0.6-1.2",
+          "page": 1,
+          "box": [
+            0.7416666666666667,
+            0.19008750000000008,
+            0.05188333333333328,
+            0.012500000000000011
+          ],
+          "method": "native",
+          "boxes": [
+            [
+              0.7416666666666667,
+              0.19008750000000008,
+              0.05188333333333328,
+              0.012500000000000011
+            ]
+          ]
+        }
+      },
+      "acceptance_state": "eligible",
+      "test_name": "Creatinine",
+      "source_quote": "Creatinine 1.8 mg/dL 0.6-1.2",
+      "original_fields": {
+        "test_name": "Creatinine",
+        "value": "1.8",
+        "unit": "mg/dL",
+        "reference_range": "0.6-1.2",
+        "status": "high",
+        "status_source": "reference_range"
+      },
+      "status_description": "The extracted value is above the reference range shown in this report."
+    },
+    {
+      "lab_id": 1,
+      "measurement_id": "87a273427f5df181cd460d06",
+      "source_fields": {
+        "test_name": {
+          "text": "Platelets",
+          "page": 1,
+          "box": [
+            0.06666666666666667,
+            0.2625875000000001,
+            0.06391666666666666,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "value": {
+          "text": "240",
+          "page": 1,
+          "box": [
+            0.425,
+            0.2625875000000001,
+            0.02779999999999999,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "unit": {
+          "text": "10^3/µL",
+          "page": 1,
+          "box": [
+            0.6083333333333333,
+            0.2625875000000001,
+            0.05878333333333341,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "reference_range": {
+          "text": "150-450",
+          "page": 1,
+          "box": [
+            0.7416666666666667,
+            0.2625875000000001,
+            0.06115000000000004,
+            0.012500000000000011
+          ],
+          "method": "native",
+          "boxes": [
+            [
+              0.7416666666666667,
+              0.2625875000000001,
+              0.06115000000000004,
+              0.012500000000000011
+            ]
+          ]
+        }
+      },
+      "acceptance_state": "eligible",
+      "test_name": "Platelets",
+      "source_quote": "Platelets 240 10^3/µL 150-450",
+      "original_fields": {
+        "test_name": "Platelets",
+        "value": "240",
+        "unit": "10^3/µL",
+        "reference_range": "150-450",
+        "status": "normal",
+        "status_source": "reference_range"
+      },
+      "status_description": "The extracted value is within the reference range shown in this report."
+    },
+    {
+      "lab_id": 2,
+      "measurement_id": "2b7527517453f6b1c48bd682",
+      "source_fields": {
+        "test_name": {
+          "text": "Hemoglobin",
+          "page": 1,
+          "box": [
+            0.06666666666666667,
+            0.33508750000000004,
+            0.08891666666666669,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "value": {
+          "text": "11.2",
+          "page": 1,
+          "box": [
+            0.425,
+            0.33508750000000004,
+            0.032433333333333314,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "unit": {
+          "text": "g/dL",
+          "page": 1,
+          "box": [
+            0.6083333333333333,
+            0.33508750000000004,
+            0.032433333333333314,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "reference_range": {
+          "text": "12-16",
+          "page": 1,
+          "box": [
+            0.7416666666666667,
+            0.33508750000000004,
+            0.042616666666666636,
+            0.012500000000000011
+          ],
+          "method": "native",
+          "boxes": [
+            [
+              0.7416666666666667,
+              0.33508750000000004,
+              0.042616666666666636,
+              0.012500000000000011
+            ]
+          ]
+        }
+      },
+      "acceptance_state": "eligible",
+      "test_name": "Hemoglobin",
+      "source_quote": "Hemoglobin 11.2 g/dL 12-16",
+      "original_fields": {
+        "test_name": "Hemoglobin",
+        "value": "11.2",
+        "unit": "g/dL",
+        "reference_range": "12-16",
+        "status": "low",
+        "status_source": "reference_range"
+      },
+      "status_description": "The extracted value is below the reference range shown in this report."
+    },
+    {
+      "lab_id": 3,
+      "measurement_id": "636818fb7446668e99b00c9a",
+      "source_fields": {
+        "test_name": {
+          "text": "WBC",
+          "page": 1,
+          "box": [
+            0.06666666666666667,
+            0.4075875,
+            0.03888333333333334,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "value": {
+          "text": "6800",
+          "page": 1,
+          "box": [
+            0.425,
+            0.4075875,
+            0.03706666666666669,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "unit": {
+          "text": "/uL",
+          "page": 1,
+          "box": [
+            0.6083333333333333,
+            0.4075875,
+            0.02316666666666667,
+            0.012500000000000011
+          ],
+          "method": "native"
+        },
+        "reference_range": {
+          "text": "4000-11000",
+          "page": 1,
+          "box": [
+            0.7416666666666667,
+            0.4075875,
+            0.08894999999999997,
+            0.012500000000000011
+          ],
+          "method": "native",
+          "boxes": [
+            [
+              0.7416666666666667,
+              0.4075875,
+              0.08894999999999997,
+              0.012500000000000011
+            ]
+          ]
+        }
+      },
+      "acceptance_state": "eligible",
+      "test_name": "WBC",
+      "source_quote": "WBC 6800 /uL 4000-11000",
+      "original_fields": {
+        "test_name": "WBC",
+        "value": "6800",
+        "unit": "/uL",
+        "reference_range": "4000-11000",
+        "status": "normal",
+        "status_source": "reference_range"
+      },
+      "status_description": "The extracted value is within the reference range shown in this report."
+    }
+  ],
+  "source_layout": [
+    {
+      "page": 1,
+      "text": "Healthians Labs",
+      "box": [
+        0.06666666666666667,
+        0.04008750000000006,
+        0.11950000000000004,
+        0.012500000000000004
+      ],
+      "words": [
+        {
+          "text": "Healthians",
+          "x": 0.06666666666666667,
+          "y": 0.04008750000000006,
+          "width": 0.07873333333333335,
+          "height": 0.0125
+        },
+        {
+          "text": "Labs",
+          "x": 0.15003333333333335,
+          "y": 0.04008750000000006,
+          "width": 0.036133333333333344,
+          "height": 0.0125
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Sample Collected On : 14/Jan/2026",
+      "box": [
+        0.06666666666666667,
+        0.07133750000000007,
+        0.2631000000000001,
+        0.012499999999999997
+      ],
+      "words": [
+        {
+          "text": "Sample",
+          "x": 0.06666666666666667,
+          "y": 0.07133750000000007,
+          "width": 0.05650000000000001,
+          "height": 0.0125
+        },
+        {
+          "text": "Collected",
+          "x": 0.12780000000000002,
+          "y": 0.07133750000000007,
+          "width": 0.06946666666666668,
+          "height": 0.0125
+        },
+        {
+          "text": "On",
+          "x": 0.20190000000000002,
+          "y": 0.07133750000000007,
+          "width": 0.022233333333333338,
+          "height": 0.0125
+        },
+        {
+          "text": ":",
+          "x": 0.2287666666666667,
+          "y": 0.07133750000000007,
+          "width": 0.004633333333333336,
+          "height": 0.0125
+        },
+        {
+          "text": "14/Jan/2026",
+          "x": 0.23803333333333337,
+          "y": 0.07133750000000007,
+          "width": 0.09173333333333336,
+          "height": 0.0125
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Sample Type : Serum",
+      "box": [
+        0.06666666666666667,
+        0.09008750000000006,
+        0.16116666666666668,
+        0.012499999999999997
+      ],
+      "words": [
+        {
+          "text": "Sample",
+          "x": 0.06666666666666667,
+          "y": 0.09008750000000006,
+          "width": 0.05650000000000001,
+          "height": 0.0125
+        },
+        {
+          "text": "Type",
+          "x": 0.12780000000000002,
+          "y": 0.09008750000000006,
+          "width": 0.03705000000000001,
+          "height": 0.0125
+        },
+        {
+          "text": ":",
+          "x": 0.16948333333333335,
+          "y": 0.09008750000000006,
+          "width": 0.004633333333333336,
+          "height": 0.0125
+        },
+        {
+          "text": "Serum",
+          "x": 0.17875000000000002,
+          "y": 0.09008750000000006,
+          "width": 0.04908333333333334,
+          "height": 0.0125
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Test Name Value Unit Bio. Ref Interval",
+      "box": [
+        0.06666666666666667,
+        0.12659625000000005,
+        0.8054233333333334,
+        0.013750000000000012
+      ],
+      "words": [
+        {
+          "text": "Test",
+          "x": 0.06666666666666667,
+          "y": 0.12659625000000005,
+          "width": 0.03565833333333334,
+          "height": 0.01375
+        },
+        {
+          "text": "Name",
+          "x": 0.10742166666666667,
+          "y": 0.12659625000000005,
+          "width": 0.04889499999999998,
+          "height": 0.01375
+        },
+        {
+          "text": "Value",
+          "x": 0.425,
+          "y": 0.12659625000000005,
+          "width": 0.04687833333333335,
+          "height": 0.01375
+        },
+        {
+          "text": "Unit",
+          "x": 0.6083333333333333,
+          "y": 0.12659625000000005,
+          "width": 0.032596666666666656,
+          "height": 0.01375
+        },
+        {
+          "text": "Bio.",
+          "x": 0.7416666666666667,
+          "y": 0.12659625000000005,
+          "width": 0.03158833333333329,
+          "height": 0.01375
+        },
+        {
+          "text": "Ref",
+          "x": 0.7783516666666667,
+          "y": 0.12659625000000005,
+          "width": 0.02852666666666664,
+          "height": 0.01375
+        },
+        {
+          "text": "Interval",
+          "x": 0.811975,
+          "y": 0.12659625000000005,
+          "width": 0.06011500000000003,
+          "height": 0.01375
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Laboratory Results",
+      "box": [
+        0.06666666666666667,
+        0.15586375000000005,
+        0.1818266666666667,
+        0.016250000000000014
+      ],
+      "words": [
+        {
+          "text": "Laboratory",
+          "x": 0.06666666666666667,
+          "y": 0.15586375000000005,
+          "width": 0.10356666666666667,
+          "height": 0.01625
+        },
+        {
+          "text": "Results",
+          "x": 0.17625666666666667,
+          "y": 0.15586375000000005,
+          "width": 0.07223666666666667,
+          "height": 0.01625
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Creatinine 1.8 mg/dL 0.6-1.2",
+      "box": [
+        0.06666666666666667,
+        0.19008750000000008,
+        0.7268833333333333,
+        0.012500000000000011
+      ],
+      "words": [
+        {
+          "text": "Creatinine",
+          "x": 0.06666666666666667,
+          "y": 0.19008750000000008,
+          "width": 0.07595000000000002,
+          "height": 0.0125
+        },
+        {
+          "text": "1.8",
+          "x": 0.425,
+          "y": 0.19008750000000008,
+          "width": 0.023166666666666627,
+          "height": 0.0125
+        },
+        {
+          "text": "mg/dL",
+          "x": 0.6083333333333333,
+          "y": 0.19008750000000008,
+          "width": 0.0463166666666667,
+          "height": 0.0125
+        },
+        {
+          "text": "0.6-1.2",
+          "x": 0.7416666666666667,
+          "y": 0.19008750000000008,
+          "width": 0.05188333333333332,
+          "height": 0.0125
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Method: Laboratory method",
+      "box": [
+        0.06666666666666667,
+        0.20831999999999995,
+        0.1637866666666667,
+        0.010000000000000009
+      ],
+      "words": [
+        {
+          "text": "Method:",
+          "x": 0.06666666666666667,
+          "y": 0.20831999999999995,
+          "width": 0.04817333333333335,
+          "height": 0.01
+        },
+        {
+          "text": "Laboratory",
+          "x": 0.11854666666666666,
+          "y": 0.20831999999999995,
+          "width": 0.06373333333333332,
+          "height": 0.01
+        },
+        {
+          "text": "method",
+          "x": 0.18598666666666666,
+          "y": 0.20831999999999995,
+          "width": 0.0444666666666667,
+          "height": 0.01
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Machine: Synthetic analyser",
+      "box": [
+        0.06666666666666667,
+        0.22206999999999993,
+        0.1667333333333333,
+        0.010000000000000009
+      ],
+      "words": [
+        {
+          "text": "Machine:",
+          "x": 0.06666666666666667,
+          "y": 0.22206999999999993,
+          "width": 0.05409333333333334,
+          "height": 0.01
+        },
+        {
+          "text": "Synthetic",
+          "x": 0.12446666666666668,
+          "y": 0.22206999999999993,
+          "width": 0.05483999999999999,
+          "height": 0.01
+        },
+        {
+          "text": "analyser",
+          "x": 0.18301333333333333,
+          "y": 0.22206999999999993,
+          "width": 0.05038666666666664,
+          "height": 0.01
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Platelets 240 10^3/µL 150-450",
+      "box": [
+        0.06666666666666667,
+        0.2625875000000001,
+        0.7361500000000001,
+        0.012500000000000011
+      ],
+      "words": [
+        {
+          "text": "Platelets",
+          "x": 0.06666666666666667,
+          "y": 0.2625875000000001,
+          "width": 0.06391666666666666,
+          "height": 0.0125
+        },
+        {
+          "text": "240",
+          "x": 0.425,
+          "y": 0.2625875000000001,
+          "width": 0.027800000000000012,
+          "height": 0.0125
+        },
+        {
+          "text": "10^3/µL",
+          "x": 0.6083333333333333,
+          "y": 0.2625875000000001,
+          "width": 0.058783333333333396,
+          "height": 0.0125
+        },
+        {
+          "text": "150-450",
+          "x": 0.7416666666666667,
+          "y": 0.2625875000000001,
+          "width": 0.061149999999999996,
+          "height": 0.0125
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Method: Laboratory method",
+      "box": [
+        0.06666666666666667,
+        0.28081999999999996,
+        0.1637866666666667,
+        0.010000000000000009
+      ],
+      "words": [
+        {
+          "text": "Method:",
+          "x": 0.06666666666666667,
+          "y": 0.28081999999999996,
+          "width": 0.04817333333333335,
+          "height": 0.01
+        },
+        {
+          "text": "Laboratory",
+          "x": 0.11854666666666666,
+          "y": 0.28081999999999996,
+          "width": 0.06373333333333332,
+          "height": 0.01
+        },
+        {
+          "text": "method",
+          "x": 0.18598666666666666,
+          "y": 0.28081999999999996,
+          "width": 0.0444666666666667,
+          "height": 0.01
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Machine: Synthetic analyser",
+      "box": [
+        0.06666666666666667,
+        0.29456999999999994,
+        0.1667333333333333,
+        0.010000000000000009
+      ],
+      "words": [
+        {
+          "text": "Machine:",
+          "x": 0.06666666666666667,
+          "y": 0.29456999999999994,
+          "width": 0.05409333333333334,
+          "height": 0.01
+        },
+        {
+          "text": "Synthetic",
+          "x": 0.12446666666666668,
+          "y": 0.29456999999999994,
+          "width": 0.05483999999999999,
+          "height": 0.01
+        },
+        {
+          "text": "analyser",
+          "x": 0.18301333333333333,
+          "y": 0.29456999999999994,
+          "width": 0.05038666666666664,
+          "height": 0.01
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Hemoglobin 11.2 g/dL 12-16",
+      "box": [
+        0.06666666666666667,
+        0.33508750000000004,
+        0.7176166666666667,
+        0.012500000000000011
+      ],
+      "words": [
+        {
+          "text": "Hemoglobin",
+          "x": 0.06666666666666667,
+          "y": 0.33508750000000004,
+          "width": 0.08891666666666669,
+          "height": 0.0125
+        },
+        {
+          "text": "11.2",
+          "x": 0.425,
+          "y": 0.33508750000000004,
+          "width": 0.0324333333333333,
+          "height": 0.0125
+        },
+        {
+          "text": "g/dL",
+          "x": 0.6083333333333333,
+          "y": 0.33508750000000004,
+          "width": 0.0324333333333333,
+          "height": 0.0125
+        },
+        {
+          "text": "12-16",
+          "x": 0.7416666666666667,
+          "y": 0.33508750000000004,
+          "width": 0.04261666666666666,
+          "height": 0.0125
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Method: Laboratory method",
+      "box": [
+        0.06666666666666667,
+        0.3533199999999999,
+        0.1637866666666667,
+        0.010000000000000064
+      ],
+      "words": [
+        {
+          "text": "Method:",
+          "x": 0.06666666666666667,
+          "y": 0.3533199999999999,
+          "width": 0.04817333333333335,
+          "height": 0.010000000000000071
+        },
+        {
+          "text": "Laboratory",
+          "x": 0.11854666666666666,
+          "y": 0.3533199999999999,
+          "width": 0.06373333333333332,
+          "height": 0.010000000000000071
+        },
+        {
+          "text": "method",
+          "x": 0.18598666666666666,
+          "y": 0.3533199999999999,
+          "width": 0.0444666666666667,
+          "height": 0.010000000000000071
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Machine: Synthetic analyser",
+      "box": [
+        0.06666666666666667,
+        0.36707,
+        0.1667333333333333,
+        0.010000000000000009
+      ],
+      "words": [
+        {
+          "text": "Machine:",
+          "x": 0.06666666666666667,
+          "y": 0.36707,
+          "width": 0.05409333333333334,
+          "height": 0.01
+        },
+        {
+          "text": "Synthetic",
+          "x": 0.12446666666666668,
+          "y": 0.36707,
+          "width": 0.05483999999999999,
+          "height": 0.01
+        },
+        {
+          "text": "analyser",
+          "x": 0.18301333333333333,
+          "y": 0.36707,
+          "width": 0.05038666666666664,
+          "height": 0.01
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "WBC 6800 /uL 4000-11000",
+      "box": [
+        0.06666666666666667,
+        0.4075875,
+        0.76395,
+        0.012500000000000011
+      ],
+      "words": [
+        {
+          "text": "WBC",
+          "x": 0.06666666666666667,
+          "y": 0.4075875,
+          "width": 0.03888333333333333,
+          "height": 0.0125
+        },
+        {
+          "text": "6800",
+          "x": 0.425,
+          "y": 0.4075875,
+          "width": 0.037066666666666685,
+          "height": 0.0125
+        },
+        {
+          "text": "/uL",
+          "x": 0.6083333333333333,
+          "y": 0.4075875,
+          "width": 0.023166666666666627,
+          "height": 0.0125
+        },
+        {
+          "text": "4000-11000",
+          "x": 0.7416666666666667,
+          "y": 0.4075875,
+          "width": 0.08895,
+          "height": 0.0125
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Method: Laboratory method",
+      "box": [
+        0.06666666666666667,
+        0.42582000000000003,
+        0.1637866666666667,
+        0.010000000000000009
+      ],
+      "words": [
+        {
+          "text": "Method:",
+          "x": 0.06666666666666667,
+          "y": 0.42582000000000003,
+          "width": 0.04817333333333335,
+          "height": 0.01
+        },
+        {
+          "text": "Laboratory",
+          "x": 0.11854666666666666,
+          "y": 0.42582000000000003,
+          "width": 0.06373333333333332,
+          "height": 0.01
+        },
+        {
+          "text": "method",
+          "x": 0.18598666666666666,
+          "y": 0.42582000000000003,
+          "width": 0.0444666666666667,
+          "height": 0.01
+        }
+      ],
+      "method": "native"
+    },
+    {
+      "page": 1,
+      "text": "Machine: Synthetic analyser",
+      "box": [
+        0.06666666666666667,
+        0.43957,
+        0.1667333333333333,
+        0.010000000000000009
+      ],
+      "words": [
+        {
+          "text": "Machine:",
+          "x": 0.06666666666666667,
+          "y": 0.43957,
+          "width": 0.05409333333333334,
+          "height": 0.01
+        },
+        {
+          "text": "Synthetic",
+          "x": 0.12446666666666668,
+          "y": 0.43957,
+          "width": 0.05483999999999999,
+          "height": 0.01
+        },
+        {
+          "text": "analyser",
+          "x": 0.18301333333333333,
+          "y": 0.43957,
+          "width": 0.05038666666666664,
+          "height": 0.01
+        }
+      ],
+      "method": "native"
+    }
+  ],
+  "report_overview": "4 laboratory results extracted. 2 results have abnormal flags or compare outside the supplied reference range. 2 results are marked normal or compare within the supplied reference range.",
+  "review": {
+    "confirmed": false,
+    "edited_lab_ids": []
+  },
+  "explanation_version": 2
+}

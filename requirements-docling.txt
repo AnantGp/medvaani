@@ -1,0 +1,2 @@
+# Install in an isolated Python 3.12 environment, not the API environment.
+docling==2.138.0

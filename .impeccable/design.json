@@ -1,0 +1,79 @@
+{
+  "format": "medivaanii-local-token-snapshot",
+  "version": 1,
+  "source": "flutter_app/lib/report_workspace.dart",
+  "platform": "flutter-web",
+  "colors": {
+    "ground": "#F7F5F1",
+    "ink": "#242C2B",
+    "muted": "#626A67",
+    "burgundy": "#A32E35",
+    "border": "#E5E0D8",
+    "rose": "#F9EBEC",
+    "sage": "#3F6050",
+    "sageLight": "#EDF3EF",
+    "surface": "#FFFFFF",
+    "error": "#9E2930"
+  },
+  "typography": {
+    "family": "NotoSans",
+    "fallbacks": [
+      "NotoDevanagari",
+      "NotoBengali",
+      "NotoTamil",
+      "NotoTelugu",
+      "NotoGujarati",
+      "NotoKannada",
+      "NotoMalayalam"
+    ],
+    "titleDesktop": {
+      "size": 38,
+      "weight": 700,
+      "height": 1.18
+    },
+    "titleCompact": {
+      "size": 28,
+      "weight": 700,
+      "height": 1.18
+    },
+    "reading": {
+      "size": 16,
+      "height": 1.65,
+      "letterSpacing": 0
+    },
+    "control": {
+      "size": 16,
+      "weight": 600,
+      "family": "NotoSans"
+    },
+    "sectionHeading": {
+      "size": 19,
+      "weight": 600,
+      "height": 1.35
+    }
+  },
+  "layout": {
+    "desktopBreakpoint": 1000,
+    "sidebarWidth": 236,
+    "topbarHeight": 80,
+    "bottomNavHeight": 76,
+    "contentMaxWidth": 1120,
+    "readingMaxWidth": 700,
+    "surfacePadding": 24,
+    "surfaceRadius": 14,
+    "buttonRadius": 12,
+    "minimumButtonWidth": 44,
+    "minimumButtonHeight": 48
+  },
+  "motion": {
+    "transitionMs": 190,
+    "reducedMotionMs": 0,
+    "entry": "easeOutCubic",
+    "exit": "easeOut"
+  },
+  "review": {
+    "finalIndependentVerdict": "unavailable",
+    "reason": "reviewer usage limit",
+    "pluginSchemaValidated": false
+  }
+}

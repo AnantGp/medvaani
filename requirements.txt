@@ -1,0 +1,11 @@
+starlette
+uvicorn
+pytesseract
+pillow
+python-multipart
+pypdf
+pdfplumber==0.11.9
+pdf2image
+anthropic
+python-dotenv
+langsmith

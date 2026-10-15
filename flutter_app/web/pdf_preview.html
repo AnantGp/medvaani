@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Original report</title>
+<style>
+@font-face{font-family:Noto;src:url('assets/assets/fonts/NotoSans-Regular.ttf')}
+*{box-sizing:border-box}body{margin:0;background:#ece9e3;color:#242c2b;font:14px Noto,Arial,sans-serif}
+header{position:sticky;top:0;display:flex;gap:8px;align-items:center;padding:8px;background:#f7f5f1;border-bottom:1px solid #e5e0d8;z-index:1}
+button,select{font:inherit;color:inherit;background:white;border:1px solid #d7d2ca;border-radius:6px;min-height:40px;padding:6px 10px}
+button:focus-visible,select:focus-visible{outline:2px solid #a32e35}button:disabled{opacity:.5}select{flex:1;min-width:0}
+main{padding:12px}canvas{display:block;margin:auto;background:white;box-shadow:0 1px 4px #0002;max-width:100%}
+#status{margin:12px;line-height:1.6}#status:empty{display:none}
+</style></head><body>
+<header><button id="previous" aria-label="Previous page" disabled>Previous</button><select id="page" aria-label="Report page" disabled></select><button id="next" aria-label="Next page" disabled>Next</button></header>
+<p id="status" role="status">Loading original report…</p><main><canvas id="document" role="img" aria-label="Original report page"></canvas></main>
+<script type="module">
+import {getDocument, GlobalWorkerOptions} from './vendor/pdfjs/pdf.mjs';
+GlobalWorkerOptions.workerSrc = new URL('./vendor/pdfjs/pdf.worker.mjs', location.href).href;
+const pageSelect = document.querySelector('#page');
+const previous = document.querySelector('#previous');
+const next = document.querySelector('#next');
+const status = document.querySelector('#status');
+const canvas = document.querySelector('canvas');
+let pdf, current = 1, renderTask;
+async function render() {
+  if (!pdf) return;
+  if (renderTask) { renderTask.cancel(); try { await renderTask.promise; } catch (_) {} }
+  previous.disabled = current <= 1; next.disabled = current >= pdf.numPages;
+  const page = await pdf.getPage(current);
+  const base = page.getViewport({scale:1});
+  const width = Math.max(180, document.documentElement.clientWidth - 24);
+  const viewport = page.getViewport({scale:width / base.width});
+  const ratio = Math.min(devicePixelRatio || 1, 2);
+  canvas.width = Math.floor(viewport.width * ratio); canvas.height = Math.floor(viewport.height * ratio);
+  canvas.style.width = viewport.width+'px'; canvas.style.height = viewport.height+'px';
+  canvas.setAttribute('aria-label', `Page ${current} of ${pdf.numPages} of original report`);
+  renderTask = page.render({canvasContext:canvas.getContext('2d'), viewport, transform:ratio === 1 ? null : [ratio,0,0,ratio,0,0]});
+  try { await renderTask.promise; status.textContent = ''; } catch (error) {
+    if (error.name !== 'RenderingCancelledException') status.textContent = 'This page could not be displayed. Check the extracted source text or open the original document.';
+  }
+}
+try {
+  const url = decodeURIComponent(location.hash.slice(1));
+  if (!url.startsWith('blob:'+location.origin+'/')) throw new Error('Source unavailable');
+  pdf = await getDocument({url, isEvalSupported:false,
+    cMapUrl:new URL('./vendor/pdfjs/cmaps/',location.href).href,cMapPacked:true,
+    standardFontDataUrl:new URL('./vendor/pdfjs/standard_fonts/',location.href).href,
+    wasmUrl:new URL('./vendor/pdfjs/wasm/',location.href).href}).promise;
+  for(let i=1;i<=pdf.numPages;i++){ const option=document.createElement('option');option.value=i;option.textContent=`Page ${i} of ${pdf.numPages}`;pageSelect.append(option); }
+  pageSelect.disabled = false;
+  pageSelect.onchange = () => { current=Number(pageSelect.value);render(); };
+  previous.onclick = () => { current--;pageSelect.value=current;render(); };
+  next.onclick = () => { current++;pageSelect.value=current;render(); };
+  addEventListener('resize',render);
+  await render();
+} catch (_) { status.textContent = 'The original PDF preview is unavailable. Check the extracted source text or choose the document again.'; }
+</script></body></html>

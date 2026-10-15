@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "buildCommand": "git clone https://github.com/flutter/flutter.git -b stable --depth 1 ~/flutter && export PATH=$PATH:~/flutter/bin && flutter pub get && flutter build web --release --dart-define=API_BASE_URL=${API_BASE_URL:-https://medical-translation-5.onrender.com}",
+  "outputDirectory": "build/web",
+  "installCommand": "echo skip",
+  "framework": null,
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
