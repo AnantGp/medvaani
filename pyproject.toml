@@ -2,3 +2,18 @@
 name = "medivaanii"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
+
+# Vercel prefers pyproject.toml; keep these aligned with requirements.txt.
+dependencies = [
+  "starlette>=0.47,<2",
+  "uvicorn>=0.34,<1",
+  "python-multipart>=0.0.20,<1",
+  "httpx>=0.28,<1",
+  "python-dotenv>=1.1,<2",
+  "pdfplumber==0.11.9",
+  "pypdfium2>=5,<6",
+  "pillow>=11,<13",
+  "pypdf>=5,<7",
+  "edge-tts>=7.3.1,<8",
+  "sarvamai>=0.1.30,<1",
+]

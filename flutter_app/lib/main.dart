@@ -643,9 +643,6 @@ class _HomePageState extends State<HomePage> {
   Uri _buildApiUrl(String path) {
     final configured = Uri.parse(_baseUrl);
     if (!configured.hasScheme) return Uri.base.resolve('$_baseUrl$path');
-    if (['localhost', '127.0.0.1', '::1'].contains(configured.host)) {
-      return Uri.base.resolve('/api$path');
-    }
     return Uri.parse('$_baseUrl$path');
   }
 

@@ -321,7 +321,7 @@ class _VoicePanelState extends State<VoicePanel> {
           _speaking = false;
           _error = error is FormatException
               ? error.message
-              : 'The local voice service is unavailable. Try again or check that the backend is running.';
+              : 'The voice service could not be reached. Check your connection and try again.';
         });
       }
     } finally {
