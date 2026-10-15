@@ -22,7 +22,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) WidgetsBinding.instance.ensureSemantics();
   LicenseRegistry.addLicense(() async* {
-    for (final family in ['Telugu', 'Gujarati', 'Kannada', 'Malayalam']) {
+    for (final family in ['SC', 'Telugu', 'Gujarati', 'Kannada', 'Malayalam']) {
       final license =
           await rootBundle.loadString('assets/fonts/NotoSans$family-OFL.txt');
       yield LicenseEntryWithLineBreaks(['Noto Sans $family'], license);

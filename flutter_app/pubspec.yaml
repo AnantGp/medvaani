@@ -38,6 +38,9 @@ flutter:
   uses-material-design: true
 
   fonts:
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Regular.otf
     - family: NotoSans
       fonts:
         - asset: assets/fonts/NotoSans-Regular.ttf
@@ -68,6 +71,7 @@ flutter:
         - asset: assets/fonts/NotoSansMalayalam-Regular.ttf
 
   assets:
+    - assets/fonts/NotoSansSC-OFL.txt
     - assets/fonts/NotoSansTelugu-OFL.txt
     - assets/fonts/NotoSansGujarati-OFL.txt
     - assets/fonts/NotoSansKannada-OFL.txt

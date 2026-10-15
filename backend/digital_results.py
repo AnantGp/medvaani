@@ -174,6 +174,10 @@ def extract_summary_results(lines, page, digest, sample_date=None, specimen=None
         name, value, unit = [part.strip() for part in match.groups()]
         if nonmeasurement_identity(name) or re.search(r'\b(?:results? extracted|page|generated|patient|date|id)\b', name, re.I):
             continue
+        inline_reference = re.fullmatch(r'(.*?)\s*\(\s*(?:Reference|Ref|Reference range)\s*:\s*(.*?)\)\s*(?:[-–]\s*(High|Low|Normal|Abnormal))?', unit, re.I)
+        reference = inline_reference[2].strip() if inline_reference else ''
+        if inline_reference:
+            unit = inline_reference[1].strip()
         unit = re.sub(r'\s*\((?:high|low|normal|abnormal)\)\s*$', '', unit, flags=re.I).strip()
         if len(unit)>32 or re.search(r'\b(?:means|might|doctor|should|report)\b', unit, re.I):
             continue
@@ -191,10 +195,17 @@ def extract_summary_results(lines, page, digest, sample_date=None, specimen=None
             return found
         fields = {'test_name': field(name, words[:vi] or words),
                   'value': field(value, words[vi:vi+1])}
+        reference_index = next((j for j,w in enumerate(words) if re.match(r'^\(?(?:Reference|Ref)(?:\b|:)', w['text'], re.I)), None)
         if unit:
-            fields['unit'] = field(unit, words[vi+1:] or words[vi:vi+1])
-        reference = ''
+            fields['unit'] = field(unit, words[vi+1:reference_index] or words[vi:vi+1])
+        if inline_reference and reference_index is not None:
+            end = next((j+1 for j in range(reference_index, len(words)) if ')' in words[j]['text']), len(words))
+            fields['reference_range'] = field(reference, words[reference_index+1:end] or words[reference_index:end])
+            if inline_reference[3]:
+                fields['flag'] = field(inline_reference[3], words[-1:])
         for following in lines[i+1:i+5]:
+            if inline_reference:
+                break
             rm = re.match(r'^Reference\s+(?:range|interval)\s*:\s*(.+)$', following['text'], re.I)
             if rm:
                 reference = rm[1].strip()

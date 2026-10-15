@@ -18,6 +18,7 @@ ThemeData medivaaniiTheme() {
     useMaterial3: true,
     fontFamily: 'NotoSans',
     fontFamilyFallback: const [
+      'NotoSansSC',
       'NotoDevanagari',
       'NotoBengali',
       'NotoTamil',
