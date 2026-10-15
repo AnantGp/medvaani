@@ -20,7 +20,11 @@ def result_context(texts):
     context = 'unknown'
     for text in texts:
         text = str(text).strip()
-        if re.match(r'^(?:historical|previous|prior|past)\s+(?:summary|results?|measurements?|reports?)\b', text, re.I):
+        if re.match(r'^(?:Laboratory equipment dashboard|Machine\s*&\s*QC details)\b', text, re.I):
+            context = 'metadata'
+        elif re.match(r'^(?:Personalized summary|Patient overview|Vital parameters overview)\b', text, re.I):
+            context = 'overview'
+        elif re.match(r'^(?:comparative charts|(?:historical|previous|prior|past)\s+(?:summary|results?|measurements?|reports?))\b', text, re.I):
             context = 'historical'
         elif re.match(r'^(?:reference\s+guideline|guideline|reference\s+target)\b', text, re.I):
             context = 'guideline'

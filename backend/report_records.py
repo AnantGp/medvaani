@@ -45,6 +45,12 @@ class QualityReport(TypedDict, total=False):
     state: str
     eligible_count: int
     needs_review_count: int
+    measurement_count: int
+    abnormal_count: int
+    normal_count: int
+    unclassified_count: int
+    expected_measurement_count: int | None
+    missing_measurement_count: int
     unresolved_result_regions: int
     processed_pages: list[int]
     failed_pages: list[int]

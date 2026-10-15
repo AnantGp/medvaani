@@ -1,5 +1,5 @@
 import {getDocument, GlobalWorkerOptions, Util} from './vendor/pdfjs/pdf.mjs';
-import {safeBox, resultLabel, educationForMeasurement, selectedMeasurement, sourceSelection, groupMeasurements, sourceAtPoint} from './report_explorer_core.mjs';
+import {safeBox, resultLabel, educationForMeasurement, selectedMeasurement, sourceSelection, groupMeasurements, sourceAtPoint, fieldFragments} from './report_explorer_core.mjs';
 import {sourceMimeType} from './source_document.mjs';
 GlobalWorkerOptions.workerSrc = new URL('./vendor/pdfjs/pdf.worker.mjs', location.href).href;
 const $ = selector => document.querySelector(selector);
@@ -124,14 +124,15 @@ async function recoverLocations() {
   } })().finally(() => { recoveryWork = null; });
   return recoveryWork;
 }
-async function locateLab(id, field='value', userInitiated=false) {
+async function locateLab(id, field='value', userInitiated=false, fragmentPage) {
   const version = ++selectionVersion;
   const row=selectedMeasurement(labs,id), evidence=sources.find(source=>source.measurement_id===id);
   const source=sourceSelection(row);
-  const selectedField=source?.fields[field];
+  const originalField=source?.fields[field];
+  const selectedField=fragmentPage ? fieldFragments(originalField).find(fragment=>fragment.page===fragmentPage) || originalField : originalField;
   const canLocate=source && selectedField && safeBox(selectedField.box) && selectedField.page <= (pdf?.numPages || 1);
   selection={id,field,line:canLocate?{page:selectedField.page,box:selectedField.box,method:selectedField.method,
-    text:evidence?.source_quote || row.source_quote || Object.values(source.fields).map(f=>f.text).join(' ')}:null};
+    text:fragmentPage ? selectedField.raw_cell_text || selectedField.text : evidence?.source_quote || row.source_quote || Object.values(source.fields).map(f=>f.text).join(' ')}:null};
   if(canLocate){current=selectedField.page;pageSelect.value=current;await render();if(version!==selectionVersion)return;scrollToSelection();}
   else drawHighlights();
   showInspector();makeSelectors();focusSection(inspector);
@@ -153,8 +154,9 @@ function drawHighlights() {
   for(const row of labs) {
     const source=sourceSelection(row);if(!source)continue;
     for(const [key,field] of Object.entries(source.fields)) {
-      if(field.page!==current)continue;
-      for(const box of field.boxes || [field.box]) {
+      for(const fragment of fieldFragments(field)) {
+        if(fragment.page!==current)continue;
+        const box=fragment.box;
         if(!safeBox(box))continue;
         const [x,y,w,h]=box;
         if(sourceAtPoint(labs,current,x+w/2,y+h/2)?.measurement_id!==row.measurement_id)continue;
@@ -164,7 +166,7 @@ function drawHighlights() {
         button.setAttribute('aria-label',`Select original ${row.test_name} ${key.replaceAll('_',' ')}: ${field.text}`);
         button.title=`${row.test_name} · ${key.replaceAll('_',' ')}`;
         const selected=selection?.id===row.measurement_id;button.setAttribute('aria-pressed',String(selected));if(selected)button.classList.add('selected');if(report.voice_cited_measurement_ids?.includes(row.measurement_id))button.classList.add('voice-cited');
-        button.onclick=()=>locateLab(row.measurement_id,key,true);overlay.append(button);count++;
+        button.onclick=()=>locateLab(row.measurement_id,key,true,fragment.page);overlay.append(button);count++;
       }
     }
   }

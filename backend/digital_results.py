@@ -50,7 +50,7 @@ def _context(lines):
 
 
 def extract_digital_results(pages, source_digest):
-    records, diagnostics = [], []
+    records, diagnostics, summary_pages = [], [], []
     document_profile = any('healthians' in re.sub(r'[^a-z]', '', l['text'].casefold())
                            for p in pages for l in p.get('lines', []))
     for page in pages:
@@ -153,74 +153,126 @@ def extract_digital_results(pages, source_digest):
                                 'source_quote': line['text'],
                                 'status': 'unknown', 'status_source': 'unknown', 'issues': []})
         if not headers:
-            records.extend(extract_summary_results(lines, number, source_digest, sample_date, specimen))
+            summary_pages.append(page)
+    records.extend(extract_summary_results(summary_pages, source_digest, diagnostics))
     return records, diagnostics
 
 
-def extract_summary_results(lines, page, digest, sample_date=None, specimen=None):
-    """Explicit Name: value/unit results beneath a patient-results heading.
-
-    Supports exported summary PDFs without treating reference labels, booking
-    metadata or guideline prose as additional patient measurements.
-    """
-    rows = []
-    numeric = r'[<>≤≥]?\s*[+-]?\d[\d,]*(?:\.\d+)?'
-    qualitative = r'non[- ]?reactive|not detected|negative|positive|reactive|detected|absent|nil|trace'
-    pattern = re.compile(r'^\s*[•●·\-]?\s*([A-Za-z][A-Za-z0-9 /()%.,+\-]{1,75}):\s*(' + numeric + '|' + qualitative + r')\s*(.*?)\s*$', re.I)
-    for i, line in enumerate(lines):
-        match = pattern.match(line['text'])
-        if not match or result_context(l['text'] for l in lines[:i]) != 'current':
+def extract_summary_results(pages, digest, diagnostics):
+    """Follow explicit result sections across pages, retaining printed locations."""
+    numeric = r'[<>≤≥]?\s*[+-]?\d[\d,]*(?:\.\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?'
+    qualitative = r'pale yellow|light yellow|yellow|clear|non[- ]?reactive|not detected|negative|positive|reactive|detected|absent|normal|nil|trace'
+    pattern = re.compile(r'^\s*[•●·\-]?\s*([A-Za-z][A-Za-z0-9 /()%.,+\-]{1,100}):\s*(' + numeric + '|' + qualitative + r')\s*(.*?)\s*$', re.I)
+    category_terms = r'deficient|insufficient|sufficient|adequate|desirable(?:/low risk)?|optimal|near\s*/?\s*above optimal|borderline(?: high)?|very high|high|low|moderate|(?:line/)?(?:low|moderate|high|elevated/high)\s*risk'
+    category = re.compile(r'^(?:' + category_terms + r')$', re.I)
+    reference_continuation = re.compile(r'^(?:[<>≤≥+\-]?\s*\d|(?:' + category_terms + r')\s*[:\-])', re.I)
+    reference_label = re.compile(r'^Reference\s*(?:range|interval)\s*:\s*(.*)$', re.I)
+    flag_label = re.compile(r'^(?:Report\s*flag\s*or\s*supplied[- ]range\s*comparison|(?:Report\s*)?flag)\s*:\s*(high|low|normal|abnormal|critical|H|L|N)\s*$', re.I)
+    furniture = re.compile(r'^(?:Medical Report Summary|Generated\s*by|Medivaanii.*(?:summary|Page)|Page\s*\d+\s*of\s*\d+)', re.I)
+    rows, entries, context = [], [], 'unknown'
+    page_context = {page['page']: _context(page.get('lines', [])) for page in pages}
+    for page in pages:
+        for line in page.get('lines', []):
+            entries.append({**line, 'page': page['page']})
+    def match_result(line):
+        if flag_label.match(line['text']) or reference_label.match(line['text']):
+            return None
+        m = pattern.match(line['text'])
+        if not m or nonmeasurement_identity(m[1]) or category.fullmatch(m[1].strip()):
+            return None
+        if re.search(r'\b(?:results? extracted|page|generated|patient|date|id)\b', m[1], re.I):
+            return None
+        return m
+    def field(line, start, end, value):
+        cursor, selected = 0, []
+        for word in line.get('words', []):
+            stop = cursor + len(word['text'])
+            if cursor < end and stop > start:
+                selected.append(word)
+            cursor = stop + 1
+        found = source_field(selected, line['page'], line['method'])
+        if found:
+            found.update(raw_cell_text=found['text'], text=value)
+        return found
+    def joined(parts, value, relationship):
+        first = dict(parts[0])
+        first.update(text=value, relationship=relationship, fragments=parts,
+                     boxes=[p['box'] for p in parts if p['page'] == first['page']])
+        return first
+    for i, line in enumerate(entries):
+        content = line['text'].strip()
+        nearest = result_context([content])
+        if nearest != 'unknown':
+            context = nearest
+        declared = re.match(r'^(\d+)\s*(?:usable measurements|laboratory results extracted|laboratory results|measurements extracted)\b', content, re.I)
+        if declared:
+            diagnostics.append({'code':'declared_measurement_count', 'page':line['page'], 'count':int(declared[1])})
+        m = match_result(line)
+        if not m:
             continue
-        name, value, unit = [part.strip() for part in match.groups()]
-        if nonmeasurement_identity(name) or re.search(r'\b(?:results? extracted|page|generated|patient|date|id)\b', name, re.I):
+        if context != 'current':
+            if context == 'unknown':
+                diagnostics.append({'code':'unresolved_result_region','page':line['page']})
+            else:
+                diagnostics.append({'code':'nonmeasurement_row','page':line['page'],'record_type':context})
             continue
-        inline_reference = re.fullmatch(r'(.*?)\s*\(\s*(?:Reference|Ref|Reference range)\s*:\s*(.*?)\)\s*(?:[-–]\s*(High|Low|Normal|Abnormal))?', unit, re.I)
-        reference = inline_reference[2].strip() if inline_reference else ''
-        if inline_reference:
-            unit = inline_reference[1].strip()
+        name, value, unit = [part.strip() for part in m.groups()]
+        unit = re.split(r'\b(?:Comparison\s*unavailable|Report\s*flag)\b', unit, flags=re.I)[0].strip()
+        inline = re.fullmatch(r'(.*?)\s*\(\s*(?:Reference|Ref|Reference\s*range)\s*:\s*(.*?)\)\s*(?:[-–]\s*(High|Low|Normal|Abnormal))?', unit, re.I)
+        reference, parts = '', []
+        fields = {'test_name':field(line,m.start(1),m.end(1),name), 'value':field(line,m.start(2),m.end(2),value)}
+        if inline:
+            unit, reference = inline[1].strip(), inline[2].strip()
+            start = content.find(reference, m.start(3))
+            parts.append(field(line,start,start+len(reference),reference))
+            if inline[3]:
+                start = content.rfind(inline[3]); fields['flag'] = field(line,start,start+len(inline[3]),inline[3])
         unit = re.sub(r'\s*\((?:high|low|normal|abnormal)\)\s*$', '', unit, flags=re.I).strip()
-        if len(unit)>32 or re.search(r'\b(?:means|might|doctor|should|report)\b', unit, re.I):
-            continue
-        words = line.get('words', [])
-        # Preserve real PDF word rectangles. A combined value/unit token uses
-        # the same source rectangle for its two explicitly split text fields.
-        vi = next((j for j,w in enumerate(words) if re.match(r'^[<>≤≥]?[+\-]?\d', w['text']) or re.search(r':\s*[<>≤≥]?[+\-]?\d', w['text']) or w['text'].casefold() == value.casefold()), None)
-        if vi is None:
-            continue
-        def field(part, items):
-            found = source_field(items, page, line['method'])
-            if found:
-                found['raw_cell_text'] = found['text']
-                found['text'] = part
-            return found
-        fields = {'test_name': field(name, words[:vi] or words),
-                  'value': field(value, words[vi:vi+1])}
-        reference_index = next((j for j,w in enumerate(words) if re.match(r'^\(?(?:Reference|Ref)(?:\b|:)', w['text'], re.I)), None)
+        if len(unit)>40 or re.search(r'\b(?:means|might|doctor|should|report)\b', unit, re.I):
+            diagnostics.append({'code':'unresolved_result_region','page':line['page']});continue
         if unit:
-            fields['unit'] = field(unit, words[vi+1:reference_index] or words[vi:vi+1])
-        if inline_reference and reference_index is not None:
-            end = next((j+1 for j in range(reference_index, len(words)) if ')' in words[j]['text']), len(words))
-            fields['reference_range'] = field(reference, words[reference_index+1:end] or words[reference_index:end])
-            if inline_reference[3]:
-                fields['flag'] = field(inline_reference[3], words[-1:])
-        for following in lines[i+1:i+5]:
-            if inline_reference:
+            start = content.find(unit, m.start(3)); fields['unit'] = field(line,start,start+len(unit),unit)
+        for following in entries[i+1:]:
+            s = following['text'].strip()
+            if following['page'] > line['page'] + 1 or match_result(following):
                 break
-            rm = re.match(r'^Reference\s+(?:range|interval)\s*:\s*(.+)$', following['text'], re.I)
-            if rm:
+            if furniture.match(s):
+                continue
+            rm, fm = reference_label.match(s), flag_label.match(s)
+            if rm and not inline:
                 reference = rm[1].strip()
-                fwords = following.get('words', [])
-                first = next((j for j,w in enumerate(fwords) if re.search(r'\d|negative|positive',w['text'],re.I)), 0)
-                ref = source_field(fwords[first:], page, following['method'])
-                if ref:
-                    ref.update(raw_cell_text=ref['text'],text=reference,relationship='labeled_following_reference')
-                    fields['reference_range'] = ref
+                part = field(following,rm.start(1),rm.end(1),reference)
+                if part: parts = [part]
+            elif fm:
+                flag = field(following,fm.start(1),fm.end(1),fm[1])
+                if flag:
+                    flag['relationship'] = 'labeled_following_flag'
+                    if s.lower().startswith('report flag or'):
+                        flag['origin'] = 'summary_comparison'
+                    fields['flag'] = flag
+                if parts:
+                    break
+            elif re.search(r'Comparison\s*unavailable', s, re.I):
+                before = re.split(r'Comparison\s*unavailable', s, flags=re.I)[0].strip()
+                if parts and before:
+                    part = field(following,0,len(before),before)
+                    if part: parts.append(part);reference += '\n' + before
                 break
-            if pattern.match(following['text']):
+            elif parts and reference_continuation.match(s):
+                part = field(following,0,len(s),s)
+                if part: parts.append(part);reference += '\n' + s
+            else:
                 break
-        rows.append({'measurement_id':measurement_id(digest,page,'summary_result',fields['value']['box']),
+        parts = [p for p in parts if p]
+        if parts:
+            fields['reference_range'] = joined(parts,reference,'labeled_following_reference')
+        fields = {k:v for k,v in fields.items() if v}
+        if not fields.get('value'):
+            diagnostics.append({'code':'unresolved_result_region','page':line['page']});continue
+        date, specimen = page_context[line['page']]
+        rows.append({'measurement_id':measurement_id(digest,line['page'],'summary_result',fields['value']['box']),
                      'record_type':'measurement','test_name':name,'canonical_test':canonical_test(name),
                      'panel':'Results in this report','value':value,'unit':unit,'reference_range':reference,
-                     'sample_date':sample_date,'specimen':specimen,'source_fields':{k:v for k,v in fields.items() if v},
+                     'sample_date':date,'specimen':specimen,'source_fields':fields,
                      'source_quote':line['text'],'extraction_method':'summary_result','status':'unknown','status_source':'unknown','issues':[]})
     return rows

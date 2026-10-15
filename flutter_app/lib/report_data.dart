@@ -50,9 +50,50 @@ String reportQualityState(Map report) {
   }
   final quality = report['extraction_quality'];
   final state = quality is Map ? quality['state'] : null;
+  if (state == 'blocked') return 'blocked';
+  final declared = declaredMeasurementCount(report);
+  if (declared != null &&
+      declared != reportLabValues(report['parsed_data']).length) {
+    return 'partial';
+  }
   return ['ready', 'partial', 'blocked'].contains(state)
       ? state.toString()
       : 'blocked';
+}
+
+int? declaredMeasurementCount(Map report) {
+  final matches = RegExp(
+          r'(\d+)\s*(?:usable\s*measurements|laboratory\s*results\s*extracted)',
+          caseSensitive: false)
+      .allMatches((report['extracted_text'] ?? '').toString());
+  final counts = matches.map((m) => int.parse(m[1]!)).toList()..sort();
+  final quality = report['extraction_quality'];
+  final supplied =
+      quality is Map ? quality['expected_measurement_count'] : null;
+  return supplied is int
+      ? supplied
+      : counts.isEmpty
+          ? null
+          : counts.last;
+}
+
+Map<String, int> reportComparisonCounts(Map report) {
+  final rows = reportLabValues(report['parsed_data']).where((r) =>
+      r['record_type'] == 'measurement' && r['acceptance_state'] != 'rejected');
+  final abnormal = rows
+      .where((r) =>
+          r['acceptance_state'] == 'eligible' &&
+          ['high', 'low', 'abnormal', 'critical'].contains(r['status']))
+      .length;
+  final normal = rows
+      .where(
+          (r) => r['acceptance_state'] == 'eligible' && r['status'] == 'normal')
+      .length;
+  return {
+    'abnormal': abnormal,
+    'normal': normal,
+    'unclassified': rows.length - abnormal - normal
+  };
 }
 
 bool reportOutputAllowed(Map report) =>

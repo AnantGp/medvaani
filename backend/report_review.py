@@ -41,6 +41,8 @@ def result_description(row):
         return "This result cannot be reliably classified from the available report flag and reference range. Check it against the original."
     if source == "report":
         return f"The report marks this result as {status}."
+    if source == 'source_summary':
+        return f"The uploaded summary lists this comparison as {status}. Check it against the laboratory report."
     if source in {"reference_range", "reviewed_source"}:
         relation = {"normal": "within", "high": "above", "low": "below"}.get(status)
         if relation:

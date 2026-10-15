@@ -144,3 +144,79 @@ def test_named_line_without_current_result_context_is_explicitly_unresolved(tmp_
     rows, diagnostics = extract(tmp_path / 'ambiguous.pdf')
     assert rows == []
     assert any(d['code'] == 'unresolved_result_region' for d in diagnostics)
+
+
+def test_exported_summary_continues_results_and_references_across_pages(tmp_path):
+    from reportlab.pdfgen import canvas
+    from report_quality import validate_document
+    p = tmp_path / 'summary.pdf'
+    c = canvas.Canvas(str(p), pagesize=(600, 800))
+    c.setFont('Helvetica', 9)
+    for y, text in [(750, 'Medical Report Summary'), (730, '2 usable measurements'),
+                    (700, 'Results in this report'), (650, 'Triglycerides: 158.0 mg/dL'),
+                    (625, 'Reference range: Desirable: <150')]:
+        c.drawString(40, y, text)
+    c.showPage(); c.setFont('Helvetica', 9)
+    for y, text in [(750, 'Medical Report Summary'), (710, 'Borderline high: 150-199 High: 200-499'),
+                    (690, 'Comparison unavailable from the supplied reference.'),
+                    (650, 'Serum HDL Cholesterol: 38.5 mg/dL'), (625, 'Reference range: 40 - 60'),
+                    (600, 'Report flag or supplied-range comparison: low')]:
+        c.drawString(40, y, text)
+    c.save()
+    document = read_document(str(p))
+    rows, diagnostics = importlib.import_module('digital_results').extract_digital_results(document['pages'], document['source_digest'])
+    checked, quality = validate_document({**document, 'candidates': rows, 'diagnostics': diagnostics})
+    assert len(checked) == 2
+    assert checked[1]['test_name'] == 'Serum HDL Cholesterol'
+    assert checked[1]['reference_range'] == '40 - 60'
+    assert checked[1]['status'] == 'low'
+    assert checked[1]['source_fields']['value']['page'] == 2
+    assert checked[0]['reference_range'] == 'Desirable: <150\nBorderline high: 150-199 High: 200-499'
+    assert [f['page'] for f in checked[0]['source_fields']['reference_range']['fragments']] == [1, 2]
+    assert quality['eligible_count'] == 2
+
+
+def test_declared_summary_count_cannot_hide_missing_measurements(tmp_path):
+    from reportlab.pdfgen import canvas
+    from report_quality import validate_document
+    p = tmp_path / 'partial-summary.pdf'; c = canvas.Canvas(str(p))
+    for y, text in [(740, 'Medical Report Summary'), (710, '3 usable measurements'),
+                    (680, 'Results in this report'), (650, 'Glucose: 95 mg/dL'),
+                    (625, 'Reference range: 70 - 100')]:
+        c.drawString(40, y, text)
+    c.save()
+    doc = read_document(str(p))
+    rows, diagnostics = importlib.import_module('digital_results').extract_digital_results(doc['pages'], doc['source_digest'])
+    _, quality = validate_document({**doc, 'candidates': rows, 'diagnostics': diagnostics})
+    assert quality['state'] == 'partial'
+    assert quality['expected_measurement_count'] == 3
+    assert quality['missing_measurement_count'] == 2
+
+
+def test_summary_reference_categories_are_not_patient_measurements(tmp_path):
+    from reportlab.pdfgen import canvas
+    p = tmp_path / 'categories.pdf'
+    c = canvas.Canvas(str(p))
+    for y, text in [(740, 'Medical Report Summary'), (710, 'Results in this report'),
+                    (680, 'Vitamin D: 25 ng/mL'), (650, 'Reference range: Deficient: <20'),
+                    (625, 'Insufficient: 20-29'), (600, 'Sufficient: 30-100')]:
+        c.drawString(40, y, text)
+    c.save()
+    rows, _ = extract(p)
+    assert len(rows) == 1
+    assert rows[0]['reference_range'] == 'Deficient: <20\nInsufficient: 20-29\nSufficient: 30-100'
+
+
+def test_summary_reference_stops_before_numeric_followup_prose(tmp_path):
+    from reportlab.pdfgen import canvas
+    for end in ['Report flag or supplied-range comparison: normal', 'Comparison unavailable from the supplied reference.']:
+        p = tmp_path / 'follow-up.pdf'
+        c = canvas.Canvas(str(p))
+        for y, text in [(740, 'Medical Report Summary'), (710, 'Results in this report'),
+                        (680, 'Glucose: 95 mg/dL'), (650, 'Reference range: 70 - 100'),
+                        (625, end), (600, 'Please repeat testing in 3 months.')]:
+            c.drawString(40, y, text)
+        c.save()
+        rows, _ = extract(p)
+        assert len(rows) == 1
+        assert rows[0]['reference_range'] == '70 - 100'

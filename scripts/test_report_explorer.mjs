@@ -13,6 +13,14 @@ test('viewer routes raw PDF, PNG, JPEG and WebP bytes without a server URL', () 
   assert.equal(sourceMimeType(new TextEncoder().encode('not a PDF')), null);
 });
 const row = {measurement_id:'physical-source',record_type:'measurement',acceptance_state:'eligible',test_name:'Creatinine',value:'0.9',unit:'mg/dL',panel:'Kidney function',source_fields:{test_name:{text:'Creatinine',page:17,box:[.1,.3,.2,.02]},value:{text:'1.8',page:17,box:[.4,.3,.08,.02]}}};
+test('split reference highlights retain each original PDF page', () => {
+  const split = {...row, source_fields:{...row.source_fields, reference_range:{page:17,box:[.1,.8,.7,.03],fragments:[
+    {page:17,box:[.1,.8,.7,.03],text:'Desirable: <150'},
+    {page:18,box:[.1,.1,.7,.03],text:'Borderline high: 150-199'}
+  ]}}};
+  assert.equal(sourceAtPoint([split],18,.2,.11)?.measurement_id, row.measurement_id);
+  assert.equal(sourceAtPoint([split],17,.2,.11), null);
+});
 test('selection_survives_group_filter_and_reordering',()=>{
   const other = {...row,measurement_id:'other',test_name:'WBC',panel:'Blood count'};
   assert.equal(selectedMeasurement([other,row],row.measurement_id),row);

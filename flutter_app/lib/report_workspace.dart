@@ -382,10 +382,9 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
 
   Widget _report(bool desktop) => LayoutBuilder(builder: (context, size) {
         final rows = _rows;
-        final attention = rows
-            .where((r) =>
-                ['high', 'low', 'abnormal', 'critical'].contains(r['status']))
-            .length;
+        final counts = reportComparisonCounts(widget.report!);
+        final partial = reportQualityState(widget.report!) == 'partial';
+        final expected = declaredMeasurementCount(widget.report!);
         final review =
             rows.where((r) => r['acceptance_state'] != 'eligible').length;
         final toolbar = Padding(
@@ -404,7 +403,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     Text(
                         rows.isEmpty
                             ? 'Report text available · measurements are not yet mapped'
-                            : '${rows.length} measurements · $attention outside report range${review > 0 ? ' · $review to check' : ''}',
+                            : '${partial ? 'Partial extraction · ' : ''}${rows.length}${expected != null ? ' of $expected' : ''} measurements · ${counts['abnormal']} flagged · ${counts['normal']} within range · ${counts['unclassified']} unclassified${review > 0 ? ' · $review to check' : ''}',
                         style: const TextStyle(
                             fontSize: 13, color: ReportPalette.muted)),
                   ])),
@@ -418,6 +417,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     label: const Text('Save summary'),
                     style: OutlinedButton.styleFrom(
                         minimumSize: const Size(40, 42))),
+              if (partial && widget.onReextract != null)
+                TextButton.icon(
+                    onPressed: _busy ? null : widget.onReextract,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: Text(desktop ? 'Read results again' : 'Re-read')),
               const SizedBox(width: 8),
               IconButton(
                   tooltip: 'Upload another report',

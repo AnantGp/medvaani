@@ -2,6 +2,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_cdss/report_data.dart';
 
 void main() {
+  test(
+      'cached incomplete summary is partial and unknown comparisons stay separate',
+      () {
+    final report = <String, dynamic>{
+      'extraction_version': 4,
+      'extracted_text': '95usablemeasurements',
+      'extraction_quality': {'state': 'ready'},
+      'parsed_data': {
+        'schema_version': 4,
+        'lab_values': [
+          {
+            'record_type': 'measurement',
+            'measurement_id': 'a',
+            'test_name': 'Glucose',
+            'value': '95',
+            'unit': 'mg/dL',
+            'acceptance_state': 'eligible',
+            'status': 'unknown'
+          },
+          {
+            'record_type': 'measurement',
+            'measurement_id': 'b',
+            'test_name': 'HDL',
+            'value': '38.5',
+            'unit': 'mg/dL',
+            'acceptance_state': 'eligible',
+            'status': 'low'
+          }
+        ]
+      }
+    };
+    expect(reportQualityState(report), 'partial');
+    expect(declaredMeasurementCount(report), 95);
+    expect(reportComparisonCounts(report),
+        {'abnormal': 1, 'normal': 0, 'unclassified': 1});
+  });
   for (final section in ['findings', 'diagnosis', 'impression']) {
     for (final mixed in [false, true]) {
       test(

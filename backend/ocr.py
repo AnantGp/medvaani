@@ -57,7 +57,7 @@ def read_document(file_path: str):
                     raise ValueError('Choose a report of up to 100 pages.')
                 for number, page in enumerate(pdf.pages, 1):
                     try:
-                        raw_words = page.extract_words(x_tolerance=3, y_tolerance=3)
+                        raw_words = page.extract_words(x_tolerance=1, y_tolerance=3)
                         image_area = sum(max(0, im['x1'] - im['x0']) * max(0, im['bottom'] - im['top']) for im in page.images)
                         if not raw_words or (len(raw_words) < 25 and image_area > page.width * page.height * .5):
                             if cloud_ocr:

@@ -58,6 +58,15 @@ def _comparison(row):
         return 'normal' if value.casefold() == reference.casefold() else None
     if value_kind(value) == 'bounded':
         return None
+    bound = re.fullmatch(r'\s*(<=|>=|</=|>/=|[<>≤≥])\s*([+-]?[\d,.]+)\s*([^\d]*)', reference)
+    if bound and (not bound[3].strip() or normalized_unit(bound[3]) == normalized_unit(row.get('unit', ''))):
+        try:
+            actual, limit = Decimal(value.replace(',', '')), Decimal(bound[2].replace(',', ''))
+            op = bound[1].replace('/=', '=')
+            inside = actual <= limit if op in {'<=', '≤'} else actual >= limit if op in {'>=', '≥'} else actual < limit if op == '<' else actual > limit
+            return 'normal' if inside else 'high' if op.startswith('<') or op == '≤' else 'low'
+        except InvalidOperation:
+            return None
     match = re.fullmatch(r'\s*([+-]?[\d,.]+)\s*(?:-|–|to)\s*([+-]?[\d,.]+)\s*([^\d]*)', reference, re.I)
     if not match:
         return None
@@ -125,8 +134,11 @@ def _validated_row(original):
                 continue
             box = field['box']
             labeled_reference = (key == 'reference_range' and field.get('relationship') == 'labeled_following_reference'
-                                 and field.get('page') == value_source.get('page')
-                                 and 0 <= box[1] - vbox[1] <= .12)
+                                 and ((field.get('page') == value_source.get('page') and 0 <= box[1] - vbox[1] <= .12)
+                                      or (field.get('page') == value_source.get('page', 0) + 1 and box[1] < .3)))
+            for fragment in field.get('fragments', []):
+                if not valid_box(fragment.get('box')) or not isinstance(fragment.get('page'), int) or fragment['page'] < 1:
+                    issue('source_missing', key)
             if not labeled_reference and (field.get('page') != value_source.get('page') or box[1] > vbox[1] + vbox[3] + .008 or box[1] + box[3] < vbox[1] - .008):
                 issue('field_association', key)
     kind = value_kind(row.get('value', ''))
@@ -149,8 +161,9 @@ def _validated_row(original):
         status, source = corrections['status']['value'], 'user_review'
         if status in {'normal', 'high', 'low'} and comparison and status != comparison:
             issue('flag_range_conflict', 'status')
-    elif reported and not corrected_fields and valid_box(flag.get('box')) and flag.get('page') == value_source.get('page'):
-        status, source = reported, 'report'
+    elif reported and not corrected_fields and valid_box(flag.get('box')) and (flag.get('page') == value_source.get('page') or
+            flag.get('relationship') == 'labeled_following_flag' and flag.get('page') == value_source.get('page', 0) + 1 and flag['box'][1] < .3):
+        status, source = reported, 'source_summary' if flag.get('origin') == 'summary_comparison' else 'report'
         if reported in {'normal', 'high', 'low'} and comparison and comparison != reported:
             issue('flag_range_conflict', 'status')
     elif comparison:
@@ -171,8 +184,18 @@ def validate_document(document: ExtractedDocument) -> tuple[list[Measurement], Q
     eligible = sum(r.get('record_type') == 'measurement' and r.get('acceptance_state') == 'eligible' for r in rows)
     narratives = sum(r.get('record_type') == 'narrative' and r.get('acceptance_state') == 'eligible' for r in rows)
     uncertain = sum(r.get('acceptance_state') == 'needs_review' for r in rows)
+    measurements = [r for r in rows if r.get('record_type') == 'measurement' and r.get('acceptance_state') != 'rejected']
+    expected = max([d.get('count', 0) for d in diagnostics if d.get('code') == 'declared_measurement_count'] or [0])
+    missing = max(0, expected - len(measurements))
+    if expected and expected != len(measurements):
+        unresolved += 1
+    abnormal = sum(r.get('acceptance_state') == 'eligible' and r.get('status') in OUTSIDE for r in measurements)
+    normal = sum(r.get('acceptance_state') == 'eligible' and r.get('status') == 'normal' for r in measurements)
     state = 'blocked' if not eligible and not narratives else 'partial' if uncertain or failed or unresolved else 'ready'
     return rows, {'state': state, 'eligible_count': eligible, 'needs_review_count': uncertain,
+                  'measurement_count': len(measurements), 'abnormal_count': abnormal, 'normal_count': normal,
+                  'unclassified_count': len(measurements) - abnormal - normal,
+                  'expected_measurement_count': expected or None, 'missing_measurement_count': missing,
                   'eligible_narrative_count': narratives,
                   'unresolved_result_regions': unresolved, 'processed_pages': sorted({p['page'] for p in document.get('pages', []) if isinstance(p.get('page'), int)}),
                   'failed_pages': failed, 'issues': diagnostics, 'coverage_basis': 'Detected source result sections and candidate rows'}
@@ -206,6 +229,12 @@ def report_quality(report: dict) -> QualityReport:
                 'unresolved_result_regions': 1, 'failed_pages': [], 'processed_pages': [], 'issues': [],
                 'coverage_basis': 'Original source must be read with layout-aware extraction'}
     metadata = parsed.get('document', {})
+    # Cached snapshots can predate count diagnostics. A printed total is a
+    # coverage check, never a replacement for actually extracted source rows.
+    declared = re.findall(r'(\d+)\s*(?:usable\s*measurements|laboratory\s*results\s*extracted)\b', str(report.get('extracted_text', '')), re.I)
+    if declared:
+        metadata = {**metadata, 'diagnostics': [*metadata.get('diagnostics', []),
+                    {'code': 'declared_measurement_count', 'count': max(map(int, declared))}]}
     _, quality = validate_document({**metadata, 'candidates': parsed.get('lab_values', []) + parsed.get('source_narratives', [])})
     return quality
 

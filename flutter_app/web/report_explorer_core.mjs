@@ -28,6 +28,7 @@ export function resultLabel(row) {
   const flag = status[0].toUpperCase() + status.slice(1);
   if (status === 'unknown') return row?.acceptance_state === 'eligible' ? 'No supported comparison' : 'Needs source review';
   return ({report:`${flag} · report flag`, reference_range:`${flag} · report range`,
+    source_summary:`${flag} · uploaded summary comparison`,
     user_review:`${flag} · reviewed flag`, reviewed_range:`${flag} · reviewed range`, reviewed_source:`${flag} · checked source`})[row.status_source] || `${flag} · unconfirmed source`;
 }
 
@@ -38,11 +39,18 @@ export function sourceSelection(row) {
   if (!safeBox(value?.box) || !Number.isInteger(value.page) || value.page < 1) return null;
   return {measurement_id: row.measurement_id, page: value.page, fields};
 }
+export function fieldFragments(field) {
+  if (!field) return [];
+  if (Array.isArray(field.fragments) && field.fragments.length) return field.fragments;
+  return (field.boxes || [field.box]).map(box => ({...field, box}));
+}
 export function sourceAtPoint(rows, page, x, y) {
   const matches = rows.filter(row => {
     const selection = sourceSelection(row);
-    return selection && Object.values(selection.fields).some(field => field.page === page &&
-      (field.boxes || [field.box]).some(box => safeBox(box) && x >= box[0] && x <= box[0]+box[2] && y >= box[1] && y <= box[1]+box[3]));
+    return selection && Object.values(selection.fields).some(field => fieldFragments(field).some(fragment => {
+      const box = fragment.box;
+      return fragment.page === page && safeBox(box) && x >= box[0] && x <= box[0]+box[2] && y >= box[1] && y <= box[1]+box[3];
+    }));
   });
   return matches.length === 1 ? matches[0] : null;
 }

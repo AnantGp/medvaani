@@ -38,7 +38,7 @@ def scan_image(image, digest, page=1):
     url = 'data:image/jpeg;base64,' + base64.b64encode(buffer.getvalue()).decode()
     result, model = asyncio.run(chat_json([{'role': 'user', 'content': [
         {'type': 'text', 'text': PROMPT}, {'type': 'image_url', 'image_url': {'url': url}}]}],
-        vision=True, max_tokens=6500))
+        vision=True, max_tokens=900))
     raw = str(result.get('text', '')).strip()
     rows, lines = [], []
     items = result.get('measurements', []) if result.get('is_patient_medical_report') is True else []

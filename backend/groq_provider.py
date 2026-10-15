@@ -29,6 +29,8 @@ def headers():
 
 
 def error_for(response):
+    if response.status_code == 413:
+        return GroqError('This report exceeds the free AI request allowance. Try a shorter report or a single clear report page.', 413)
     if response.status_code == 429:
         return GroqError('The free AI quota is busy or exhausted. Please wait and try again.', 429)
     if response.status_code in (401, 403):
@@ -98,7 +100,7 @@ async def transcribe(data, language, vocabulary=(), filename='question.webm'):
         'en': 'A patient asks conversational questions about their medical report.',
         'hi': 'नमस्ते। मरीज अपनी जांच की रिपोर्ट के बारे में सरल हिन्दी में बात कर रहे हैं। क्या कम या ज़्यादा है? हीमोग्लोबिन, शुगर, थायरॉइड, क्रिएटिनिन।',
         'es': 'Una persona pregunta sobre los resultados de su informe médico.',
-        'zh': '患者用普通话询问自己的医疗报告、血糖、血红蛋白和甲状腺检查。',
+        'zh': '患者用普通话询问自己的化验报告。肌酐（Creatinine）、血红蛋白（Hemoglobin）、血糖、胆固醇、维生素D、甲状腺、TSH。',
     }
     prompt = hints[language] + ' ' + ', '.join(str(item) for item in vocabulary)[:350]
     async with httpx.AsyncClient(timeout=httpx.Timeout(45, connect=10)) as client:
