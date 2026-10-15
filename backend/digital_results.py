@@ -180,7 +180,7 @@ def extract_summary_results(lines, page, digest, sample_date=None, specimen=None
         words = line.get('words', [])
         # Preserve real PDF word rectangles. A combined value/unit token uses
         # the same source rectangle for its two explicitly split text fields.
-        vi = next((j for j,w in enumerate(words) if re.match(r'^[<>≤≥]?[+\-]?\d', w['text']) or w['text'].casefold() == value.casefold()), None)
+        vi = next((j for j,w in enumerate(words) if re.match(r'^[<>≤≥]?[+\-]?\d', w['text']) or re.search(r':\s*[<>≤≥]?[+\-]?\d', w['text']) or w['text'].casefold() == value.casefold()), None)
         if vi is None:
             continue
         def field(part, items):

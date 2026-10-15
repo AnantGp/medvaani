@@ -528,6 +528,20 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 Text('${rows.length}',
                     style: const TextStyle(
                         fontSize: 14, color: ReportPalette.muted)),
+                PopupMenuButton<String>(
+                    tooltip: 'Filter measurements',
+                    initialValue: _filter,
+                    onSelected: (value) => setState(() => _filter = value),
+                    icon: const Icon(Icons.filter_list_rounded, size: 20),
+                    itemBuilder: (_) => [
+                          for (final entry in {
+                            'all': 'All results',
+                            'flagged': 'Outside range',
+                            'review': 'Needs review'
+                          }.entries)
+                            PopupMenuItem(
+                                value: entry.key, child: Text(entry.value)),
+                        ]),
               ])),
           Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -543,22 +557,6 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide.none)))),
-          Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final e in {
-                  'all': 'All results',
-                  'flagged': 'Outside range',
-                  'review': 'Needs review'
-                }.entries)
-                  FilterChip(
-                      label:
-                          Text(e.value, style: const TextStyle(fontSize: 12)),
-                      selected: _filter == e.key,
-                      showCheckmark: false,
-                      onSelected: (_) => setState(() => _filter = e.key),
-                      visualDensity: VisualDensity.compact),
-              ])),
           if (widget.reviewSaving) const LinearProgressIndicator(minHeight: 2),
           if (widget.reviewError != null)
             Padding(

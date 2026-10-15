@@ -72,6 +72,7 @@ class _HomePageState extends State<HomePage> {
 
   final FlutterTts _tts = FlutterTts();
   final _voiceController = VoicePanelController();
+  final _voicePanelKey = GlobalKey();
   StreamSubscription<html.MouseEvent>? _dropOver, _dropLeave, _dropFile;
   bool _dragging = false;
 
@@ -1261,7 +1262,7 @@ class _HomePageState extends State<HomePage> {
         voicePanel: _reportData == null
             ? null
             : VoicePanel(
-                key: ValueKey(_reportGeneration),
+                key: _voicePanelKey,
                 controller: _voiceController,
                 report: _reportData!,
                 language: _languages.firstWhere(

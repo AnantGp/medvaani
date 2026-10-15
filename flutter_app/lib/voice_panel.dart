@@ -464,7 +464,7 @@ class _VoicePanelState extends State<VoicePanel> {
                                       const SizedBox(width: 9)
                                     ],
                                     Expanded(
-                                        child: SelectableText(content[i].trim(),
+                                        child: Text(content[i].trim(),
                                             style: TextStyle(
                                                 fontSize: mobile ? 18 : 19,
                                                 height: 1.5,
