@@ -1,11 +1,11 @@
 {
-    "name": "medical_cdss",
-    "short_name": "medical_cdss",
+    "name": "Medivaanii",
+    "short_name": "Medivaanii",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#f7f5f1",
+    "theme_color": "#a82d39",
+    "description": "Understand your medical report in your language.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
