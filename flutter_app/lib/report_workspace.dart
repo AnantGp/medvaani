@@ -130,6 +130,13 @@ class ReportWorkspace extends StatefulWidget {
       this.translationError,
       this.audioError,
       this.speechEnabled = true,
+      this.voiceRate = 1,
+      this.largeText = false,
+      this.pageCount,
+      this.uploadedAt,
+      this.onVoiceRate,
+      this.onLargeText,
+      this.onListenMeasurement,
       this.speaking = false,
       this.paused = false,
       this.audioPreparing = false,
@@ -140,7 +147,8 @@ class ReportWorkspace extends StatefulWidget {
       this.storageError,
       this.sourcePreview,
       this.sourceExplorer,
-      this.voicePanel,
+      this.voicePanelBuilder,
+      this.voiceExplanationRequest = 0,
       this.onOpenSource,
       this.onReview,
       this.onReextract,
@@ -154,11 +162,21 @@ class ReportWorkspace extends StatefulWidget {
       this.activeSpeech});
   final void Function(String id, bool speak)? onSelectMeasurement;
   final ValueChanged<String>? onEditMeasurement;
+  final ValueChanged<String>? onListenMeasurement;
+  final ValueChanged<double>? onVoiceRate;
+  final ValueChanged<bool>? onLargeText;
+  final double voiceRate;
+  final bool largeText;
+  final int? pageCount;
+  final DateTime? uploadedAt;
   final void Function(Uint8List bytes, String name)? onDropFile;
   final bool dragging;
   final bool reviewing, reviewSaving, restoring;
   final String? reviewError, storageError;
-  final Widget? sourcePreview, sourceExplorer, voicePanel;
+  final Widget? sourcePreview, sourceExplorer;
+  final Widget Function(bool expanded, VoidCallback onExpand)?
+      voicePanelBuilder;
+  final int voiceExplanationRequest;
   final VoidCallback? onOpenSource, onReview, onReextract, onClearSavedReport;
   final ValueChanged<List<Map<String, dynamic>>>? onConfirmReview;
   final Future<Map<String, dynamic>> Function(String)? onAskQuestion;
@@ -196,19 +214,49 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   String _filter = 'all';
   final _measurementsScroll = ScrollController();
   final _searchController = TextEditingController();
+  bool _conversation = false;
+  String _mobileView = 'report';
 
-  void _chooseMeasurement(String id) {
-    FocusScope.of(context).unfocus();
-    if (MediaQuery.sizeOf(context).width < 900) {
-      setState(() => _showSearch = false);
+  void _openConversation() => setState(() {
+        _conversation = true;
+        _mobileView = 'conversation';
+      });
+
+  @override
+  void didUpdateWidget(covariant ReportWorkspace oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.voiceExplanationRequest != oldWidget.voiceExplanationRequest) {
+      _conversation = true;
+      _mobileView = 'conversation';
     }
-    widget.onSelectMeasurement?.call(id, true);
+    if (widget.fileName != oldWidget.fileName) {
+      _conversation = false;
+      _mobileView = 'report';
+      _filter = 'all';
+      _query = '';
+      _searchController.clear();
+    }
+  }
+
+  void _chooseMeasurement(String id, {bool listen = false}) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _showSearch = false;
+      _conversation = true;
+      _mobileView = 'conversation';
+    });
+    if (listen && widget.onListenMeasurement != null) {
+      widget.onListenMeasurement!(id);
+    } else {
+      widget.onSelectMeasurement?.call(id, true);
+    }
   }
 
   void _setFilter(String value) {
     setState(() {
       _filter = value;
-      _mobileSource = false;
+      _conversation = false;
+      _mobileView = 'results';
       _query = '';
       _searchController.clear();
       _showSearch = false;
@@ -227,7 +275,6 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
     super.dispose();
   }
 
-  bool _mobileSource = true;
   bool _showSearch = false;
   static const _nav = [0, 1, 3];
   static const _labels = ['Upload report', 'Report workspace', '', 'Settings'];
@@ -245,6 +292,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, size) {
         final desktop = size.maxWidth >= 900;
+        final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
         final expandedRail = size.maxWidth >= 1350;
         final workspace = widget.index == 1 || widget.index == 2;
         return Scaffold(
@@ -253,26 +301,31 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             if (desktop) _sidebar(expandedRail),
             Expanded(
                 child: Column(children: [
-              _header(desktop),
+              if (desktop || !keyboard) _header(desktop),
               Expanded(
-                  child: workspace && widget.report != null
-                      ? _report(desktop)
-                      : SingleChildScrollView(
-                          padding: EdgeInsets.all(desktop ? 24 : 16),
-                          child: Align(
-                              alignment: Alignment.topCenter,
-                              child: ConstrainedBox(
-                                constraints:
-                                    const BoxConstraints(maxWidth: 1440),
-                                child: widget.index == 3
-                                    ? _settings()
-                                    : workspace
-                                        ? _empty()
-                                        : _upload(),
-                              )))),
+                  child: IndexedStack(
+                      index: workspace && widget.report != null ? 0 : 1,
+                      children: [
+                    if (widget.report != null)
+                      _report(desktop)
+                    else
+                      const SizedBox(),
+                    SingleChildScrollView(
+                        padding: EdgeInsets.all(desktop ? 24 : 16),
+                        child: Align(
+                            alignment: Alignment.topCenter,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1440),
+                              child: widget.index == 3
+                                  ? _settings()
+                                  : workspace
+                                      ? _empty()
+                                      : _upload(),
+                            ))),
+                  ])),
             ])),
           ])),
-          bottomNavigationBar: desktop
+          bottomNavigationBar: desktop || keyboard
               ? null
               : NavigationBar(
                   height: 62,
@@ -311,10 +364,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: Tooltip(
+                  excludeFromSemantics: true,
                   message: _labels[i],
                   child: Material(
                     color: (widget.index == i || i == 1 && widget.index == 2)
-                        ? ReportPalette.burgundy
+                        ? ReportPalette.rose
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                     child: InkWell(
@@ -322,29 +376,53 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                       onTap: () => widget.onNavigate(i),
                       child: Padding(
                           padding: EdgeInsets.symmetric(
-                              horizontal: expanded ? 14 : 0, vertical: 16),
-                          child: Row(
-                              mainAxisAlignment: expanded
-                                  ? MainAxisAlignment.start
-                                  : MainAxisAlignment.center,
-                              children: [
-                                Icon(_icons[i],
-                                    size: 22,
-                                    color: widget.index == i
-                                        ? Colors.white
-                                        : ReportPalette.muted),
-                                if (expanded) ...[
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                      child: Text(_labels[i],
+                              horizontal: expanded ? 14 : 0,
+                              vertical: expanded ? 16 : 11),
+                          child: expanded
+                              ? Row(
+                                  mainAxisAlignment: expanded
+                                      ? MainAxisAlignment.start
+                                      : MainAxisAlignment.center,
+                                  children: [
+                                      Icon(_icons[i],
+                                          size: 22,
+                                          color: widget.index == i
+                                              ? ReportPalette.burgundy
+                                              : ReportPalette.muted),
+                                      if (expanded) ...[
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                            child: Text(_labels[i],
+                                                style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: widget.index == i
+                                                        ? ReportPalette.burgundy
+                                                        : ReportPalette.ink)))
+                                      ],
+                                    ])
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                      Icon(_icons[i],
+                                          size: 22,
+                                          color: widget.index == i
+                                              ? ReportPalette.burgundy
+                                              : ReportPalette.muted),
+                                      const SizedBox(height: 5),
+                                      Text(
+                                          i == 0
+                                              ? 'Upload'
+                                              : i == 1
+                                                  ? 'Report'
+                                                  : 'Settings',
                                           style: TextStyle(
-                                              fontSize: 14,
+                                              fontSize: 10,
                                               fontWeight: FontWeight.w600,
                                               color: widget.index == i
-                                                  ? Colors.white
-                                                  : ReportPalette.ink)))
-                                ],
-                              ])),
+                                                  ? ReportPalette.burgundy
+                                                  : ReportPalette.muted)),
+                                    ])),
                     ),
                   )),
             ),
@@ -414,6 +492,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
       ));
 
   Widget _report(bool desktop) => LayoutBuilder(builder: (context, size) {
+        final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
         final rows = _rows;
         final counts = reportComparisonCounts(widget.report!);
         final partial = reportQualityState(widget.report!) == 'partial';
@@ -486,7 +565,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 _surface(const Center(
                     child: Text(
                         'Upload the original document to view its source.'))));
-        if (desktop)
+        if (desktop) {
           return Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
@@ -499,63 +578,135 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                             child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                              Expanded(child: source),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                    if (widget.voicePanel != null)
-                                      ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                              maxHeight:
-                                                  (size.maxHeight - 140) * .58),
-                                          child: widget.voicePanel!),
-                                    const SizedBox(height: 12),
-                                    Expanded(child: _measurements()),
-                                  ])),
+                              Expanded(flex: 52, child: source),
+                              const SizedBox(width: 16),
+                              Expanded(flex: 48, child: _reportCompanion()),
                             ])),
                       ]))));
+        }
         return Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: Column(children: [
-              toolbar,
+              if (!keyboard && _mobileView != 'conversation') toolbar,
               SizedBox(
                   width: double.infinity,
-                  child: SegmentedButton<bool>(
+                  child: SegmentedButton<String>(
                       showSelectedIcon: false,
+                      style: SegmentedButton.styleFrom(
+                          selectedBackgroundColor: ReportPalette.sageLight,
+                          selectedForegroundColor: ReportPalette.sage,
+                          backgroundColor: Colors.white,
+                          foregroundColor: ReportPalette.muted,
+                          textStyle: const TextStyle(fontSize: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 8)),
                       segments: [
                         ButtonSegment(
-                            value: true,
-                            icon: const Icon(Icons.description_outlined,
-                                size: 17),
-                            label: Text(_copy('Original report', 'मूल रिपोर्ट',
-                                'Informe original', '原始报告'))),
+                            value: 'report',
+                            label: Text(
+                                _copy('Report', 'रिपोर्ट', 'Informe', '报告'))),
                         ButtonSegment(
-                            value: false,
-                            icon: const Icon(Icons.format_list_bulleted_rounded,
-                                size: 17),
-                            label: Text(_copy('Measurements', 'जांच के नतीजे',
-                                'Resultados', '检测结果'))),
+                            value: 'results',
+                            label: Text(
+                                _copy('Results', 'नतीजे', 'Resultados', '结果'))),
+                        ButtonSegment(
+                            value: 'conversation',
+                            label: Text(_copy('Conversation', 'बातचीत',
+                                'Conversación', '对话'))),
                       ],
-                      selected: {_mobileSource},
+                      selected: {_mobileView},
                       onSelectionChanged: (s) =>
-                          setState(() => _mobileSource = s.first))),
+                          setState(() => _mobileView = s.first))),
               const SizedBox(height: 10),
               Expanded(
                   child: IndexedStack(
-                      index: _mobileSource ? 0 : 1,
-                      children: [source, _measurements()])),
-              const SizedBox(height: 10),
-              if (widget.voicePanel != null)
-                ConstrainedBox(
-                    constraints: BoxConstraints(
-                        maxHeight:
-                            (size.maxHeight * .52).clamp(260, 400).toDouble()),
-                    child: widget.voicePanel!),
+                      index: ['report', 'results', 'conversation']
+                          .indexOf(_mobileView),
+                      children: [
+                    source,
+                    _measurements(),
+                    if (_mobileView == 'conversation')
+                      _surface(
+                          widget.voicePanelBuilder
+                                  ?.call(true, _openConversation) ??
+                              const SizedBox(),
+                          padding: EdgeInsets.zero)
+                    else
+                      const SizedBox(),
+                  ])),
+              if (_mobileView != 'conversation' &&
+                  widget.voicePanelBuilder != null) ...[
+                const SizedBox(height: 10),
+                _surface(widget.voicePanelBuilder!(false, _openConversation),
+                    padding: EdgeInsets.zero),
+              ],
             ]));
       });
+
+  Widget _reportCompanion() => _surface(
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(children: [
+            _companionTab(false, _copy('Results', 'नतीजे', 'Resultados', '结果'),
+                Icons.format_list_bulleted_rounded),
+            const SizedBox(width: 22),
+            _companionTab(
+                true,
+                _copy('Conversation', 'बातचीत', 'Conversación', '对话'),
+                Icons.graphic_eq_rounded),
+          ]),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (!_conversation) Expanded(child: _measurements(embedded: true)),
+            if (widget.voicePanelBuilder != null)
+              if (_conversation)
+                Expanded(
+                    child: widget.voicePanelBuilder!(true, _openConversation))
+              else ...[
+                const Divider(height: 1),
+                widget.voicePanelBuilder!(false, _openConversation),
+              ],
+          ]),
+        ),
+      ]),
+      padding: EdgeInsets.zero);
+
+  Widget _companionTab(bool conversation, String title, IconData icon) =>
+      Semantics(
+        button: true,
+        selected: _conversation == conversation,
+        child: InkWell(
+          onTap: () => setState(() => _conversation = conversation),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+                border: Border(
+                    bottom: BorderSide(
+                        color: _conversation == conversation
+                            ? ReportPalette.burgundy
+                            : Colors.transparent,
+                        width: 2))),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon,
+                  size: 19,
+                  color: _conversation == conversation
+                      ? ReportPalette.burgundy
+                      : ReportPalette.muted),
+              const SizedBox(width: 8),
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: _conversation == conversation
+                          ? ReportPalette.ink
+                          : ReportPalette.muted)),
+            ]),
+          ),
+        ),
+      );
 
   Widget _filterChip(String value, String label) => FilterChip(
         label: Text(label,
@@ -573,7 +724,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       );
 
-  Widget _measurements() {
+  Widget _measurements({bool embedded = false}) {
     final rows = _rows;
     final visible = rows
         .where((r) =>
@@ -584,120 +735,114 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             measurementMatchesFilter(r, _filter))
         .toList();
     final groups = groupMeasurementsByBodySystem(visible);
-    return _surface(
+    final content =
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
-              child: Row(children: [
-                Expanded(
-                    child: _showSearch
-                        ? TextField(
-                            controller: _searchController,
-                            autofocus: true,
-                            onChanged: (value) =>
-                                setState(() => _query = value),
-                            style: const TextStyle(fontSize: 14),
-                            decoration: InputDecoration(
-                                hintText: _copy(
-                                    'Find a test',
-                                    'जांच का नाम खोजें',
-                                    'Buscar una prueba',
-                                    '搜索检测项目'),
-                                isDense: true,
-                                filled: true,
-                                fillColor: ReportPalette.ground,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 10),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide.none)))
-                        : Text(
-                            _copy('Measurements', 'जांच के नतीजे', 'Resultados',
-                                '检测结果'),
-                            style: const TextStyle(
-                                fontSize: 19, fontWeight: FontWeight.w700))),
-                const SizedBox(width: 8),
-                Text(
-                    '${visible.length}${visible.length == rows.length ? '' : ' / ${rows.length}'}',
-                    style: const TextStyle(
-                        fontSize: 14, color: ReportPalette.muted)),
-                IconButton(
-                    tooltip: _showSearch ? 'Close search' : 'Find a test',
-                    onPressed: () => setState(() {
-                          _showSearch = !_showSearch;
-                          if (!_showSearch) {
-                            _query = '';
-                            _searchController.clear();
-                          }
-                        }),
-                    icon: Icon(
-                        _showSearch
-                            ? Icons.close_rounded
-                            : Icons.search_rounded,
-                        size: 21)),
-                PopupMenuButton<String>(
-                    tooltip: 'Filter measurements',
-                    initialValue: _filter,
-                    onSelected: _setFilter,
-                    icon: const Icon(Icons.filter_list_rounded, size: 20),
-                    itemBuilder: (_) => [
-                          for (final entry in {
-                            'all': 'All results',
-                            'flagged': 'Flagged results',
-                            'normal': 'Within range',
-                            'unclassified': 'Unclassified',
-                            'review': 'Needs review'
-                          }.entries)
-                            PopupMenuItem(
-                                value: entry.key, child: Text(entry.value)),
-                        ]),
-              ])),
-          if (widget.reviewSaving) const LinearProgressIndicator(minHeight: 2),
-          if (widget.reviewError != null)
-            Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(widget.reviewError!,
-                    style: const TextStyle(color: ReportPalette.burgundy))),
-          const Divider(height: 1, thickness: 1, color: ReportPalette.border),
-          Expanded(
-              child: ListView(
-                  controller: _measurementsScroll,
-                  clipBehavior: Clip.hardEdge,
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                  children: [
-                if (rows.isEmpty)
-                  Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                                'The report text is available. Its results have not been mapped into individual measurements yet.',
-                                style: TextStyle(fontSize: 16)),
-                            const SizedBox(height: 10),
-                            const Text(
-                                'The assistant can explain the text, but cannot point to a measurement until it is mapped.',
-                                style: TextStyle(
-                                    fontSize: 14, color: ReportPalette.muted)),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                                onPressed: _busy ? null : widget.onReextract,
-                                icon:
-                                    const Icon(Icons.document_scanner_outlined),
-                                label: const Text('Read results again')),
-                          ])),
-                if (rows.isNotEmpty && visible.isEmpty)
-                  const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text('No measurements match this filter.')),
-                for (final group in groups.entries) ...[
-                  _systemHeader(group.key, group.value.length),
-                  for (final row in group.value) _measurement(row),
-                ],
-                if (rows.isNotEmpty) _doctorQuestions(rows),
-              ])),
-        ]),
-        padding: EdgeInsets.zero);
+      Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
+          child: Row(children: [
+            Expanded(
+                child: _showSearch
+                    ? TextField(
+                        controller: _searchController,
+                        autofocus: true,
+                        onChanged: (value) => setState(() => _query = value),
+                        style: const TextStyle(fontSize: 14),
+                        decoration: InputDecoration(
+                            hintText: _copy('Find a test', 'जांच का नाम खोजें',
+                                'Buscar una prueba', '搜索检测项目'),
+                            isDense: true,
+                            filled: true,
+                            fillColor: ReportPalette.ground,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 10),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none)))
+                    : Text(
+                        _copy('Measurements', 'जांच के नतीजे', 'Resultados',
+                            '检测结果'),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600))),
+            const SizedBox(width: 8),
+            Text(
+                '${visible.length}${visible.length == rows.length ? '' : ' / ${rows.length}'}',
+                style:
+                    const TextStyle(fontSize: 14, color: ReportPalette.muted)),
+            IconButton(
+                tooltip: _showSearch ? 'Close search' : 'Find a test',
+                onPressed: () => setState(() {
+                      _showSearch = !_showSearch;
+                      if (!_showSearch) {
+                        _query = '';
+                        _searchController.clear();
+                      }
+                    }),
+                icon: Icon(
+                    _showSearch ? Icons.close_rounded : Icons.search_rounded,
+                    size: 21)),
+            PopupMenuButton<String>(
+                tooltip: 'Filter measurements',
+                initialValue: _filter,
+                onSelected: _setFilter,
+                icon: const Icon(Icons.filter_list_rounded, size: 20),
+                itemBuilder: (_) => [
+                      for (final entry in {
+                        'all': 'All results',
+                        'flagged': 'Flagged results',
+                        'normal': 'Within range',
+                        'unclassified': 'Unclassified',
+                        'review': 'Needs review'
+                      }.entries)
+                        PopupMenuItem(
+                            value: entry.key, child: Text(entry.value)),
+                    ]),
+          ])),
+      if (widget.reviewSaving) const LinearProgressIndicator(minHeight: 2),
+      if (widget.reviewError != null)
+        Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(widget.reviewError!,
+                style: const TextStyle(color: ReportPalette.burgundy))),
+      const Divider(height: 1, thickness: 1, color: ReportPalette.border),
+      Expanded(
+          child: ListView(
+              key: const PageStorageKey('report-measurements'),
+              controller: _measurementsScroll,
+              clipBehavior: Clip.hardEdge,
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              children: [
+            if (rows.isEmpty)
+              Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                            'The report text is available. Its results have not been mapped into individual measurements yet.',
+                            style: TextStyle(fontSize: 16)),
+                        const SizedBox(height: 10),
+                        const Text(
+                            'The assistant can explain the text, but cannot point to a measurement until it is mapped.',
+                            style: TextStyle(
+                                fontSize: 14, color: ReportPalette.muted)),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                            onPressed: _busy ? null : widget.onReextract,
+                            icon: const Icon(Icons.document_scanner_outlined),
+                            label: const Text('Read results again')),
+                      ])),
+            if (rows.isNotEmpty && visible.isEmpty)
+              const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No measurements match this filter.')),
+            for (final group in groups.entries) ...[
+              _systemHeader(group.key, group.value.length),
+              for (final row in group.value) _measurement(row),
+            ],
+            if (rows.isNotEmpty) _doctorQuestions(rows),
+          ])),
+    ]);
+    return embedded ? content : _surface(content, padding: EdgeInsets.zero);
   }
 
   String get _languageCode => switch (widget.language) {
@@ -775,8 +920,9 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                     child: Text(row['test_name'].toString(),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                            fontSize: 15,
+                                        style: TextStyle(
+                                            fontSize:
+                                                widget.largeText ? 17 : 15,
                                             height: 1.35,
                                             fontWeight: FontWeight.w700)))),
                             const SizedBox(width: 8),
@@ -793,8 +939,9 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                         borderRadius: BorderRadius.circular(6)),
                                     child: Text(
                                         '${row['value']} ${row['unit'] ?? ''}',
-                                        style: const TextStyle(
-                                            fontSize: 15,
+                                        style: TextStyle(
+                                            fontSize:
+                                                widget.largeText ? 17 : 15,
                                             fontWeight: FontWeight.w700)))),
                           ]),
                       const SizedBox(height: 2),
@@ -825,8 +972,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                         'Ref: ${reference.isEmpty ? 'Not printed' : reference}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                            fontSize: 12,
+                                        style: TextStyle(
+                                            fontSize: widget.largeText ? 14 : 12,
                                             color: ReportPalette.muted))))),
                         const SizedBox(width: 6),
                         Container(
@@ -844,7 +991,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                     color: color))),
                         IconButton(
                             tooltip: 'Listen to ${row['test_name']}',
-                            onPressed: () => _chooseMeasurement(id),
+                            onPressed: () =>
+                                _chooseMeasurement(id, listen: true),
                             icon:
                                 const Icon(Icons.volume_up_outlined, size: 19),
                             style: IconButton.styleFrom(
@@ -1123,43 +1271,391 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             icon: const Icon(Icons.upload_file_outlined),
             label: const Text('Add a report'))
       ]));
-  Widget _settings() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        const Text('Your preferences',
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 12),
-        const Text(
-            'Change your explanation language in the header, on any screen.',
-            style: TextStyle(color: ReportPalette.muted)),
-        const SizedBox(height: 28),
-        if (widget.report != null)
-          _surface(
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Saved on this browser',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            Text(widget.fileName ?? 'Your current report'),
+  Widget _settings() => Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const SizedBox(height: 8),
-            const Text(
-                'Your report and corrections stay available after a refresh. Clear them when using a shared device.',
-                style: TextStyle(color: ReportPalette.muted)),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-                onPressed: _busy ? null : widget.onClearSavedReport,
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('Clear saved report'))
-          ])),
-        const SizedBox(height: 20),
-        _surface(const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            Text(
+                _copy('App settings & data', 'ऐप सेटिंग्स और डेटा',
+                    'Configuración y datos', '应用设置与数据'),
+                style: const TextStyle(
+                    fontSize: 28, height: 1.3, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+                _copy(
+                    'Manage voice playback, reading size, and this browser’s report.',
+                    'आवाज़, पढ़ने के आकार और इस ब्राउज़र की रिपोर्ट की सेटिंग्स चुनें।',
+                    'Gestiona la voz, el tamaño de lectura y el informe de este navegador.',
+                    '管理语音播放、阅读字号和此浏览器中的报告。'),
+                style: const TextStyle(
+                    fontSize: 15, height: 1.6, color: ReportPalette.muted)),
+            const SizedBox(height: 24),
+            _surface(
+                Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _settingsHeading(_copy(
+                          'Voice & reading preferences',
+                          'आवाज़ और पढ़ने की पसंद',
+                          'Voz y lectura',
+                          '语音与阅读偏好')),
+                      _settingsRow(
+                          Icons.translate_rounded,
+                          _copy('Explanation language', 'समझाने की भाषा',
+                              'Idioma de explicación', '讲解语言'),
+                          _copy(
+                              'Change it for the whole app using the selector in the top bar.',
+                              'ऊपर भाषा चुनें। यह पूरी ऐप में लागू होगी।',
+                              'Cámbialo para toda la aplicación en la barra superior.',
+                              '在顶部选择器中更改整个应用的语言。'),
+                          trailing: Text(
+                              widget.languages.firstWhere((entry) =>
+                                  entry['name'] == widget.language)['native']!,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: ReportPalette.sage))),
+                      const Divider(height: 1, indent: 20, endIndent: 20),
+                      _preferenceChoices(
+                          Icons.slow_motion_video_rounded,
+                          _copy(
+                              'Default voice speed',
+                              'आवाज़ की सामान्य रफ़्तार',
+                              'Velocidad de voz',
+                              '默认语速'),
+                          _copy(
+                              'Applied to each new spoken answer.',
+                              'हर नए जवाब पर लागू होगी।',
+                              'Se aplica a cada respuesta hablada.',
+                              '应用于每次新的语音回答。'),
+                          SegmentedButton<double>(
+                              showSelectedIcon: false,
+                              style: _preferenceStyle,
+                              segments: [
+                                ButtonSegment(
+                                    value: 1,
+                                    label: Text(_copy(
+                                        'Normal · 1×',
+                                        'सामान्य · 1×',
+                                        'Normal · 1×',
+                                        '正常 · 1×'))),
+                                ButtonSegment(
+                                    value: .85,
+                                    label: Text(_copy(
+                                        'Slower · 0.85×',
+                                        'धीरे · 0.85×',
+                                        'Lenta · 0.85×',
+                                        '较慢 · 0.85×'))),
+                              ],
+                              selected: {widget.voiceRate},
+                              onSelectionChanged: _busy
+                                  ? null
+                                  : (values) =>
+                                      widget.onVoiceRate?.call(values.first))),
+                      const Divider(height: 1, indent: 20, endIndent: 20),
+                      _settingsRow(
+                          Icons.volume_up_outlined,
+                          _copy(
+                              'Play explanations automatically',
+                              'जवाब अपने आप सुनाएं',
+                              'Reproducir explicaciones automáticamente',
+                              '自动播放讲解'),
+                          _copy(
+                              'Speak when a result is selected. With this off, read first; Listen and spoken questions still play audio.',
+                              'नतीजा चुनने पर आवाज़ चलेगी। बंद होने पर पहले पढ़ें; सुनें बटन और बोलकर पूछे सवाल आवाज़ चलाएंगे।',
+                              'Hablar al seleccionar un resultado. Si lo desactivas, lee primero; Escuchar y las preguntas por voz siguen reproduciendo audio.',
+                              '选择结果后自动讲解。关闭后可先阅读，收听按钮和语音提问仍播放音频。'),
+                          trailing: Semantics(
+                              label: 'Play explanations automatically',
+                              child: Switch.adaptive(
+                                  value: widget.speechEnabled,
+                                  activeTrackColor: ReportPalette.sage,
+                                  onChanged:
+                                      _busy ? null : widget.onSpeechEnabled))),
+                      const Divider(height: 1, indent: 20, endIndent: 20),
+                      _preferenceChoices(
+                          Icons.text_fields_rounded,
+                          _copy(
+                              'Reading text size',
+                              'पढ़ने के लिए अक्षर का आकार',
+                              'Tamaño de lectura',
+                              '阅读字号'),
+                          _copy(
+                              'Changes result values and explanations. Use the report zoom for the original document.',
+                              'नतीजे और जवाब के अक्षर बदलेंगे। मूल रिपोर्ट के लिए ज़ूम इस्तेमाल करें।',
+                              'Cambia resultados y explicaciones. Usa el zoom para el documento original.',
+                              '调整结果数值和讲解文字，原始文档请使用缩放。'),
+                          SegmentedButton<bool>(
+                              showSelectedIcon: false,
+                              style: _preferenceStyle,
+                              segments: [
+                                ButtonSegment(
+                                    value: false,
+                                    label: Text(_copy('Standard', 'सामान्य',
+                                        'Estándar', '标准'))),
+                                ButtonSegment(
+                                    value: true,
+                                    label: Text(_copy('Large text',
+                                        'बड़े अक्षर', 'Texto grande', '大字'))),
+                              ],
+                              selected: {widget.largeText},
+                              onSelectionChanged: _busy
+                                  ? null
+                                  : (values) =>
+                                      widget.onLargeText?.call(values.first))),
+                      const Divider(height: 1),
+                      _settingsHeading(_copy('Stored report',
+                          'सेव की गई रिपोर्ट', 'Informe guardado', '已保存的报告')),
+                      _settingsRow(
+                          Icons.description_outlined,
+                          widget.report == null
+                              ? _copy(
+                                  'No saved report',
+                                  'कोई रिपोर्ट सेव नहीं है',
+                                  'No hay informe guardado',
+                                  '没有已保存的报告')
+                              : (widget.fileName ?? 'Your report'),
+                          widget.report == null
+                              ? _copy(
+                                  'Add a medical report to start a conversation.',
+                                  'बातचीत शुरू करने के लिए मेडिकल रिपोर्ट जोड़ें।',
+                                  'Añade un informe médico para empezar.',
+                                  '添加医疗报告以开始对话。')
+                              : _storedReportDetails()),
+                      if (widget.storageError != null)
+                        Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                            child: Text(widget.storageError!,
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    color: ReportPalette.burgundy))),
+                      Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (widget.report != null) ...[
+                                  Text(
+                                      _copy(
+                                          'Clear the saved report after using a shared device. Downloaded files are kept.',
+                                          'साझा डिवाइस पर काम के बाद सेव रिपोर्ट हटाएं। डाउनलोड की गई फाइलें रहेंगी।',
+                                          'Borra el informe tras usar un dispositivo compartido. Los archivos descargados se conservan.',
+                                          '使用共用设备后请清除保存的报告，已下载的文件会保留。'),
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          height: 1.6,
+                                          color: ReportPalette.muted)),
+                                  const SizedBox(height: 14),
+                                ],
+                                Wrap(spacing: 10, runSpacing: 10, children: [
+                                  OutlinedButton.icon(
+                                      onPressed: () => widget.onNavigate(
+                                          widget.report == null ? 0 : 1),
+                                      icon: Icon(widget.report == null ? Icons.upload_file_outlined : Icons.space_dashboard_outlined,
+                                          size: 18),
+                                      label: Text(widget.report == null
+                                          ? _copy(
+                                              'Add a report',
+                                              'रिपोर्ट जोड़ें',
+                                              'Añadir informe',
+                                              '添加报告')
+                                          : _copy(
+                                              'Return to workspace',
+                                              'रिपोर्ट पर वापस जाएं',
+                                              'Volver al informe',
+                                              '返回报告工作区')),
+                                      style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(44, 44),
+                                          textStyle: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600))),
+                                  if (widget.report != null)
+                                    TextButton.icon(
+                                        onPressed: _busy
+                                            ? null
+                                            : _confirmClearSavedReport,
+                                        icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 18),
+                                        label: Text(_copy(
+                                            'Clear saved report',
+                                            'सेव रिपोर्ट हटाएं',
+                                            'Borrar informe guardado',
+                                            '清除已保存的报告')),
+                                        style: TextButton.styleFrom(
+                                            foregroundColor:
+                                                ReportPalette.burgundy,
+                                            minimumSize: const Size(44, 44),
+                                            textStyle: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600))),
+                                ]),
+                              ])),
+                      const Divider(height: 1),
+                      _settingsHeading(_copy(
+                          'About & clinical disclaimer',
+                          'ऐप और स्वास्थ्य संबंधी जानकारी',
+                          'Acerca de la aplicación y aviso clínico',
+                          '关于与医疗声明')),
+                      Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                    _copy(
+                                        'Medivaanii explains the words and numbers in medical reports. It is an educational aid, not a diagnosis. Discuss results and medication with your doctor.',
+                                        'Medivaanii मेडिकल रिपोर्ट के शब्द और नंबर समझाता है। यह जानकारी देने में मदद है, निदान नहीं। नतीजों और दवाओं पर डॉक्टर से बात करें।',
+                                        'Medivaanii explica las palabras y cifras de informes médicos. Es una ayuda educativa, no un diagnóstico. Consulta los resultados y medicamentos con tu médico.',
+                                        'Medivaanii解释医疗报告中的词语和数值，是教育辅助工具，不提供诊断。请与医生讨论结果及用药。'),
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        height: 1.7,
+                                        color: ReportPalette.muted)),
+                                const SizedBox(height: 14),
+                                Text(
+                                    _copy(
+                                        'Processing & privacy',
+                                        'प्रोसेसिंग और निजता',
+                                        'Procesamiento y privacidad',
+                                        '处理与隐私'),
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 6),
+                                Text(
+                                    _copy(
+                                        'Report content and voice questions are processed by Groq. Spoken answers use Microsoft Edge neural speech, or Sarvam when enabled.',
+                                        'रिपोर्ट और आवाज़ के सवाल Groq पर प्रोसेस होते हैं। जवाब Microsoft Edge neural speech से, या चालू होने पर Sarvam से सुनाए जाते हैं।',
+                                        'Groq procesa informes y preguntas por voz. Las respuestas usan Microsoft Edge neural speech o Sarvam cuando está habilitado.',
+                                        'Groq处理报告内容和语音提问，Microsoft Edge神经语音或已启用的Sarvam生成语音回答。'),
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        height: 1.7,
+                                        color: ReportPalette.muted)),
+                                const SizedBox(height: 16),
+                                const Text('Medivaanii · v1.0.0 · MVP',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: ReportPalette.muted)),
+                              ])),
+                    ]),
+                padding: EdgeInsets.zero),
+            const SizedBox(height: 24),
+          ]),
+        ),
+      );
+
+  ButtonStyle get _preferenceStyle => SegmentedButton.styleFrom(
+      selectedBackgroundColor: ReportPalette.sageLight,
+      selectedForegroundColor: ReportPalette.sage,
+      backgroundColor: Colors.white,
+      foregroundColor: ReportPalette.muted,
+      minimumSize: const Size(44, 42),
+      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600));
+
+  Widget _settingsHeading(String title) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+      child: Text(title,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)));
+
+  Widget _preferenceChoices(
+          IconData icon, String title, String description, Widget control) =>
+      LayoutBuilder(builder: (context, size) {
+        if (size.maxWidth >= 600) {
+          return _settingsRow(icon, title, description,
+              trailing: SizedBox(width: 248, child: control));
+        }
+        return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Brand(),
-              SizedBox(height: 18),
-              Text(
-                  'Medivaanii helps you understand the words and numbers in a medical report. Your doctor can interpret them with your symptoms and history.',
-                  style: TextStyle(fontSize: 16, height: 1.6))
-            ])),
-      ]);
+              _settingsRow(icon, title, description),
+              Padding(
+                  padding: const EdgeInsets.fromLTRB(55, 0, 20, 20),
+                  child: control),
+            ]);
+      });
+
+  String _storedReportDetails() {
+    final parts = <String>[
+      _copy('${_rows.length} measurements', '${_rows.length} नतीजे',
+          '${_rows.length} resultados', '${_rows.length}项检测'),
+      if (widget.pageCount != null)
+        _copy('${widget.pageCount} pages', '${widget.pageCount} पन्ने',
+            '${widget.pageCount} páginas', '${widget.pageCount}页'),
+      widget.storageError == null
+          ? _copy('Saved on this browser', 'इस ब्राउज़र में सेव है',
+              'Guardado en este navegador', '保存在此浏览器中')
+          : _copy('Available in this tab', 'इस टैब में उपलब्ध है',
+              'Disponible en esta pestaña', '此标签页中可用'),
+    ];
+    final date = widget.uploadedAt?.toLocal();
+    if (date != null) {
+      parts.add(_copy(
+          'Added ${date.day}/${date.month}/${date.year}',
+          'जोड़ा गया ${date.day}/${date.month}/${date.year}',
+          'Añadido ${date.day}/${date.month}/${date.year}',
+          '添加于 ${date.year}/${date.month}/${date.day}'));
+    }
+    return parts.join(' · ');
+  }
+
+  Widget _settingsRow(IconData icon, String title, String description,
+          {Widget? trailing}) =>
+      Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, size: 21, color: ReportPalette.muted),
+            const SizedBox(width: 14),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.5,
+                          fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 5),
+                  Text(description,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.65,
+                          color: ReportPalette.muted)),
+                ])),
+            if (trailing != null) ...[const SizedBox(width: 12), trailing],
+          ]));
+
+  Future<void> _confirmClearSavedReport() async {
+    final clear = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: Text(_copy(
+                  'Clear this browser’s report?',
+                  'इस ब्राउज़र की रिपोर्ट हटाएं?',
+                  '¿Borrar el informe de este navegador?',
+                  '清除此浏览器中的报告？')),
+              content: Text(_copy(
+                  'This removes the saved document and corrections from this browser. Files you have downloaded are kept.',
+                  'इस ब्राउज़र से सेव रिपोर्ट और सुधार हट जाएंगे। डाउनलोड की हुई फाइलें रहेंगी।',
+                  'Se eliminarán el documento y las correcciones guardados en este navegador. Los archivos descargados se conservan.',
+                  '这将移除此浏览器保存的文档和更正，已下载的文件会保留。')),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(_copy(
+                        'Keep report', 'रिपोर्ट रखें', 'Conservar', '保留报告'))),
+                FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text(_copy('Clear report', 'रिपोर्ट हटाएं',
+                        'Borrar informe', '清除报告')))
+              ],
+            ));
+    if (clear == true && mounted) widget.onClearSavedReport?.call();
+  }
 }
 
 class _Brand extends StatelessWidget {

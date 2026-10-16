@@ -75,6 +75,11 @@ class _HomePageState extends State<HomePage> {
   int _voiceExplanationRequest = 0;
   int _voiceExplanationHandled = 0;
   String? _voiceExplanationMeasurement;
+  bool _voiceExplanationAudio = false;
+  double _voiceRate = 1;
+  bool _largeReadingText = false;
+  int? _sourcePageCount;
+  DateTime? _uploadedAt;
   final _voicePanelKey = GlobalKey();
   StreamSubscription<html.MouseEvent>? _dropOver, _dropLeave, _dropFile;
   bool _dragging = false;
@@ -110,6 +115,15 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    try {
+      _ttsEnabled = html.window.localStorage['medivaanii-autoplay'] != 'false';
+      _voiceRate =
+          html.window.localStorage['medivaanii-voice-rate'] == '0.85' ? .85 : 1;
+      _largeReadingText =
+          html.window.localStorage['medivaanii-large-text'] == 'true';
+    } catch (_) {
+      /* Preferences still work for this visit if storage is blocked. */
+    }
     _initTts();
     _restoreReport();
     _dropOver = html.document.onDragOver.listen((event) {
@@ -150,6 +164,14 @@ class _HomePageState extends State<HomePage> {
     try {
       final data = jsonDecode(message);
       if (data is! Map) return;
+      if (data['type'] == 'medivaanii-document-metadata' &&
+          data['page_count'] is int &&
+          data['page_count'] > 0) {
+        if (_sourcePageCount != data['page_count']) {
+          setState(() => _sourcePageCount = data['page_count'] as int);
+          _saveReport();
+        }
+      }
       if (data['type'] == 'medivaanii-explorer-ready') {
         _sendExplorerSource();
         _sendExplorerReport();
@@ -210,7 +232,7 @@ class _HomePageState extends State<HomePage> {
     _sendExplorerReport();
   }
 
-  void _selectMeasurement(String id, bool speak) {
+  void _selectMeasurement(String id, bool speak, {bool forceAudio = false}) {
     if (_reportData == null) return;
     final matches = workspaceMeasurements(_reportData)
         .where((row) => row['measurement_id'] == id);
@@ -224,6 +246,7 @@ class _HomePageState extends State<HomePage> {
       if (speak) {
         _voiceExplanationRequest++;
         _voiceExplanationMeasurement = id;
+        _voiceExplanationAudio = forceAudio;
       }
     });
     _sendExplorerReport();
@@ -284,6 +307,9 @@ class _HomePageState extends State<HomePage> {
       _fileName = snapshot['filename'] as String?;
       _viewerRevision = (snapshot['viewer_revision'] as num?)?.toInt() ?? 0;
       _setSource(saved.sourceBytes);
+      _sourcePageCount = (snapshot['page_count'] as num?)?.toInt();
+      _uploadedAt =
+          DateTime.tryParse((snapshot['uploaded_at'] ?? '').toString());
       setState(() {
         _reportData = restored;
         final language = snapshot['language'];
@@ -312,7 +338,9 @@ class _HomePageState extends State<HomePage> {
       'filename': _fileName,
       'language': _selectedLanguage,
       'review_open': _reviewOpen,
-      'viewer_revision': _viewerRevision
+      'viewer_revision': _viewerRevision,
+      'page_count': _sourcePageCount,
+      'uploaded_at': _uploadedAt?.toIso8601String(),
     });
     final bytes = _sourceBytes;
     final mime = _sourceMime;
@@ -345,6 +373,8 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _reportData = null;
           _fileName = null;
+          _sourcePageCount = null;
+          _uploadedAt = null;
           _reviewOpen = false;
           _storageError = null;
           _currentIndex = 0;
@@ -424,7 +454,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _sendExplorerReport() {
-    if (!mounted || _reportData == null) return;
+    // A mobile tab or Settings can detach the platform view. Its latest report
+    // is sent by the existing ready/load handlers when the viewer returns.
+    if (!mounted ||
+        _reportData == null ||
+        _explorerFrame?.isConnected != true) {
+      return;
+    }
     _explorerFrame?.contentWindow?.postMessage(
         jsonEncode({
           'type': 'medivaanii-explorer-report',
@@ -825,6 +861,8 @@ class _HomePageState extends State<HomePage> {
       _translationError = null;
       _audioError = null;
       _fileName = fileName;
+      _uploadedAt = DateTime.now();
+      _sourcePageCount = photo ? 1 : null;
       _reviewOpen = true;
       _reviewError = null;
       _loadingMessage = photo ? 'Uploading your photo' : 'Uploading your PDF';
@@ -1326,12 +1364,22 @@ class _HomePageState extends State<HomePage> {
         sourcePreview: _sourcePreview(),
         sourceExplorer: _sourceExplorer(),
         onSelectMeasurement: _selectMeasurement,
+        onListenMeasurement: (id) =>
+            _selectMeasurement(id, true, forceAudio: true),
         onEditMeasurement: _editExplorerResult,
         dragging: _dragging,
-        voicePanel: _reportData == null
+        voiceExplanationRequest: _voiceExplanationRequest,
+        voicePanelBuilder: _reportData == null
             ? null
-            : VoicePanel(
+            : (expanded, onExpand) => VoicePanel(
                 key: _voicePanelKey,
+                expanded: expanded,
+                active: _currentIndex == 1 || _currentIndex == 2,
+                onExpand: onExpand,
+                autoplay: _ttsEnabled,
+                playbackRate: _voiceRate,
+                largeText: _largeReadingText,
+                forceExplanationAudio: _voiceExplanationAudio,
                 explainRequest:
                     _voiceExplanationRequest > _voiceExplanationHandled
                         ? _voiceExplanationRequest
@@ -1389,6 +1437,22 @@ class _HomePageState extends State<HomePage> {
         onDownload: _downloadPdf,
         onRetryTranslation: () => _retranslate(_selectedLanguage),
         speechEnabled: _ttsEnabled,
+        voiceRate: _voiceRate,
+        largeText: _largeReadingText,
+        pageCount: _sourcePageCount,
+        uploadedAt: _uploadedAt,
+        onVoiceRate: (value) {
+          setState(() => _voiceRate = value);
+          try {
+            html.window.localStorage['medivaanii-voice-rate'] = '$value';
+          } catch (_) {}
+        },
+        onLargeText: (value) {
+          setState(() => _largeReadingText = value);
+          try {
+            html.window.localStorage['medivaanii-large-text'] = '$value';
+          } catch (_) {}
+        },
         speaking: _isSpeaking,
         paused: _isPaused,
         activeSpeech: _activeSpeechContent,
@@ -1399,6 +1463,9 @@ class _HomePageState extends State<HomePage> {
         onStop: _stopSpeaking,
         onSpeechEnabled: (enabled) {
           setState(() => _ttsEnabled = enabled);
+          try {
+            html.window.localStorage['medivaanii-autoplay'] = '$enabled';
+          } catch (_) {/* Keep the preference active for this visit. */}
           if (!enabled) _stopSpeaking();
         },
       );

@@ -69,7 +69,7 @@ function makeSelectors() {
   }
 }
 $('#search').oninput=makeSelectors;$('#filter').onchange=makeSelectors;
-$('#show-highlights').onchange=event=>{overlay.hidden=!event.target.checked;};
+$('#show-highlights').onchange=event=>{overlay.classList.toggle('selected-only',!event.target.checked);};
 async function digitalLines(pageNumber) {
   if (pageLines.has(pageNumber)) return pageLines.get(pageNumber);
   const page = await pdf.getPage(pageNumber), viewport = page.getViewport({scale:1});
@@ -329,6 +329,7 @@ async function loadSource(bytes, filename) {
       pageSelect.disabled=false;
     }
     if (version !== sourceVersion)return;
+    if (parent !== window) parent.postMessage(JSON.stringify({type:'medivaanii-document-metadata',page_count:pdf?.numPages || 1}),location.origin);
     const id=selection?.id || report.selected_measurement_id || labs[0]?.measurement_id;
     id?await locateLab(id):await render();
   } catch (_) {

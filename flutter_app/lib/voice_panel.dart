@@ -18,12 +18,23 @@ class VoicePanel extends StatefulWidget {
       required this.apiUrl,
       required this.onCitations,
       required this.onReportId,
+      this.expanded = true,
+      this.active = true,
+      this.autoplay = true,
+      this.playbackRate = 1,
+      this.largeText = false,
+      this.forceExplanationAudio = false,
+      this.onExpand,
       this.explainRequest = 0,
       this.explainMeasurementId,
       this.onExplanationStarted});
   final int explainRequest;
   final String? explainMeasurementId;
   final ValueChanged<int>? onExplanationStarted;
+  final bool expanded, autoplay, active;
+  final double playbackRate;
+  final bool largeText, forceExplanationAudio;
+  final VoidCallback? onExpand;
   final Map<String, dynamic> report;
   final String language;
   final ValueChanged<String> onLanguage;
@@ -36,6 +47,8 @@ class VoicePanel extends StatefulWidget {
 
 class _VoicePanelState extends State<VoicePanel> {
   final _question = TextEditingController();
+  final _answerScroll = ScrollController();
+  String _lastQuestion = '';
   html.MediaRecorder? _recorder;
   html.MediaStream? _stream;
   html.AudioElement? _audio;
@@ -135,12 +148,13 @@ class _VoicePanelState extends State<VoicePanel> {
           .where((row) => row['measurement_id'] == id);
       if (matches.isNotEmpty) {
         widget.onExplanationStarted?.call(request);
-        _explainRow(matches.first);
+        _explainRow(matches.first, forceAudio: widget.forceExplanationAudio);
       }
     });
   }
 
-  Future<void> _explainRow(Map<String, dynamic> row) async {
+  Future<void> _explainRow(Map<String, dynamic> row,
+      {bool forceAudio = false}) async {
     // Do not pair a newly selected organ with the previous test's answer.
     setState(() {
       _answer = '';
@@ -156,7 +170,15 @@ class _VoicePanelState extends State<VoicePanel> {
           'Explica mi resultado de $name con palabras sencillas, su valor y unidad exactos y qué mide la prueba. Compara solo con la referencia del informe.',
       'zh': '请用简单的话解释我的$name检测结果，说明报告中的确切数值、单位和检测用途，只与报告给出的参考范围比较。',
     }[widget.language]!;
-    await _ask(prompt: question);
+    await _ask(
+        prompt: question,
+        displayQuestion: bodyCopy(
+            widget.language,
+            'Explain my $name result',
+            'मेरी $name जांच समझाएं',
+            'Explica mi resultado de $name',
+            '解释我的$name检测结果'),
+        forceAudio: forceAudio);
   }
 
   @override
@@ -166,6 +188,7 @@ class _VoicePanelState extends State<VoicePanel> {
         oldWidget.report['parsed_data'] != widget.report['parsed_data']) {
       _stop(notify: false);
       _answer = '';
+      _lastQuestion = '';
       _citations = [];
       _history.clear();
       _lastAnswer = null;
@@ -174,6 +197,8 @@ class _VoicePanelState extends State<VoicePanel> {
     if (oldWidget.explainRequest != widget.explainRequest) {
       _scheduleExplanation();
     }
+    if (oldWidget.autoplay && !widget.autoplay) _stop(notify: false);
+    if (oldWidget.active && !widget.active) _stop(notify: false);
   }
 
   void _stop({bool notify = true}) {
@@ -199,6 +224,7 @@ class _VoicePanelState extends State<VoicePanel> {
   }
 
   Future<void> _record() async {
+    widget.onExpand?.call();
     _stop();
     final generation = _generation;
     try {
@@ -269,9 +295,16 @@ class _VoicePanelState extends State<VoicePanel> {
     await _ask(audio: bytes);
   }
 
-  Future<void> _ask({Uint8List? audio, String? action, String? prompt}) async {
+  Future<void> _ask(
+      {Uint8List? audio,
+      String? action,
+      String? prompt,
+      String? displayQuestion,
+      bool forceAudio = false}) async {
     final text = prompt ?? _question.text.trim();
     if (audio == null && action == null && text.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    if (action != 'repeat' && action != 'slower') widget.onExpand?.call();
     _stop();
     final generation = _generation;
     final language = widget.language;
@@ -280,6 +313,11 @@ class _VoicePanelState extends State<VoicePanel> {
     setState(() {
       _checking = true;
       _error = null;
+      if (action == null) {
+        _answer = '';
+        _citations = [];
+        _lastQuestion = audio == null ? (displayQuestion ?? text) : '';
+      }
     });
     try {
       final snapshot = reportSnapshot(widget.report);
@@ -346,16 +384,28 @@ class _VoicePanelState extends State<VoicePanel> {
       }
       setState(() {
         _answer = data['spoken_answer'].toString();
+        if (action == null) {
+          _lastQuestion =
+              displayQuestion ?? (data['transcript'] ?? text).toString();
+        }
         _citations = citations;
         _checking = false;
       });
       _question.clear();
       widget.onCitations(citations);
+      if (!widget.autoplay &&
+          !forceAudio &&
+          audio == null &&
+          action != 'repeat' &&
+          action != 'slower') {
+        return;
+      }
       final blob = html.Blob(
           [base64Decode(data['audio_base64'] as String)], 'audio/mpeg');
       _audioUrl = html.Url.createObjectUrlFromBlob(blob);
       final player = html.AudioElement(_audioUrl!)
-        ..playbackRate = (data['playback_rate'] as num).toDouble();
+        ..playbackRate = (data['playback_rate'] as num).toDouble() *
+            (action == 'slower' ? 1 : widget.playbackRate);
       _audio = player;
       player.onEnded.listen((_) {
         if (mounted && generation == _generation) {
@@ -384,21 +434,13 @@ class _VoicePanelState extends State<VoicePanel> {
 
   @override
   Widget build(BuildContext context) {
-    const ink = Color(0xff242c2b),
-        green = Color(0xff3f6050),
-        burgundy = Color(0xffa32e35);
-    final mobile = MediaQuery.sizeOf(context).width < 900;
-    final status = _recording
-        ? _copy[2]
-        : _checking
-            ? _copy[3]
-            : _speaking
-                ? _copy[4]
-                : _copy[1];
+    const ink = Color(0xff242c2b), green = Color(0xff3f6050);
     final rows = {
       for (final row in workspaceMeasurements(widget.report))
         row['measurement_id']: row
     };
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final mobile = MediaQuery.sizeOf(context).width < 900;
     final selected = rows[widget.report['selected_measurement_id']] ??
         (rows.isEmpty ? null : rows.values.first);
     final sentences = _answer
@@ -408,127 +450,154 @@ class _VoicePanelState extends State<VoicePanel> {
     final flagged = reportComparisonCounts(widget.report)['abnormal']!;
     final firstQuestion =
         _history.isEmpty && _answer.isEmpty && !_checking && !_recording;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xffe5e0d8))),
-      child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(children: [
-              const Icon(Icons.graphic_eq_rounded, color: green, size: 23),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text(_copy[0],
-                      style: TextStyle(
-                          fontSize: mobile ? 16 : 18,
-                          fontWeight: FontWeight.w700,
-                          color: ink))),
-              const SizedBox(width: 6),
-              Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                      color: _recording ? burgundy : green,
-                      shape: BoxShape.circle)),
-              const SizedBox(width: 5),
-              ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 100),
-                  child: Text(status,
-                      maxLines: 2,
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: green))),
-            ]),
-            if (selected != null) ...[
-              const SizedBox(height: 10),
-              _selectedResult(selected)
-            ],
-            if (_answer.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Flexible(
-                  fit: FlexFit.loose,
-                  child: Container(
-                    constraints: BoxConstraints(maxHeight: mobile ? 150 : 170),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                        color: const Color(0xfff5f7f3),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: SingleChildScrollView(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                          for (var i = 0; i < sentences.length; i++)
-                            Padding(
-                                padding: EdgeInsets.only(
-                                    bottom: i == sentences.length - 1 ? 0 : 8),
-                                child: Text(sentences[i].trim(),
-                                    style: const TextStyle(
-                                        fontSize: 18,
-                                        height: 1.5,
-                                        color: ink))),
-                        ])),
-                  )),
-            ],
-            if (_citations.length > 1 ||
-                _citations.length == 1 &&
-                    _citations.first != selected?['measurement_id']) ...[
-              const SizedBox(height: 8),
-              ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 54),
-                  child: SingleChildScrollView(
-                      child: Wrap(spacing: 6, runSpacing: 6, children: [
-                    for (final id in _citations)
-                      if (rows[id] != null)
-                        _referenceChip(
-                            rows[id]!, () => widget.onCitations([id]))
-                  ]))),
-            ],
-            if (_error != null)
-              Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(_error!,
-                      style: const TextStyle(
-                          fontSize: 13, color: burgundy, height: 1.4))),
-            if (_answer.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                _control(_copy[8], Icons.replay_rounded, 'repeat'),
-                _control(_copy[9], Icons.slow_motion_video_rounded, 'slower'),
-                _control(_copy[10], Icons.lightbulb_outline_rounded, 'simpler')
+    final status = _recording
+        ? _copy[2]
+        : _checking
+            ? _copy[3]
+            : _speaking
+                ? _copy[4]
+                : _answer.isNotEmpty
+                    ? bodyCopy(widget.language, 'Answer ready', 'जवाब तैयार है',
+                        'Respuesta lista', '回答已就绪')
+                    : _copy[1];
+    final activity = Row(mainAxisSize: MainAxisSize.min, children: [
+      if (_checking)
+        const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 1.5, color: green))
+      else
+        Icon(
+            _speaking || _recording
+                ? Icons.graphic_eq_rounded
+                : Icons.check_circle_outline_rounded,
+            size: 15,
+            color: green),
+      const SizedBox(width: 7),
+      Flexible(
+          child: Text(status,
+              style: const TextStyle(fontSize: 12, color: green, height: 1.4))),
+    ]);
+    if (!widget.expanded) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                Expanded(child: activity),
+                TextButton.icon(
+                    onPressed: widget.onExpand,
+                    icon: const Icon(Icons.open_in_full_rounded, size: 14),
+                    label: Text(
+                        bodyCopy(widget.language, 'Open conversation',
+                            'बातचीत खोलें', 'Abrir conversación', '打开对话'),
+                        style: const TextStyle(fontSize: 12)),
+                    style: TextButton.styleFrom(
+                        minimumSize: const Size(44, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 6))),
               ]),
+              _composer(),
+              if (_error != null) _errorMessage(),
+            ]),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(
+          padding: mobile
+              ? const EdgeInsets.fromLTRB(16, 10, 16, 8)
+              : const EdgeInsets.fromLTRB(20, 14, 20, 12),
+          child: activity),
+      if (selected != null && !keyboard)
+        Padding(
+            padding: mobile
+                ? const EdgeInsets.fromLTRB(16, 0, 16, 12)
+                : const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: _selectedResult(selected)),
+      const Divider(height: 1, color: Color(0xffe5e0d8)),
+      Expanded(
+          child: Scrollbar(
+        controller: _answerScroll,
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _answerScroll,
+          padding: const EdgeInsets.fromLTRB(20, 20, 22, 24),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (_lastQuestion.isNotEmpty) ...[
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.person_outline_rounded,
+                    size: 18, color: Color(0xff626a67)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(_lastQuestion,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xff626a67),
+                            height: 1.5))),
+              ]),
+              const SizedBox(height: 18),
+            ],
+            if (_answer.isNotEmpty)
+              for (var i = 0; i < sentences.length; i++)
+                Padding(
+                    padding: EdgeInsets.only(
+                        bottom: i == sentences.length - 1 ? 0 : 14),
+                    child: Text(sentences[i].trim(),
+                        style: TextStyle(
+                            fontSize: widget.largeText ? 20 : 18,
+                            height: 1.6,
+                            color: ink))),
+            if (_checking) ...[
+              const SizedBox(height: 16),
+              Text(
+                  bodyCopy(
+                      widget.language,
+                      'Preparing a source-backed explanation…',
+                      'रिपोर्ट के आधार पर जवाब तैयार कर रहे हैं…',
+                      'Preparando una explicación basada en tu informe…',
+                      '正在根据报告准备讲解…'),
+                  style: const TextStyle(
+                      fontSize: 15, height: 1.6, color: Color(0xff626a67))),
             ],
             if (firstQuestion) ...[
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: [
+              Text(
+                  bodyCopy(
+                      widget.language,
+                      'What would you like to understand?',
+                      'आप क्या समझना चाहते हैं?',
+                      '¿Qué te gustaría entender?',
+                      '你想了解什么？'),
+                  style: const TextStyle(
+                      fontSize: 20, height: 1.4, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              Text(_copy[11],
+                  style: const TextStyle(
+                      fontSize: 15, height: 1.6, color: Color(0xff626a67))),
+              const SizedBox(height: 20),
+              Wrap(spacing: 8, runSpacing: 8, children: [
                 if (flagged > 0)
                   _starter(
                       bodyCopy(
                           widget.language,
-                          mobile
-                              ? '$flagged flagged results'
-                              : 'Explain my $flagged flagged results',
+                          'Explain my $flagged flagged results',
                           'मेरे $flagged अलग नतीजे समझाएं',
                           'Explicar $flagged resultados señalados',
                           '解释$flagged项异常结果'),
                       () => _ask(
                           prompt:
-                              'Explain up to three of my $flagged flagged results, using their exact numbers and units and only the supplied references. Offer to continue with the others.')),
+                              'Explain up to three of my $flagged flagged results, using their exact numbers and units and only the supplied references. Offer to continue with the others.',
+                          displayQuestion: bodyCopy(
+                              widget.language,
+                              'Explain my flagged results',
+                              'मेरे अलग नतीजे समझाएं',
+                              'Explica mis resultados señalados',
+                              '解释我的异常结果'))),
                 if (selected != null)
                   _starter(
-                      bodyCopy(
-                          widget.language,
-                          mobile
-                              ? 'Explain this test'
-                              : 'Explain this selected test',
-                          'यह जांच समझाएं',
-                          'Explicar esta prueba',
-                          '解释所选检测'),
+                      bodyCopy(widget.language, 'Explain this test',
+                          'यह जांच समझाएं', 'Explicar esta prueba', '解释这项检测'),
                       () => _explainRow(selected)),
                 if (flagged == 0)
                   _starter(
@@ -540,77 +609,125 @@ class _VoicePanelState extends State<VoicePanel> {
                           '从哪里开始？'),
                       () => _ask(
                           prompt:
-                              'Help me start understanding this report. Mention any extraction limitations and explain one important result in simple words.')),
+                              'Help me start understanding this report. Mention any extraction limitations and explain one important result in simple words.',
+                          displayQuestion: bodyCopy(
+                              widget.language,
+                              'Where should I start?',
+                              'कहां से शुरू करूं?',
+                              '¿Por dónde empiezo?',
+                              '从哪里开始？'))),
               ]),
             ],
-            const SizedBox(height: 10),
-            Row(children: [
-              SizedBox(
-                  height: 46,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                        minimumSize: const Size(46, 46),
-                        padding:
-                            EdgeInsets.symmetric(horizontal: mobile ? 10 : 14),
-                        backgroundColor: _recording ? burgundy : green,
-                        shape: const StadiumBorder()),
-                    onPressed: _recording
-                        ? _finishRecording
-                        : (_speaking || _checking)
-                            ? _stop
-                            : _record,
-                    icon: Icon(
-                        _recording
-                            ? Icons.send_rounded
-                            : (_speaking || _checking)
-                                ? Icons.stop_rounded
-                                : Icons.mic_rounded,
-                        size: 20),
-                    label: Text(
-                        _recording
-                            ? _copy[12]
-                            : (_speaking || _checking)
-                                ? _copy[7]
-                                : _copy[6],
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
-                  )),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: TextField(
-                      controller: _question,
-                      onSubmitted:
-                          _checking || _recording ? null : (_) => _ask(),
-                      style: const TextStyle(fontSize: 14),
-                      decoration: InputDecoration(
-                        hintText: _copy[5],
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 13),
-                        filled: true,
-                        fillColor: const Color(0xfffaf9f6),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide:
-                                const BorderSide(color: Color(0xffe5e0d8))),
-                        suffixIcon: IconButton(
-                            tooltip: _copy[12],
-                            onPressed:
-                                _checking || _recording ? null : () => _ask(),
-                            icon: const Icon(Icons.arrow_upward_rounded,
-                                size: 20),
-                            style: IconButton.styleFrom(
-                                minimumSize: const Size(40, 40),
-                                foregroundColor: burgundy)),
-                      ))),
-            ]),
+            if (_citations.length > 1 ||
+                _citations.length == 1 &&
+                    _citations.first != selected?['measurement_id']) ...[
+              const SizedBox(height: 20),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final id in _citations)
+                  if (rows[id] != null)
+                    _referenceChip(rows[id]!, () => widget.onCitations([id]))
+              ]),
+            ],
+            if (_error != null) _errorMessage(),
           ]),
-    );
+        ),
+      )),
+      Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xffe5e0d8)))),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_answer.isNotEmpty) ...[
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  _control(_copy[8], Icons.replay_rounded, 'repeat'),
+                  _control(_copy[9], Icons.slow_motion_video_rounded, 'slower'),
+                  _control(
+                      _copy[10], Icons.lightbulb_outline_rounded, 'simpler'),
+                ]),
+                const SizedBox(height: 10),
+              ],
+              _composer(),
+            ]),
+      ),
+    ]);
   }
+
+  Widget _errorMessage() => Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Text(_error!,
+          style: const TextStyle(
+              fontSize: 14, height: 1.5, color: Color(0xffa32e35))));
+
+  Widget _composer() => Row(children: [
+        SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  backgroundColor: _recording
+                      ? const Color(0xffa32e35)
+                      : const Color(0xff3f6050),
+                  shape: const StadiumBorder()),
+              onPressed: _recording
+                  ? _finishRecording
+                  : (_speaking || _checking)
+                      ? _stop
+                      : _record,
+              icon: Icon(
+                  _recording
+                      ? Icons.send_rounded
+                      : (_speaking || _checking)
+                          ? Icons.stop_rounded
+                          : Icons.mic_rounded,
+                  size: 20),
+              label: Text(
+                  _recording
+                      ? _copy[12]
+                      : (_speaking || _checking)
+                          ? _copy[7]
+                          : _copy[6],
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+            )),
+        const SizedBox(width: 8),
+        Expanded(
+            child: TextField(
+          controller: _question,
+          onSubmitted: _checking || _recording ? null : (_) => _ask(),
+          style: const TextStyle(fontSize: 14, height: 1.4),
+          decoration: InputDecoration(
+            hintText: _copy[5],
+            isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(color: Color(0xffe5e0d8))),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: const BorderSide(color: Color(0xffc9ceca))),
+            focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide:
+                    const BorderSide(color: Color(0xff3f6050), width: 2)),
+            suffixIcon: IconButton(
+                tooltip: _copy[12],
+                onPressed: _checking || _recording ? null : () => _ask(),
+                icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+                style: IconButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                    foregroundColor: const Color(0xffa32e35))),
+          ),
+        )),
+      ]);
 
   Widget _starter(String label, VoidCallback action) => ActionChip(
       label: Text(label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
       onPressed: action,
       backgroundColor: const Color(0xfffaf9f6),
       side: const BorderSide(color: Color(0xffe5e0d8)),
@@ -618,6 +735,7 @@ class _VoicePanelState extends State<VoicePanel> {
       visualDensity: VisualDensity.compact);
 
   Widget _selectedResult(Map<String, dynamic> row) {
+    final mobile = MediaQuery.sizeOf(context).width < 900;
     final status = row['acceptance_state'] == 'eligible'
         ? (row['status'] ?? 'unknown')
         : 'review';
@@ -637,110 +755,106 @@ class _VoicePanelState extends State<VoicePanel> {
     };
     final reference = (row['reference_range'] ?? '').toString();
     final system = bodySystemForTest(row['test_name'].toString());
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-          color: const Color(0xfff5f7f3),
-          borderRadius: BorderRadius.circular(10)),
-      child: Row(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         ActiveBodyVisual(
             key: ValueKey('active-body-${system.name}'),
             system: system,
             language: widget.language,
             compact: true),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Row(children: [
-                  Expanded(
-                      child: Tooltip(
-                          message: row['test_name'].toString(),
-                          excludeFromSemantics: true,
-                          child: Text(row['test_name'].toString(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w700)))),
-                  const SizedBox(width: 8),
-                  ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 160),
-                      child: Text('${row['value']} ${row['unit'] ?? ''}',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.w700)))
-                ]),
-                const SizedBox(height: 4),
-                Row(children: [
-                  Expanded(
-                      child: InkWell(
-                          onTap: reference.isEmpty
-                              ? null
-                              : () => showDialog<void>(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                          title: Text(row['test_name'].toString()),
-                                          content: SelectableText(
-                                              'Reference range\n$reference'),
-                                          actions: [
-                                            TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(context),
-                                                child: const Text('Close'))
-                                          ])),
-                          child: Tooltip(
-                              message: reference.isEmpty
-                                  ? 'Reference not printed'
-                                  : reference,
-                              child: Text(
-                                  'Ref: ${reference.isEmpty ? 'Not printed' : reference}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xff626a67)))))),
-                  const SizedBox(width: 6),
-                  Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                          color: flagged
-                              ? const Color(0xfff9ebec)
-                              : const Color(0xffedf3ef),
-                          borderRadius: BorderRadius.circular(6)),
-                      child: Text(label,
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: flagged
-                                  ? const Color(0xffa32e35)
-                                  : const Color(0xff3f6050))))
-                ]),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(row['test_name'].toString(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: widget.largeText ? 18 : 16,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Wrap(
+              spacing: 10,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text('${row['value']} ${row['unit'] ?? ''}',
+                    style: TextStyle(
+                        fontSize: widget.largeText ? 24 : 22,
+                        height: 1.35,
+                        fontWeight: FontWeight.w700)),
+                Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: flagged
+                            ? const Color(0xfff9ebec)
+                            : const Color(0xffedf3ef),
+                        borderRadius: BorderRadius.circular(5)),
+                    child: Text(label,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: flagged
+                                ? const Color(0xffa32e35)
+                                : const Color(0xff3f6050)))),
               ]),
-              const SizedBox(height: 5),
-              Wrap(
-                  spacing: 6,
-                  runSpacing: 3,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(system.title(widget.language),
-                        style: const TextStyle(
-                            fontSize: 11, color: Color(0xff3f6050))),
-                    Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                            color: const Color(0xffe7efe8),
-                            borderRadius: BorderRadius.circular(20)),
-                        child: Text(system.location(widget.language),
-                            style: const TextStyle(
-                                fontSize: 10, color: Color(0xff3f6050)))),
-                  ]),
-            ])),
+        ])),
       ]),
-    );
+      SizedBox(height: mobile ? 6 : 9),
+      InkWell(
+          onTap: reference.isEmpty
+              ? null
+              : () => showDialog<void>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                          title: Text(row['test_name'].toString()),
+                          content:
+                              SingleChildScrollView(
+                                  child: SelectableText(
+                                      'Reference range\n$reference')),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'))
+                          ])),
+          child: Row(children: [
+            Expanded(
+                child: Text(
+                    'Ref: ${reference.isEmpty ? 'Not printed' : reference}',
+                    maxLines: mobile ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: widget.largeText ? 15 : 13,
+                        height: 1.5,
+                        color: Color(0xff626a67)))),
+            if (reference.length > 65)
+              const Icon(Icons.unfold_more_rounded,
+                  size: 18, color: Color(0xff626a67)),
+          ])),
+      if (!mobile) ...[
+        const SizedBox(height: 9),
+        Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(system.title(widget.language),
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xff626a67))),
+              Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: const Color(0xffedf3ef),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text(system.location(widget.language),
+                      style: const TextStyle(
+                          fontSize: 11, color: Color(0xff3f6050)))),
+            ]),
+      ],
+    ]);
   }
 
   Widget _control(String label, IconData icon, String action) =>
@@ -749,7 +863,7 @@ class _VoicePanelState extends State<VoicePanel> {
             ? null
             : () => _ask(action: action),
         style: OutlinedButton.styleFrom(
-            minimumSize: const Size(44, 34),
+            minimumSize: const Size(44, 40),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             shape: const StadiumBorder(),
             textStyle: const TextStyle(
@@ -786,6 +900,7 @@ class _VoicePanelState extends State<VoicePanel> {
   void dispose() {
     _stop(notify: false);
     _question.dispose();
+    _answerScroll.dispose();
     super.dispose();
   }
 }
