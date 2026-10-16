@@ -3,6 +3,27 @@ import 'package:medical_cdss/report_data.dart';
 
 void main() {
   test(
+      'count filters keep uncertain results out of within-range and flagged lists',
+      () {
+    final rows = [
+      {'acceptance_state': 'eligible', 'status': 'normal'},
+      {'acceptance_state': 'eligible', 'status': 'high'},
+      {'acceptance_state': 'eligible', 'status': 'unknown'},
+      {'acceptance_state': 'needs_review', 'status': 'normal'},
+    ];
+    expect(rows.where((row) => measurementMatchesFilter(row, 'all')).length, 4);
+    expect(rows.where((row) => measurementMatchesFilter(row, 'flagged')).length,
+        1);
+    expect(
+        rows.where((row) => measurementMatchesFilter(row, 'normal')).length, 1);
+    expect(
+        rows
+            .where((row) => measurementMatchesFilter(row, 'unclassified'))
+            .length,
+        2);
+  });
+
+  test(
       'cached incomplete summary is partial and unknown comparisons stay separate',
       () {
     final report = <String, dynamic>{

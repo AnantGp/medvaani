@@ -9,7 +9,7 @@
     <section class="document-pane" aria-label="Original report">
       <div class="document-heading"><div><h2>Original report</h2><p id="filename"></p></div><span id="method" class="quiet-tag">PDF text</span></div>
       <div class="toolbar"><button id="previous" aria-label="Previous page" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 18-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><select id="page" aria-label="Report page" disabled></select><button id="next" aria-label="Next page" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m9 18 6-6-6-6" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button id="zoom-out" aria-label="Zoom out">−</button><button id="zoom" aria-label="Fit report to width">100% · Fit</button><button id="zoom-in" aria-label="Zoom in">+</button></div>
-      <div class="legend"><span class="legend-mark"></span>Select an outlined result field. Original source cells are highlighted.</div>
+      <label class="legend"><input id="show-highlights" type="checkbox" checked>Show highlight boxes on report</label>
       <p id="status" role="status">Loading your original report…</p>
       <div id="scroller" tabindex="0" aria-label="Scrollable original document"><div id="stage"><canvas id="document" role="img" aria-label="Original report page"></canvas><img id="photo" alt="Original uploaded report photo" hidden><div id="highlights" aria-label="Interactive source lines"></div></div></div>
       <div class="source-footnote" id="source-note">Highlights follow the source text. They do not assess your health.</div>

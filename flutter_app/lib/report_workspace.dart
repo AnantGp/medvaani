@@ -194,6 +194,39 @@ class ReportWorkspace extends StatefulWidget {
 class _ReportWorkspaceState extends State<ReportWorkspace> {
   String _query = '';
   String _filter = 'all';
+  final _measurementsScroll = ScrollController();
+  final _searchController = TextEditingController();
+
+  void _chooseMeasurement(String id) {
+    FocusScope.of(context).unfocus();
+    if (MediaQuery.sizeOf(context).width < 900) {
+      setState(() => _showSearch = false);
+    }
+    widget.onSelectMeasurement?.call(id, true);
+  }
+
+  void _setFilter(String value) {
+    setState(() {
+      _filter = value;
+      _mobileSource = false;
+      _query = '';
+      _searchController.clear();
+      _showSearch = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _measurementsScroll.hasClients) {
+        _measurementsScroll.jumpTo(0);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _measurementsScroll.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   bool _mobileSource = true;
   bool _showSearch = false;
   static const _nav = [0, 1, 3];
@@ -400,12 +433,31 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 17)),
                     const SizedBox(height: 3),
-                    Text(
-                        rows.isEmpty
-                            ? 'Report text available · measurements are not yet mapped'
-                            : '${partial ? 'Partial extraction · ' : ''}${rows.length}${expected != null ? ' of $expected' : ''} measurements · ${counts['abnormal']} flagged · ${counts['normal']} within range · ${counts['unclassified']} unclassified${review > 0 ? ' · $review to check' : ''}',
-                        style: const TextStyle(
-                            fontSize: 13, color: ReportPalette.muted)),
+                    if (rows.isEmpty)
+                      const Text(
+                          'Report text available · measurements are not yet mapped',
+                          style: TextStyle(
+                              fontSize: 13, color: ReportPalette.muted))
+                    else ...[
+                      if (partial)
+                        Text(
+                            'Partial extraction${expected != null ? ' · ${rows.length} of $expected measurements' : ''}${review > 0 ? ' · $review to check' : ''}',
+                            style: const TextStyle(
+                                fontSize: 12, color: ReportPalette.burgundy)),
+                      const SizedBox(height: 4),
+                      Wrap(spacing: 6, runSpacing: 4, children: [
+                        _filterChip(
+                            'all',
+                            _copy('All ${rows.length}', 'सभी ${rows.length}',
+                                'Todos ${rows.length}', '全部 ${rows.length}')),
+                        _filterChip('flagged',
+                            "${counts['abnormal']} ${_copy('Flagged', 'अलग नतीजे', 'Señalados', '已标记')}"),
+                        _filterChip('normal',
+                            "${counts['normal']} ${_copy('Within range', 'सीमा के अंदर', 'Dentro del rango', '范围内')}"),
+                        _filterChip('unclassified',
+                            "${counts['unclassified']} ${_copy('Unclassified', 'बिना तुलना', 'Sin clasificar', '未分类')}"),
+                      ]),
+                    ],
                   ])),
               if (desktop)
                 OutlinedButton.icon(
@@ -458,9 +510,9 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                       ConstrainedBox(
                                           constraints: BoxConstraints(
                                               maxHeight:
-                                                  (size.maxHeight - 112) * .70),
+                                                  (size.maxHeight - 140) * .58),
                                           child: widget.voicePanel!),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 12),
                                     Expanded(child: _measurements()),
                                   ])),
                             ])),
@@ -505,6 +557,22 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             ]));
       });
 
+  Widget _filterChip(String value, String label) => FilterChip(
+        label: Text(label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        selected: _filter == value,
+        showCheckmark: false,
+        onSelected: (_) => _setFilter(value),
+        selectedColor: ReportPalette.sageLight,
+        backgroundColor: Colors.white,
+        side: BorderSide(
+            color:
+                _filter == value ? ReportPalette.sage : ReportPalette.border),
+        shape: const StadiumBorder(),
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      );
+
   Widget _measurements() {
     final rows = _rows;
     final visible = rows
@@ -513,11 +581,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 .toString()
                 .toLowerCase()
                 .contains(_query.toLowerCase()) &&
-            (_filter == 'all' ||
-                _filter == 'flagged' &&
-                    ['high', 'low', 'critical', 'abnormal']
-                        .contains(r['status']) ||
-                _filter == 'review' && r['acceptance_state'] != 'eligible'))
+            measurementMatchesFilter(r, _filter))
         .toList();
     final groups = groupMeasurementsByBodySystem(visible);
     return _surface(
@@ -526,19 +590,45 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
               padding: const EdgeInsets.fromLTRB(16, 8, 8, 4),
               child: Row(children: [
                 Expanded(
-                    child: Text(
-                        _copy('Measurements', 'जांच के नतीजे', 'Resultados',
-                            '检测结果'),
-                        style: const TextStyle(
-                            fontSize: 19, fontWeight: FontWeight.w700))),
-                Text('${rows.length}',
+                    child: _showSearch
+                        ? TextField(
+                            controller: _searchController,
+                            autofocus: true,
+                            onChanged: (value) =>
+                                setState(() => _query = value),
+                            style: const TextStyle(fontSize: 14),
+                            decoration: InputDecoration(
+                                hintText: _copy(
+                                    'Find a test',
+                                    'जांच का नाम खोजें',
+                                    'Buscar una prueba',
+                                    '搜索检测项目'),
+                                isDense: true,
+                                filled: true,
+                                fillColor: ReportPalette.ground,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 10),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide.none)))
+                        : Text(
+                            _copy('Measurements', 'जांच के नतीजे', 'Resultados',
+                                '检测结果'),
+                            style: const TextStyle(
+                                fontSize: 19, fontWeight: FontWeight.w700))),
+                const SizedBox(width: 8),
+                Text(
+                    '${visible.length}${visible.length == rows.length ? '' : ' / ${rows.length}'}',
                     style: const TextStyle(
                         fontSize: 14, color: ReportPalette.muted)),
                 IconButton(
                     tooltip: _showSearch ? 'Close search' : 'Find a test',
                     onPressed: () => setState(() {
                           _showSearch = !_showSearch;
-                          if (!_showSearch) _query = '';
+                          if (!_showSearch) {
+                            _query = '';
+                            _searchController.clear();
+                          }
                         }),
                     icon: Icon(
                         _showSearch
@@ -548,72 +638,64 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 PopupMenuButton<String>(
                     tooltip: 'Filter measurements',
                     initialValue: _filter,
-                    onSelected: (value) => setState(() => _filter = value),
+                    onSelected: _setFilter,
                     icon: const Icon(Icons.filter_list_rounded, size: 20),
                     itemBuilder: (_) => [
                           for (final entry in {
                             'all': 'All results',
-                            'flagged': 'Outside range',
+                            'flagged': 'Flagged results',
+                            'normal': 'Within range',
+                            'unclassified': 'Unclassified',
                             'review': 'Needs review'
                           }.entries)
                             PopupMenuItem(
                                 value: entry.key, child: Text(entry.value)),
                         ]),
               ])),
-          if (_showSearch)
-            Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: TextField(
-                    onChanged: (s) => setState(() => _query = s),
-                    decoration: InputDecoration(
-                        hintText: _copy('Find a test', 'जांच का नाम खोजें',
-                            'Buscar una prueba', '搜索检测项目'),
-                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                        isDense: true,
-                        filled: true,
-                        fillColor: ReportPalette.ground,
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none)))),
           if (widget.reviewSaving) const LinearProgressIndicator(minHeight: 2),
           if (widget.reviewError != null)
             Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(widget.reviewError!,
                     style: const TextStyle(color: ReportPalette.burgundy))),
-          const Divider(height: 1),
+          const Divider(height: 1, thickness: 1, color: ReportPalette.border),
           Expanded(
-              child: ListView(padding: const EdgeInsets.all(12), children: [
-            if (rows.isEmpty)
-              Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                            'The report text is available. Its results have not been mapped into individual measurements yet.',
-                            style: TextStyle(fontSize: 16)),
-                        const SizedBox(height: 10),
-                        const Text(
-                            'The assistant can explain the text, but cannot point to a measurement until it is mapped.',
-                            style: TextStyle(
-                                fontSize: 14, color: ReportPalette.muted)),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                            onPressed: _busy ? null : widget.onReextract,
-                            icon: const Icon(Icons.document_scanner_outlined),
-                            label: const Text('Read results again')),
-                      ])),
-            if (rows.isNotEmpty && visible.isEmpty)
-              const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text('No measurements match this filter.')),
-            for (final group in groups.entries) ...[
-              _systemHeader(group.key, group.value.length),
-              for (final row in group.value) _measurement(row),
-            ],
-            if (rows.isNotEmpty) _doctorQuestions(rows),
-          ])),
+              child: ListView(
+                  controller: _measurementsScroll,
+                  clipBehavior: Clip.hardEdge,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  children: [
+                if (rows.isEmpty)
+                  Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                                'The report text is available. Its results have not been mapped into individual measurements yet.',
+                                style: TextStyle(fontSize: 16)),
+                            const SizedBox(height: 10),
+                            const Text(
+                                'The assistant can explain the text, but cannot point to a measurement until it is mapped.',
+                                style: TextStyle(
+                                    fontSize: 14, color: ReportPalette.muted)),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                                onPressed: _busy ? null : widget.onReextract,
+                                icon:
+                                    const Icon(Icons.document_scanner_outlined),
+                                label: const Text('Read results again')),
+                          ])),
+                if (rows.isNotEmpty && visible.isEmpty)
+                  const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text('No measurements match this filter.')),
+                for (final group in groups.entries) ...[
+                  _systemHeader(group.key, group.value.length),
+                  for (final row in group.value) _measurement(row),
+                ],
+                if (rows.isNotEmpty) _doctorQuestions(rows),
+              ])),
         ]),
         padding: EdgeInsets.zero);
   }
@@ -628,9 +710,9 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   Widget _systemHeader(BodySystem system, int count) => Semantics(
         header: true,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+          padding: const EdgeInsets.fromLTRB(2, 4, 2, 6),
           child: Row(children: [
-            BodySystemIcon(system),
+            BodySystemIcon(system, size: 21),
             const SizedBox(width: 9),
             Expanded(
                 child: Text(system.title(_languageCode),
@@ -656,7 +738,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
       'low': 'Low',
       'critical': 'Flagged',
       'abnormal': 'Flagged',
-      'unknown': 'Range unavailable',
+      'unknown': 'Unclassified',
       'review': 'Check source'
     };
     final flagged = ['high', 'low', 'critical', 'abnormal'].contains(status);
@@ -665,84 +747,121 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         : status == 'normal'
             ? ReportPalette.sage
             : ReportPalette.muted;
+    final reference = (row['reference_range'] ?? '').toString();
     return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: 8),
         child: Material(
-            color: selected ? const Color(0xFFF3F7F3) : Colors.white,
-            shape: RoundedRectangleBorder(
-                side: BorderSide(
-                    color: selected ? ReportPalette.sage : ReportPalette.border,
-                    width: selected ? 1.5 : 1),
-                borderRadius: BorderRadius.circular(12)),
-            child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => widget.onSelectMeasurement?.call(id, true),
-                child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
+          color: selected ? const Color(0xffedf3ef) : Colors.white,
+          shape: RoundedRectangleBorder(
+              side: BorderSide(
+                  color: selected ? ReportPalette.sage : ReportPalette.border,
+                  width: selected ? 1.5 : 1),
+              borderRadius: BorderRadius.circular(10)),
+          child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => _chooseMeasurement(id),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                                child: Tooltip(
+                                    message: row['test_name'].toString(),
+                                    excludeFromSemantics: true,
                                     child: Text(row['test_name'].toString(),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700))),
-                                const SizedBox(width: 8),
-                                Container(
+                                            fontSize: 15,
+                                            height: 1.35,
+                                            fontWeight: FontWeight.w700)))),
+                            const SizedBox(width: 8),
+                            ConstrainedBox(
+                                constraints:
+                                    const BoxConstraints(maxWidth: 180),
+                                child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 9, vertical: 4),
+                                        horizontal: 7, vertical: 3),
                                     decoration: BoxDecoration(
-                                        color: ReportPalette.ground,
-                                        borderRadius: BorderRadius.circular(7)),
+                                        color: selected
+                                            ? Colors.white
+                                            : ReportPalette.ground,
+                                        borderRadius: BorderRadius.circular(6)),
                                     child: Text(
                                         '${row['value']} ${row['unit'] ?? ''}',
                                         style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700))),
-                              ]),
-                          const SizedBox(height: 8),
-                          Text(
-                              'Reference: ${(row['reference_range'] ?? '').toString().isEmpty ? 'Not printed' : row['reference_range']}',
-                              style: const TextStyle(
-                                  fontSize: 13, color: ReportPalette.muted)),
-                          const SizedBox(height: 8),
-                          Row(children: [
-                            Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                    color: flagged
-                                        ? ReportPalette.rose
-                                        : ReportPalette.sageLight,
-                                    borderRadius: BorderRadius.circular(6)),
-                                child: Text(labels[status] ?? 'Check source',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: color))),
-                            const Spacer(),
-                            IconButton(
-                                tooltip: 'Listen to ${row['test_name']}',
-                                onPressed: () =>
-                                    widget.onSelectMeasurement?.call(id, true),
-                                icon: const Icon(Icons.volume_up_outlined,
-                                    size: 20),
-                                style: IconButton.styleFrom(
-                                    minimumSize: const Size(40, 40),
-                                    foregroundColor: ReportPalette.sage)),
-                            IconButton(
-                                tooltip: 'Correct ${row['test_name']}',
-                                onPressed: widget.reviewSaving
-                                    ? null
-                                    : () => widget.onEditMeasurement?.call(id),
-                                icon: const Icon(Icons.edit_outlined, size: 19),
-                                style: IconButton.styleFrom(
-                                    minimumSize: const Size(40, 40))),
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700)))),
                           ]),
-                        ])))));
+                      const SizedBox(height: 2),
+                      Row(children: [
+                        Expanded(
+                            child: InkWell(
+                                onTap: reference.isEmpty
+                                    ? null
+                                    : () => showDialog<void>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                                title:
+                                                    Text(row['test_name'].toString()),
+                                                content: SelectableText('Reference range\n$reference'),
+                                                actions: [
+                                                  TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                              context),
+                                                      child:
+                                                          const Text('Close'))
+                                                ])),
+                                child: Tooltip(
+                                    message: reference.isEmpty
+                                        ? 'Reference not printed'
+                                        : 'Reference: $reference',
+                                    child: Text(
+                                        'Ref: ${reference.isEmpty ? 'Not printed' : reference}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: ReportPalette.muted))))),
+                        const SizedBox(width: 6),
+                        Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                                color: flagged
+                                    ? ReportPalette.rose
+                                    : ReportPalette.sageLight,
+                                borderRadius: BorderRadius.circular(5)),
+                            child: Text(labels[status] ?? 'Check source',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: color))),
+                        IconButton(
+                            tooltip: 'Listen to ${row['test_name']}',
+                            onPressed: () => _chooseMeasurement(id),
+                            icon:
+                                const Icon(Icons.volume_up_outlined, size: 19),
+                            style: IconButton.styleFrom(
+                                minimumSize: const Size(40, 40),
+                                foregroundColor: ReportPalette.sage)),
+                        IconButton(
+                            tooltip: 'Correct ${row['test_name']}',
+                            onPressed: widget.reviewSaving
+                                ? null
+                                : () => widget.onEditMeasurement?.call(id),
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            style: IconButton.styleFrom(
+                                minimumSize: const Size(40, 40))),
+                      ]),
+                    ]),
+              )),
+        ));
   }
 
   Widget _doctorQuestions(List<Map<String, dynamic>> rows) {

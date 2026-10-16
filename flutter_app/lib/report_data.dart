@@ -96,6 +96,20 @@ Map<String, int> reportComparisonCounts(Map report) {
   };
 }
 
+bool measurementMatchesFilter(Map row, String filter) {
+  final eligible = row['acceptance_state'] == 'eligible';
+  final status = eligible ? row['status'] : 'unknown';
+  return switch (filter) {
+    'flagged' =>
+      eligible && ['high', 'low', 'abnormal', 'critical'].contains(status),
+    'normal' => eligible && status == 'normal',
+    'unclassified' =>
+      !['high', 'low', 'abnormal', 'critical', 'normal'].contains(status),
+    'review' => !eligible,
+    _ => true,
+  };
+}
+
 bool reportOutputAllowed(Map report) =>
     ['ready', 'partial'].contains(reportQualityState(report));
 

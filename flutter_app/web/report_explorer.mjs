@@ -69,6 +69,7 @@ function makeSelectors() {
   }
 }
 $('#search').oninput=makeSelectors;$('#filter').onchange=makeSelectors;
+$('#show-highlights').onchange=event=>{overlay.hidden=!event.target.checked;};
 async function digitalLines(pageNumber) {
   if (pageLines.has(pageNumber)) return pageLines.get(pageNumber);
   const page = await pdf.getPage(pageNumber), viewport = page.getViewport({scale:1});
@@ -151,6 +152,7 @@ function focusSection(section) {
 function drawHighlights() {
   if(photoMode && photo.naturalWidth)lines=layout.filter(line=>line.page===1);
   overlay.replaceChildren();let count=0;
+  const drawnBoxes=new Set();
   for(const row of labs) {
     const source=sourceSelection(row);if(!source)continue;
     for(const [key,field] of Object.entries(source.fields)) {
@@ -158,22 +160,27 @@ function drawHighlights() {
         if(fragment.page!==current)continue;
         const box=fragment.box;
         if(!safeBox(box))continue;
+        // A merged PDF token or an estimated OCR row may supply the same
+        // rectangle for several fields. Draw it once so translucent fills
+        // cannot stack into an opaque layer over the printed number.
+        const boxKey=`${row.measurement_id}:${box.map(value=>value.toFixed(5)).join(':')}`;
+        if(drawnBoxes.has(boxKey))continue;
         const [x,y,w,h]=box;
         if(sourceAtPoint(labs,current,x+w/2,y+h/2)?.measurement_id!==row.measurement_id)continue;
         const button=document.createElement('button');button.className='source-line source-cell';
-        button.style.left=x*100+'%';button.style.top=y*100+'%';button.style.width=w*100+'%';button.style.height=h*100+'%';
+        Object.assign(button.style,{left:`calc(${x*100}% - 4px)`,top:`calc(${y*100}% - 4px)`,width:`calc(${w*100}% + 8px)`,height:`calc(${h*100}% + 8px)`});
         button.dataset.measurementId=row.measurement_id;button.dataset.field=key;
         button.setAttribute('aria-label',`Select original ${row.test_name} ${key.replaceAll('_',' ')}: ${field.text}`);
         button.title=`${row.test_name} · ${key.replaceAll('_',' ')}`;
         const selected=selection?.id===row.measurement_id;button.setAttribute('aria-pressed',String(selected));if(selected)button.classList.add('selected');if(report.voice_cited_measurement_ids?.includes(row.measurement_id))button.classList.add('voice-cited');
-        button.onclick=()=>locateLab(row.measurement_id,key,true,fragment.page);overlay.append(button);count++;
+        button.onclick=()=>locateLab(row.measurement_id,key,true,fragment.page);overlay.append(button);drawnBoxes.add(boxKey);count++;
       }
     }
   }
   // Reading an unmatched line is allowed; it does not gain a clinical binding.
   if(!labs.length)for(const line of lines.filter(line=>/\d/.test(line.text) && safeBox(line.box))) {
     const button=document.createElement('button');button.className='source-line';const [x,y,w,h]=line.box;
-    Object.assign(button.style,{left:x*100+'%',top:y*100+'%',width:w*100+'%',height:h*100+'%'});
+    Object.assign(button.style,{left:`calc(${x*100}% - 4px)`,top:`calc(${y*100}% - 4px)`,width:`calc(${w*100}% + 8px)`,height:`calc(${h*100}% + 8px)`});
     button.setAttribute('aria-label',`Read original source line: ${line.text}`);button.onclick=()=>chooseLine(line);overlay.append(button);
   }
   const vision=lines.some(line=>line.method==='groq_vision') || labs.some(row=>Object.values(row.source_fields||{}).some(field=>field.page===current && field.method==='groq_vision'));

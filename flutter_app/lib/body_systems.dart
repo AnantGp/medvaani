@@ -263,30 +263,25 @@ class ActiveBodyVisual extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         image: true,
         label:
-            '${system.title(language)}. ${system.location(language)}. ${bodyCopy(language, 'Educational body illustration', 'शरीर को समझाने वाला चित्र', 'Ilustración educativa del cuerpo', '身体部位示意图')}',
+            '${system.title(language)}. ${bodyCopy(language, 'Educational body illustration', 'शरीर को समझाने वाला चित्र', 'Ilustración educativa del cuerpo', '身体部位示意图')}',
         child: ExcludeSemantics(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
           SizedBox(
-              height: compact ? 58 : 82,
-              width: compact ? 88 : 132,
+              height: compact ? 48 : 56,
+              width: compact ? 54 : 64,
               child: SvgPicture.asset(
                   'assets/body_systems/${system.illustrationName}.svg',
                   colorFilter: system.illustrationName.startsWith('neutral-')
                       ? null
                       : const ColorFilter.mode(
                           Color(0xff3f6050), BlendMode.srcIn))),
-          const SizedBox(height: 6),
-          SizedBox(
-              height: compact ? 48 : 70,
-              width: compact ? 48 : 70,
-              child: SvgPicture.asset(
-                  'assets/body_systems/location-${system.name}.svg')),
           if (!compact) ...[
-            const SizedBox(height: 4),
-            Text(system.location(language),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 11, height: 1.4, color: Color(0xff3f6050))),
+            const SizedBox(width: 6),
+            SizedBox(
+                height: compact ? 32 : 38,
+                width: compact ? 24 : 28,
+                child: SvgPicture.asset(
+                    'assets/body_systems/location-${system.name}.svg')),
           ],
         ])),
       );

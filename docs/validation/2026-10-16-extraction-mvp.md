@@ -36,3 +36,7 @@ Repeated verbose JSON keys and duplicated raw report text exceeded Groq's free r
 Rapid full-report conversations can still exhaust the free per-minute quota. Waiting and retrying was necessary during acceptance. This release does not guarantee unlimited simultaneous public usage or a 1–3 second complete spoken round trip.
 
 Physical camera capture, low-bandwidth phones, other providers and dense multi-page scans remain outside this release's acceptance evidence.
+
+## Hosted upload boundary
+
+The original 33-page file is 8.3 MB and is rejected by Vercel's function payload limit; the app advertises/enforces a 4 MB upload cap. A separately named image-compressed copy (approximately 1.5 MB, original untouched) retains all 33 pages. Its 95 audited measurements/references and statuses matched locally and on the hosted backend with zero field differences. Images were recompressed; this is not a lossless copy of the entire document. The nine-page summary also matched all 95 rows on the hosted backend.

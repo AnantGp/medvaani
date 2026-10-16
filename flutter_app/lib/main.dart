@@ -72,7 +72,9 @@ class _HomePageState extends State<HomePage> {
   StreamSubscription<html.Event>? _cameraCancellation;
 
   final FlutterTts _tts = FlutterTts();
-  final _voiceController = VoicePanelController();
+  int _voiceExplanationRequest = 0;
+  int _voiceExplanationHandled = 0;
+  String? _voiceExplanationMeasurement;
   final _voicePanelKey = GlobalKey();
   StreamSubscription<html.MouseEvent>? _dropOver, _dropLeave, _dropFile;
   bool _dragging = false;
@@ -213,14 +215,18 @@ class _HomePageState extends State<HomePage> {
     final matches = workspaceMeasurements(_reportData)
         .where((row) => row['measurement_id'] == id);
     if (matches.isEmpty) return;
-    final row = matches.first;
-    setState(() => _reportData = {
-          ..._reportData!,
-          'selected_measurement_id': id,
-          'voice_cited_measurement_ids': <String>[]
-        });
+    setState(() {
+      _reportData = {
+        ..._reportData!,
+        'selected_measurement_id': id,
+        'voice_cited_measurement_ids': <String>[]
+      };
+      if (speak) {
+        _voiceExplanationRequest++;
+        _voiceExplanationMeasurement = id;
+      }
+    });
     _sendExplorerReport();
-    if (speak) _voiceController.explain(row);
   }
 
   void _setSource(Uint8List? bytes) {
@@ -1326,7 +1332,13 @@ class _HomePageState extends State<HomePage> {
             ? null
             : VoicePanel(
                 key: _voicePanelKey,
-                controller: _voiceController,
+                explainRequest:
+                    _voiceExplanationRequest > _voiceExplanationHandled
+                        ? _voiceExplanationRequest
+                        : 0,
+                explainMeasurementId: _voiceExplanationMeasurement,
+                onExplanationStarted: (request) =>
+                    _voiceExplanationHandled = request,
                 report: _reportData!,
                 language: _languages.firstWhere(
                     (entry) => entry['name'] == _selectedLanguage)['code']!,

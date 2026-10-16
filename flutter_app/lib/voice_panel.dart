@@ -9,13 +9,6 @@ import 'report_data.dart';
 import 'report_snapshot.dart';
 import 'body_systems.dart';
 
-class VoicePanelController {
-  Future<void> Function(Map<String, dynamic> row)? _explain;
-  Future<void> explain(Map<String, dynamic> row) async {
-    await _explain?.call(row);
-  }
-}
-
 class VoicePanel extends StatefulWidget {
   const VoicePanel(
       {super.key,
@@ -25,8 +18,12 @@ class VoicePanel extends StatefulWidget {
       required this.apiUrl,
       required this.onCitations,
       required this.onReportId,
-      this.controller});
-  final VoicePanelController? controller;
+      this.explainRequest = 0,
+      this.explainMeasurementId,
+      this.onExplanationStarted});
+  final int explainRequest;
+  final String? explainMeasurementId;
+  final ValueChanged<int>? onExplanationStarted;
   final Map<String, dynamic> report;
   final String language;
   final ValueChanged<String> onLanguage;
@@ -121,7 +118,26 @@ class _VoicePanelState extends State<VoicePanel> {
   @override
   void initState() {
     super.initState();
-    widget.controller?._explain = _explainRow;
+    _scheduleExplanation();
+  }
+
+  void _scheduleExplanation() {
+    final request = widget.explainRequest;
+    final id = widget.explainMeasurementId;
+    if (request == 0 || id == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          widget.explainRequest != request ||
+          widget.explainMeasurementId != id) {
+        return;
+      }
+      final matches = workspaceMeasurements(widget.report)
+          .where((row) => row['measurement_id'] == id);
+      if (matches.isNotEmpty) {
+        widget.onExplanationStarted?.call(request);
+        _explainRow(matches.first);
+      }
+    });
   }
 
   Future<void> _explainRow(Map<String, dynamic> row) async {
@@ -146,10 +162,6 @@ class _VoicePanelState extends State<VoicePanel> {
   @override
   void didUpdateWidget(covariant VoicePanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller?._explain = null;
-      widget.controller?._explain = _explainRow;
-    }
     if (oldWidget.language != widget.language ||
         oldWidget.report['parsed_data'] != widget.report['parsed_data']) {
       _stop(notify: false);
@@ -158,6 +170,9 @@ class _VoicePanelState extends State<VoicePanel> {
       _history.clear();
       _lastAnswer = null;
       _error = null;
+    }
+    if (oldWidget.explainRequest != widget.explainRequest) {
+      _scheduleExplanation();
     }
   }
 
@@ -386,28 +401,15 @@ class _VoicePanelState extends State<VoicePanel> {
     };
     final selected = rows[widget.report['selected_measurement_id']] ??
         (rows.isEmpty ? null : rows.values.first);
-    final system = bodySystemForTest((selected?['test_name'] ?? '').toString());
     final sentences = _answer
         .split(RegExp(r'(?<=[।。])|(?<=[.!?])\s+'))
         .where((s) => s.trim().isNotEmpty)
         .toList();
-    final content = _answer.isEmpty
-        ? [
-            selected == null
-                ? _copy[11]
-                : {
-                    'en':
-                        'Let’s talk about ${selected['test_name']}. Tap the microphone or ask a question below.',
-                    'hi':
-                        'आइए ${selected['test_name']} जांच समझें। बोलने के लिए माइक दबाएं या अपना सवाल लिखें।',
-                    'es':
-                        'Hablemos de ${selected['test_name']}. Usa el micrófono o escribe tu pregunta.',
-                    'zh': '我们来了解${selected['test_name']}。请点击麦克风或输入问题。',
-                  }[widget.language]!,
-          ]
-        : sentences;
+    final flagged = reportComparisonCounts(widget.report)['abnormal']!;
+    final firstQuestion =
+        _history.isEmpty && _answer.isEmpty && !_checking && !_recording;
     return Container(
-      padding: EdgeInsets.all(mobile ? 14 : 18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -417,216 +419,327 @@ class _VoicePanelState extends State<VoicePanel> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(children: [
-              Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                      color: const Color(0xffedf3ef),
-                      borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.graphic_eq_rounded,
-                      color: green, size: 20)),
-              const SizedBox(width: 10),
+              const Icon(Icons.graphic_eq_rounded, color: green, size: 23),
+              const SizedBox(width: 8),
               Expanded(
                   child: Text(_copy[0],
                       style: TextStyle(
-                          fontSize: mobile ? 17 : 19,
+                          fontSize: mobile ? 16 : 18,
                           fontWeight: FontWeight.w700,
                           color: ink))),
+              const SizedBox(width: 6),
               Container(
-                  width: 7,
-                  height: 7,
+                  width: 6,
+                  height: 6,
                   decoration: BoxDecoration(
                       color: _recording ? burgundy : green,
                       shape: BoxShape.circle)),
-              const SizedBox(width: 6),
-              Text(status,
-                  style: const TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600, color: green)),
-            ]),
-            const SizedBox(height: 12),
-            Flexible(
-                fit: FlexFit.loose,
-                child: Container(
-                  constraints: BoxConstraints(maxHeight: mobile ? 190 : 228),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: const Color(0xfff5f7f3),
-                      borderRadius: BorderRadius.circular(10)),
-                  child: LayoutBuilder(builder: (context, space) {
-                    final compact = mobile || space.maxHeight < 170;
-                    return SingleChildScrollView(
-                        child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                          SizedBox(
-                              width: compact ? 88 : 132,
-                              child: ActiveBodyVisual(
-                                  key: ValueKey('active-body-${system.name}'),
-                                  system: system,
-                                  language: widget.language,
-                                  compact: compact)),
-                          SizedBox(width: compact ? 10 : 16),
-                          Expanded(
-                              child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                Text(system.title(widget.language),
-                                    style: const TextStyle(
-                                        fontSize: 17,
-                                        height: 1.4,
-                                        fontWeight: FontWeight.w700,
-                                        color: green)),
-                                if (system != BodySystem.general) ...[
-                                  const SizedBox(height: 3),
-                                  Text(system.location(widget.language),
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          height: 1.4,
-                                          color: green)),
-                                ],
-                                const SizedBox(height: 6),
-                                if (_answer.isEmpty) ...[
-                                  Text(system.role(widget.language),
-                                      style: TextStyle(
-                                          fontSize: mobile ? 15 : 16,
-                                          height: 1.5,
-                                          color: green)),
-                                  const Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(vertical: 10),
-                                      child: Divider(
-                                          height: 1, color: Color(0xffd4e0d7))),
-                                ],
-                                for (var i = 0; i < content.length; i++)
-                                  Padding(
-                                      padding: EdgeInsets.only(
-                                          bottom:
-                                              i == content.length - 1 ? 0 : 8),
-                                      child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            if (content.length > 2) ...[
-                                              const Text('•',
-                                                  style: TextStyle(
-                                                      fontSize: 19,
-                                                      height: 1.5,
-                                                      color: green)),
-                                              const SizedBox(width: 9)
-                                            ],
-                                            Expanded(
-                                                child: Text(content[i].trim(),
-                                                    style: TextStyle(
-                                                        fontSize:
-                                                            mobile ? 18 : 19,
-                                                        height: 1.5,
-                                                        color: ink))),
-                                          ])),
-                                if (_answer.isNotEmpty) ...[
-                                  const Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(vertical: 10),
-                                      child: Divider(
-                                          height: 1, color: Color(0xffd4e0d7))),
-                                  Text(system.role(widget.language),
-                                      style: TextStyle(
-                                          fontSize: mobile ? 15 : 16,
-                                          height: 1.5,
-                                          color: green)),
-                                ],
-                              ])),
-                        ]));
-                  }),
-                )),
-            if (_citations.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              const SizedBox(width: 5),
               ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: mobile ? 52 : 80),
+                  constraints: const BoxConstraints(maxWidth: 100),
+                  child: Text(status,
+                      maxLines: 2,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: green))),
+            ]),
+            if (selected != null) ...[
+              const SizedBox(height: 10),
+              _selectedResult(selected)
+            ],
+            if (_answer.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Flexible(
+                  fit: FlexFit.loose,
+                  child: Container(
+                    constraints: BoxConstraints(maxHeight: mobile ? 150 : 170),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                        color: const Color(0xfff5f7f3),
+                        borderRadius: BorderRadius.circular(10)),
+                    child: SingleChildScrollView(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                          for (var i = 0; i < sentences.length; i++)
+                            Padding(
+                                padding: EdgeInsets.only(
+                                    bottom: i == sentences.length - 1 ? 0 : 8),
+                                child: Text(sentences[i].trim(),
+                                    style: const TextStyle(
+                                        fontSize: 18,
+                                        height: 1.5,
+                                        color: ink))),
+                        ])),
+                  )),
+            ],
+            if (_citations.length > 1 ||
+                _citations.length == 1 &&
+                    _citations.first != selected?['measurement_id']) ...[
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 54),
                   child: SingleChildScrollView(
                       child: Wrap(spacing: 6, runSpacing: 6, children: [
                     for (final id in _citations)
                       if (rows[id] != null)
                         _referenceChip(
-                            rows[id]!, () => widget.onCitations([id])),
+                            rows[id]!, () => widget.onCitations([id]))
                   ]))),
             ],
             if (_error != null)
               Padding(
-                  padding: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Text(_error!,
                       style: const TextStyle(
-                          fontSize: 13, color: burgundy, height: 1.5))),
-            const SizedBox(height: 12),
-            Wrap(spacing: 6, runSpacing: 6, children: [
-              _control(_copy[8], Icons.replay_rounded, 'repeat'),
-              _control(_copy[9], Icons.slow_motion_video_rounded, 'slower'),
-              _control(_copy[10], Icons.lightbulb_outline_rounded, 'simpler'),
-            ]),
+                          fontSize: 13, color: burgundy, height: 1.4))),
+            if (_answer.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                _control(_copy[8], Icons.replay_rounded, 'repeat'),
+                _control(_copy[9], Icons.slow_motion_video_rounded, 'slower'),
+                _control(_copy[10], Icons.lightbulb_outline_rounded, 'simpler')
+              ]),
+            ],
+            if (firstQuestion) ...[
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                if (flagged > 0)
+                  _starter(
+                      bodyCopy(
+                          widget.language,
+                          mobile
+                              ? '$flagged flagged results'
+                              : 'Explain my $flagged flagged results',
+                          'मेरे $flagged अलग नतीजे समझाएं',
+                          'Explicar $flagged resultados señalados',
+                          '解释$flagged项异常结果'),
+                      () => _ask(
+                          prompt:
+                              'Explain up to three of my $flagged flagged results, using their exact numbers and units and only the supplied references. Offer to continue with the others.')),
+                if (selected != null)
+                  _starter(
+                      bodyCopy(
+                          widget.language,
+                          mobile
+                              ? 'Explain this test'
+                              : 'Explain this selected test',
+                          'यह जांच समझाएं',
+                          'Explicar esta prueba',
+                          '解释所选检测'),
+                      () => _explainRow(selected)),
+                if (flagged == 0)
+                  _starter(
+                      bodyCopy(
+                          widget.language,
+                          'Where should I start?',
+                          'कहां से शुरू करूं?',
+                          '¿Por dónde empiezo?',
+                          '从哪里开始？'),
+                      () => _ask(
+                          prompt:
+                              'Help me start understanding this report. Mention any extraction limitations and explain one important result in simple words.')),
+              ]),
+            ],
             const SizedBox(height: 10),
-            LayoutBuilder(
-                builder: (context, size) => Row(children: [
-                      SizedBox(
-                          height: 48,
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                                minimumSize: const Size(48, 48),
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: mobile ? 12 : 16),
-                                backgroundColor: _recording ? burgundy : green,
-                                shape: const StadiumBorder()),
-                            onPressed: _recording
-                                ? _finishRecording
-                                : (_speaking || _checking)
-                                    ? _stop
-                                    : _record,
-                            icon: Icon(
-                                _recording
-                                    ? Icons.send_rounded
-                                    : (_speaking || _checking)
-                                        ? Icons.stop_rounded
-                                        : Icons.mic_rounded,
+            Row(children: [
+              SizedBox(
+                  height: 46,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size(46, 46),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: mobile ? 10 : 14),
+                        backgroundColor: _recording ? burgundy : green,
+                        shape: const StadiumBorder()),
+                    onPressed: _recording
+                        ? _finishRecording
+                        : (_speaking || _checking)
+                            ? _stop
+                            : _record,
+                    icon: Icon(
+                        _recording
+                            ? Icons.send_rounded
+                            : (_speaking || _checking)
+                                ? Icons.stop_rounded
+                                : Icons.mic_rounded,
+                        size: 20),
+                    label: Text(
+                        _recording
+                            ? _copy[12]
+                            : (_speaking || _checking)
+                                ? _copy[7]
+                                : _copy[6],
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600)),
+                  )),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: TextField(
+                      controller: _question,
+                      onSubmitted:
+                          _checking || _recording ? null : (_) => _ask(),
+                      style: const TextStyle(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: _copy[5],
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 13),
+                        filled: true,
+                        fillColor: const Color(0xfffaf9f6),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide:
+                                const BorderSide(color: Color(0xffe5e0d8))),
+                        suffixIcon: IconButton(
+                            tooltip: _copy[12],
+                            onPressed:
+                                _checking || _recording ? null : () => _ask(),
+                            icon: const Icon(Icons.arrow_upward_rounded,
                                 size: 20),
-                            label: Text(
-                                _recording
-                                    ? _copy[12]
-                                    : (_speaking || _checking)
-                                        ? _copy[7]
-                                        : _copy[6],
-                                style: const TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.w600)),
-                          )),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: TextField(
-                              controller: _question,
-                              onSubmitted: _checking || _recording
-                                  ? null
-                                  : (_) => _ask(),
-                              style: const TextStyle(fontSize: 14),
-                              decoration: InputDecoration(
-                                hintText: _copy[5],
-                                isDense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 14),
-                                filled: true,
-                                fillColor: const Color(0xfffaf9f6),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(24),
-                                    borderSide: const BorderSide(
-                                        color: Color(0xffe5e0d8))),
-                                suffixIcon: IconButton(
-                                    tooltip: _copy[5],
-                                    onPressed: _checking || _recording
-                                        ? null
-                                        : () => _ask(),
-                                    icon: const Icon(Icons.arrow_upward_rounded,
-                                        size: 20),
-                                    style: IconButton.styleFrom(
-                                        minimumSize: const Size(40, 40),
-                                        foregroundColor: burgundy)),
-                              ))),
-                    ])),
+                            style: IconButton.styleFrom(
+                                minimumSize: const Size(40, 40),
+                                foregroundColor: burgundy)),
+                      ))),
+            ]),
           ]),
+    );
+  }
+
+  Widget _starter(String label, VoidCallback action) => ActionChip(
+      label: Text(label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      onPressed: action,
+      backgroundColor: const Color(0xfffaf9f6),
+      side: const BorderSide(color: Color(0xffe5e0d8)),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      visualDensity: VisualDensity.compact);
+
+  Widget _selectedResult(Map<String, dynamic> row) {
+    final status = row['acceptance_state'] == 'eligible'
+        ? (row['status'] ?? 'unknown')
+        : 'review';
+    final flagged = ['high', 'low', 'abnormal', 'critical'].contains(status);
+    final label = switch (status) {
+      'normal' => bodyCopy(widget.language, 'Within range', 'सीमा के अंदर',
+          'Dentro del rango', '范围内'),
+      'high' => bodyCopy(widget.language, 'High', 'ज़्यादा', 'Alto', '偏高'),
+      'low' => bodyCopy(widget.language, 'Low', 'कम', 'Bajo', '偏低'),
+      'abnormal' ||
+      'critical' =>
+        bodyCopy(widget.language, 'Flagged', 'अलग नतीजा', 'Señalado', '已标记'),
+      'review' => bodyCopy(widget.language, 'Check source',
+          'मूल रिपोर्ट जांचें', 'Revisar original', '核对原文'),
+      _ => bodyCopy(widget.language, 'Unclassified', 'तुलना नहीं हुई',
+          'Sin clasificar', '未分类'),
+    };
+    final reference = (row['reference_range'] ?? '').toString();
+    final system = bodySystemForTest(row['test_name'].toString());
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+          color: const Color(0xfff5f7f3),
+          borderRadius: BorderRadius.circular(10)),
+      child: Row(children: [
+        ActiveBodyVisual(
+            key: ValueKey('active-body-${system.name}'),
+            system: system,
+            language: widget.language,
+            compact: true),
+        const SizedBox(width: 10),
+        Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(children: [
+                  Expanded(
+                      child: Tooltip(
+                          message: row['test_name'].toString(),
+                          excludeFromSemantics: true,
+                          child: Text(row['test_name'].toString(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w700)))),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 160),
+                      child: Text('${row['value']} ${row['unit'] ?? ''}',
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w700)))
+                ]),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Expanded(
+                      child: InkWell(
+                          onTap: reference.isEmpty
+                              ? null
+                              : () => showDialog<void>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                          title: Text(row['test_name'].toString()),
+                                          content: SelectableText(
+                                              'Reference range\n$reference'),
+                                          actions: [
+                                            TextButton(
+                                                onPressed: () =>
+                                                    Navigator.pop(context),
+                                                child: const Text('Close'))
+                                          ])),
+                          child: Tooltip(
+                              message: reference.isEmpty
+                                  ? 'Reference not printed'
+                                  : reference,
+                              child: Text(
+                                  'Ref: ${reference.isEmpty ? 'Not printed' : reference}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xff626a67)))))),
+                  const SizedBox(width: 6),
+                  Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                          color: flagged
+                              ? const Color(0xfff9ebec)
+                              : const Color(0xffedf3ef),
+                          borderRadius: BorderRadius.circular(6)),
+                      child: Text(label,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: flagged
+                                  ? const Color(0xffa32e35)
+                                  : const Color(0xff3f6050))))
+                ]),
+              ]),
+              const SizedBox(height: 5),
+              Wrap(
+                  spacing: 6,
+                  runSpacing: 3,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(system.title(widget.language),
+                        style: const TextStyle(
+                            fontSize: 11, color: Color(0xff3f6050))),
+                    Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: const Color(0xffe7efe8),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text(system.location(widget.language),
+                            style: const TextStyle(
+                                fontSize: 10, color: Color(0xff3f6050)))),
+                  ]),
+            ])),
+      ]),
     );
   }
 
@@ -671,7 +784,6 @@ class _VoicePanelState extends State<VoicePanel> {
 
   @override
   void dispose() {
-    widget.controller?._explain = null;
     _stop(notify: false);
     _question.dispose();
     super.dispose();
