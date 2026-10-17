@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'app_content_utils.dart';
+import 'report_export_strings.dart';
 
 Map<String, dynamic> mergeReportTranslation(
     Map<String, dynamic> current,
@@ -167,50 +168,80 @@ String reportCoverageText(Map report) {
   return '${quality['eligible_count'] ?? 0} usable measurements · ${quality['eligible_narrative_count'] ?? 0} source-backed notes · ${quality['needs_review_count'] ?? 0} need source review · ${quality['unresolved_result_regions'] ?? 0} unresolved regions';
 }
 
-Map<String, dynamic> reportExportData(Map<String, dynamic> report) {
+Map<String, dynamic> reportExportData(Map<String, dynamic> report,
+    [String language = 'English']) {
+  final copy = ReportExportStrings(language);
   if (!reportOutputAllowed(report)) {
-    throw StateError(
-        'Check the original source before exporting an explanation.');
+    throw StateError(copy.text('blocked'));
   }
   final labs = eligibleReportLabValues(report);
   final notes = eligibleReportNarratives(report);
-  final lines = <String>[
-    if (reportQualityState(report) == 'partial')
-      'Partial report — this summary covers only source-validated measurements and notes.',
-    reportCoverageText(report),
-    '',
-    if (labs.isNotEmpty) 'Results in this report:',
-    for (final row in labs) ...[
-      '• ${row['test_name']}: ${row['value']} ${row['unit'] ?? ''}',
-      if (row['source_fields'] is Map &&
-          row['source_fields']['value'] is Map) ...[
-        'Original source: Page ${row['source_fields']['value']['page']}',
-        if (row['source_fields']['value']['text'] != row['value'])
-          'Originally printed value: ${row['source_fields']['value']['text']} · Current value entered during review.',
-      ],
-      if ((row['reference_range'] ?? '').toString().isNotEmpty)
-        'Reference range: ${row['reference_range']}',
-      (row['status'] ?? 'unknown') == 'unknown'
-          ? 'Comparison unavailable from the supplied reference.'
-          : 'Report flag or supplied-range comparison: ${row['status']}',
-      '',
-    ],
-    for (final note in notes) ...[
-      {
-        'findings': 'Clinical findings',
-        'diagnosis': 'Reported diagnosis',
-        'impression': 'Reported impression'
-      }[note['section']]!,
-      '• ${note['text']}',
-      if (note['source_fields'] is Map && note['source_fields']['text'] is Map)
-        'Original source: Page ${note['source_fields']['text']['page']}',
-      '',
-    ],
-    'A reference-range comparison does not establish a diagnosis. Discuss these results with your clinician.'
-  ];
+  final quality = report['extraction_quality'] is Map
+      ? report['extraction_quality'] as Map
+      : {};
+  final blocks = <Map<String, String>>[];
+  final lines = <String>[];
+  void add(String kind, String text, {String? label, String? suffix}) {
+    blocks.add({
+      'kind': kind,
+      'text': text,
+      if (label != null) 'label': label,
+      if (suffix != null) 'suffix': suffix,
+    });
+    lines.add(switch (kind) {
+      'field' => '$label: $text${suffix == null ? '' : ' · $suffix'}',
+      'bullet' => '• $text',
+      _ => text,
+    });
+  }
+
+  if (reportQualityState(report) == 'partial') {
+    add('paragraph', copy.text('partial'));
+  }
+  add('paragraph', copy.coverage(quality));
+  add('space', '');
+  if (labs.isNotEmpty) add('heading', copy.text('results'));
+  for (final row in labs) {
+    // Source names, values, units and reference text remain verbatim. Only
+    // generated labels and the comparison state use the selected language.
+    add('bullet', '${row['test_name']}: ${row['value']} ${row['unit'] ?? ''}');
+    if (row['source_fields'] is Map && row['source_fields']['value'] is Map) {
+      final source = row['source_fields']['value'];
+      add('field', copy.sourcePage(source['page']),
+          label: copy.text('originalSource'));
+      if (source['text'] != row['value']) {
+        add('field', '${source['text']}',
+            label: copy.text('printedValue'),
+            suffix: copy.text('correctedValue'));
+      }
+    }
+    if ((row['reference_range'] ?? '').toString().isNotEmpty) {
+      add('field', '${row['reference_range']}',
+          label: copy.text('referenceRange'));
+    }
+    if ((row['status'] ?? 'unknown') == 'unknown') {
+      add('paragraph', copy.text('noComparison'));
+    } else {
+      add('field', copy.status(row['status']), label: copy.text('comparison'));
+    }
+    add('space', '');
+  }
+  for (final note in notes) {
+    add('heading', copy.text(note['section'].toString()));
+    add('bullet', '${note['text']}');
+    if (note['source_fields'] is Map && note['source_fields']['text'] is Map) {
+      add('field', copy.sourcePage(note['source_fields']['text']['page']),
+          label: copy.text('originalSource'));
+    }
+    add('space', '');
+  }
+  add('paragraph', copy.text('disclaimer'));
   return {
     ...report,
     'simple_explanation': lines.join('\n'),
+    // The PDF consumes only these locally generated, source-backed blocks;
+    // saved translated prose is not part of the selected-language export.
+    'export_blocks': blocks,
     'medical_summary': '',
     'translated_explanation':
         report['translation_source_revision'] == report['parsed_data']

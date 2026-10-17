@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
 import 'report_data.dart';
+import 'app_strings.dart';
 import 'body_systems.dart';
 
 class ReportPalette {
@@ -277,7 +278,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
 
   bool _showSearch = false;
   static const _nav = [0, 1, 3];
-  static const _labels = ['Upload report', 'Report workspace', '', 'Settings'];
+  List<String> get _labels =>
+      [_t('Upload report'), _t('Report workspace'), '', _t('Settings')];
+  String _t(String source, [Map<String, Object?> values = const {}]) =>
+      AppStrings(widget.language).t(source, values);
+  String _error(String message) => AppStrings(widget.language).error(message);
   static const _icons = [
     Icons.upload_file_outlined,
     Icons.space_dashboard_outlined,
@@ -332,15 +337,15 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   selectedIndex:
                       _nav.indexOf(widget.index == 2 ? 1 : widget.index),
                   onDestinationSelected: (i) => widget.onNavigate(_nav[i]),
-                  destinations: const [
+                  destinations: [
                     NavigationDestination(
                         icon: Icon(Icons.upload_file_outlined),
-                        label: 'Upload'),
+                        label: _t('Upload')),
                     NavigationDestination(
                         icon: Icon(Icons.space_dashboard_outlined),
-                        label: 'Report'),
+                        label: _t('Report')),
                     NavigationDestination(
-                        icon: Icon(Icons.tune_rounded), label: 'Settings'),
+                        icon: Icon(Icons.tune_rounded), label: _t('Settings')),
                   ],
                 ),
         );
@@ -355,10 +360,10 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             EdgeInsets.symmetric(horizontal: expanded ? 16 : 12, vertical: 24),
         child: Column(children: [
           if (expanded)
-            const _Brand()
+            _Brand(language: widget.language)
           else
             Image.asset('assets/images/arogya_pandit_logo.png',
-                width: 40, height: 40, semanticLabel: 'Medivaanii logo'),
+                width: 40, height: 40, semanticLabel: _t('Medivaanii logo')),
           const SizedBox(height: 40),
           for (final i in _nav)
             Padding(
@@ -411,11 +416,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                               : ReportPalette.muted),
                                       const SizedBox(height: 5),
                                       Text(
-                                          i == 0
+                                          _t(i == 0
                                               ? 'Upload'
                                               : i == 1
                                                   ? 'Report'
-                                                  : 'Settings',
+                                                  : 'Settings'),
                                           style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.w600,
@@ -428,7 +433,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             ),
           const Spacer(),
           if (expanded)
-            const Text('Clarity, in your language.',
+            Text(_t('Clarity, in your language.'),
                 style: TextStyle(fontSize: 12, color: ReportPalette.muted)),
         ]),
       );
@@ -448,14 +453,14 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 _languages(),
               ])
             : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                const _Brand(),
+                _Brand(language: widget.language),
                 const SizedBox(height: 12),
                 _languages(),
               ]),
       );
 
   Widget _languages() => Semantics(
-      label: 'Explanation language',
+      label: _t('App language'),
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
@@ -470,9 +475,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
               child: Semantics(
                   selected: widget.language == language['name'],
                   child: TextButton(
-                    onPressed: _busy
-                        ? null
-                        : () => widget.onLanguage(language['name']!),
+                    onPressed: () => widget.onLanguage(language['name']!),
                     style: TextButton.styleFrom(
                         minimumSize: const Size(66, 38),
                         padding: const EdgeInsets.symmetric(horizontal: 13),
@@ -506,21 +509,27 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Text(widget.fileName ?? 'Your report',
+                    Text(widget.fileName ?? _t('Your report'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 17)),
                     const SizedBox(height: 3),
                     if (rows.isEmpty)
-                      const Text(
-                          'Report text available · measurements are not yet mapped',
+                      Text(_t('Report text available · measurements are not yet mapped'),
                           style: TextStyle(
                               fontSize: 13, color: ReportPalette.muted))
                     else ...[
                       if (partial)
                         Text(
-                            'Partial extraction${expected != null ? ' · ${rows.length} of $expected measurements' : ''}${review > 0 ? ' · $review to check' : ''}',
+                            [
+                              _t('Partial extraction'),
+                              if (expected != null)
+                                _t('{count} of {total} measurements',
+                                    {'count': rows.length, 'total': expected}),
+                              if (review > 0)
+                                _t('{count} to check', {'count': review})
+                            ].join(' · '),
                             style: const TextStyle(
                                 fontSize: 12, color: ReportPalette.burgundy)),
                       const SizedBox(height: 4),
@@ -545,26 +554,27 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                         ? null
                         : widget.onDownload,
                     icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('Save summary'),
+                    label: Text(_t('Save summary')),
                     style: OutlinedButton.styleFrom(
                         minimumSize: const Size(40, 42))),
               if (partial && widget.onReextract != null)
                 TextButton.icon(
                     onPressed: _busy ? null : widget.onReextract,
                     icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(desktop ? 'Read results again' : 'Re-read')),
+                    label:
+                        Text(_t(desktop ? 'Read results again' : 'Re-read'))),
               const SizedBox(width: 8),
               IconButton(
-                  tooltip: 'Upload another report',
+                  tooltip: _t('Upload another report'),
                   onPressed: () => widget.onNavigate(0),
                   icon: const Icon(Icons.add_rounded)),
             ]));
         final source = ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: widget.sourceExplorer ??
-                _surface(const Center(
-                    child: Text(
-                        'Upload the original document to view its source.'))));
+                _surface(Center(
+                    child: Text(_t(
+                        'Upload the original document to view its source.')))));
         if (desktop) {
           return Align(
               alignment: Alignment.topCenter,
@@ -769,7 +779,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 style:
                     const TextStyle(fontSize: 14, color: ReportPalette.muted)),
             IconButton(
-                tooltip: _showSearch ? 'Close search' : 'Find a test',
+                tooltip: _t(_showSearch ? 'Close search' : 'Find a test'),
                 onPressed: () => setState(() {
                       _showSearch = !_showSearch;
                       if (!_showSearch) {
@@ -781,7 +791,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     _showSearch ? Icons.close_rounded : Icons.search_rounded,
                     size: 21)),
             PopupMenuButton<String>(
-                tooltip: 'Filter measurements',
+                tooltip: _t('Filter measurements'),
                 initialValue: _filter,
                 onSelected: _setFilter,
                 icon: const Icon(Icons.filter_list_rounded, size: 20),
@@ -794,14 +804,14 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                         'review': 'Needs review'
                       }.entries)
                         PopupMenuItem(
-                            value: entry.key, child: Text(entry.value)),
+                            value: entry.key, child: Text(_t(entry.value))),
                     ]),
           ])),
       if (widget.reviewSaving) const LinearProgressIndicator(minHeight: 2),
       if (widget.reviewError != null)
         Padding(
             padding: const EdgeInsets.all(12),
-            child: Text(widget.reviewError!,
+            child: Text(_error(widget.reviewError!),
                 style: const TextStyle(color: ReportPalette.burgundy))),
       const Divider(height: 1, thickness: 1, color: ReportPalette.border),
       Expanded(
@@ -817,24 +827,23 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                            'The report text is available. Its results have not been mapped into individual measurements yet.',
+                        Text(
+                            _t('The report text is available. Its results have not been mapped into individual measurements yet.'),
                             style: TextStyle(fontSize: 16)),
                         const SizedBox(height: 10),
-                        const Text(
-                            'The assistant can explain the text, but cannot point to a measurement until it is mapped.',
+                        Text(_t('The assistant can explain the text, but cannot point to a measurement until it is mapped.'),
                             style: TextStyle(
                                 fontSize: 14, color: ReportPalette.muted)),
                         const SizedBox(height: 12),
                         OutlinedButton.icon(
                             onPressed: _busy ? null : widget.onReextract,
                             icon: const Icon(Icons.document_scanner_outlined),
-                            label: const Text('Read results again')),
+                            label: Text(_t('Read results again'))),
                       ])),
             if (rows.isNotEmpty && visible.isEmpty)
-              const Padding(
+              Padding(
                   padding: EdgeInsets.all(20),
-                  child: Text('No measurements match this filter.')),
+                  child: Text(_t('No measurements match this filter.'))),
             for (final group in groups.entries) ...[
               _systemHeader(group.key, group.value.length),
               for (final row in group.value) _measurement(row),
@@ -953,23 +962,21 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                     : () => showDialog<void>(
                                         context: context,
                                         builder: (context) => AlertDialog(
-                                                title:
-                                                    Text(row['test_name'].toString()),
-                                                content: SelectableText('Reference range\n$reference'),
+                                                title: Text(row['test_name'].toString()),
+                                                content: SelectableText('${_t('Reference range')}\n$reference'),
                                                 actions: [
                                                   TextButton(
                                                       onPressed: () =>
                                                           Navigator.pop(
                                                               context),
-                                                      child:
-                                                          const Text('Close'))
+                                                      child: Text(_t('Close')))
                                                 ])),
                                 child: Tooltip(
                                     message: reference.isEmpty
-                                        ? 'Reference not printed'
-                                        : 'Reference: $reference',
-                                    child: Text(
-                                        'Ref: ${reference.isEmpty ? 'Not printed' : reference}',
+                                        ? _t('Reference not printed')
+                                        : _t('Reference: {range}',
+                                            {'range': reference}),
+                                    child: Text(_t('Ref: {range}', {'range': reference.isEmpty ? _t('Not printed') : reference}),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
@@ -984,13 +991,14 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                     ? ReportPalette.rose
                                     : ReportPalette.sageLight,
                                 borderRadius: BorderRadius.circular(5)),
-                            child: Text(labels[status] ?? 'Check source',
+                            child: Text(_t(labels[status] ?? 'Check source'),
                                 style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: color))),
                         IconButton(
-                            tooltip: 'Listen to ${row['test_name']}',
+                            tooltip: _t(
+                                'Listen to {test}', {'test': row['test_name']}),
                             onPressed: () =>
                                 _chooseMeasurement(id, listen: true),
                             icon:
@@ -999,7 +1007,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                 minimumSize: const Size(40, 40),
                                 foregroundColor: ReportPalette.sage)),
                         IconButton(
-                            tooltip: 'Correct ${row['test_name']}',
+                            tooltip: _t(
+                                'Correct {test}', {'test': row['test_name']}),
                             onPressed: widget.reviewSaving
                                 ? null
                                 : () => widget.onEditMeasurement?.call(id),
@@ -1021,26 +1030,32 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         .toList();
     return ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-        title: const Text('Questions for your doctor',
+        title: Text(_t('Questions for your doctor'),
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         children: [
           for (final row in flagged)
             ListTile(
                 leading: const Icon(Icons.chat_bubble_outline, size: 18),
                 title: Text(
-                    'What could affect my ${row['test_name']} result of ${row['value']} ${row['unit'] ?? ''}?',
+                    _t(
+                        'What could affect my {test} result of {value} {unit}?',
+                        {
+                          'test': row['test_name'],
+                          'value': row['value'],
+                          'unit': row['unit'] ?? ''
+                        }),
                     style: const TextStyle(fontSize: 14)),
-                subtitle: const Text(
-                    'Ask whether follow-up is needed in your situation.',
+                subtitle: Text(
+                    _t('Ask whether follow-up is needed in your situation.'),
                     style: TextStyle(fontSize: 13))),
           if (flagged.isEmpty)
-            const ListTile(
+            ListTile(
                 title: Text(
-                    'How do these results fit with my symptoms and medical history?',
+                    _t('How do these results fit with my symptoms and medical history?'),
                     style: TextStyle(fontSize: 14))),
-          const ListTile(
+          ListTile(
               title: Text(
-                  'Is there anything I should check or discuss at my next visit?',
+                  _t('Is there anything I should check or discuss at my next visit?'),
                   style: TextStyle(fontSize: 14))),
         ]);
   }
@@ -1048,22 +1063,21 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   Widget _upload() => LayoutBuilder(builder: (context, size) {
         final intro =
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('UNDERSTAND. ASK. FEEL INFORMED.',
+          Text(_t('UNDERSTAND. ASK. FEEL INFORMED.'),
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.4,
                   color: ReportPalette.sage)),
           const SizedBox(height: 20),
-          const Text('Your report.\nA clearer conversation.',
+          Text(_t('Your report.\nA clearer conversation.'),
               style: TextStyle(
                   fontSize: 42,
                   height: 1.15,
                   letterSpacing: -1.4,
                   fontWeight: FontWeight.w700)),
           const SizedBox(height: 18),
-          const Text(
-              'Make sense of medical terms and numbers, in a language that feels like home.',
+          Text(_t('Make sense of medical terms and numbers, in a language that feels like home.'),
               style: TextStyle(
                   fontSize: 18, height: 1.6, color: ReportPalette.muted)),
           const SizedBox(height: 30),
@@ -1074,29 +1088,28 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
           _step('03', 'Talk it through',
               'Ask a question and hear a simple explanation.'),
           const SizedBox(height: 10),
-          _surface(const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Icon(Icons.auto_stories_outlined,
-                      color: ReportPalette.sage, size: 21),
-                  SizedBox(width: 10),
-                  Text('An example explanation',
+          _surface(
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.auto_stories_outlined,
+                  color: ReportPalette.sage, size: 21),
+              SizedBox(width: 10),
+              Expanded(
+                  child: Text(_t('An example explanation'),
                       style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 16))
-                ]),
-                SizedBox(height: 14),
-                Text('“What does hemoglobin measure?”',
-                    style:
-                        TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-                SizedBox(height: 8),
-                Text(
-                    'Hemoglobin carries oxygen through your blood. Your doctor looks at this result alongside your other tests and how you feel.',
-                    style: TextStyle(fontSize: 16, height: 1.6)),
-                SizedBox(height: 12),
-                Text('Illustrative content · not your report',
-                    style: TextStyle(fontSize: 12, color: ReportPalette.muted)),
-              ])),
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 16)))
+            ]),
+            SizedBox(height: 14),
+            Text(_t('“What does hemoglobin measure?”'),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            SizedBox(height: 8),
+            Text(
+                _t('Hemoglobin carries oxygen through your blood. Your doctor looks at this result alongside your other tests and how you feel.'),
+                style: TextStyle(fontSize: 16, height: 1.6)),
+            SizedBox(height: 12),
+            Text(_t('Illustrative content · not your report'),
+                style: TextStyle(fontSize: 12, color: ReportPalette.muted)),
+          ])),
         ]);
         final upload = AnimatedContainer(
             duration: const Duration(milliseconds: 160),
@@ -1112,11 +1125,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('Add your medical report',
+                  Text(_t('Add your medical report'),
                       style:
                           TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
-                  const Text('A PDF or a clear photo is all you need.',
+                  Text(_t('A PDF or a clear photo is all you need.'),
                       style: TextStyle(color: ReportPalette.muted)),
                   const SizedBox(height: 28),
                   if (widget.loading)
@@ -1139,14 +1152,14 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                   size: 34, color: ReportPalette.burgundy)),
                           const SizedBox(height: 20),
                           Text(
-                              widget.dragging
+                              _t(widget.dragging
                                   ? 'Drop your report here'
-                                  : 'Drag your report here',
+                                  : 'Drag your report here'),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                   fontSize: 20, fontWeight: FontWeight.w600)),
                           const SizedBox(height: 8),
-                          const Text('PDF, JPG, PNG or WebP · under 4 MB',
+                          Text(_t('PDF, JPG, PNG or WebP · under 4 MB'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   fontSize: 14, color: ReportPalette.muted)),
@@ -1155,7 +1168,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                               onPressed: _busy ? null : widget.onUpload,
                               icon: const Icon(Icons.upload_file_outlined,
                                   size: 20),
-                              label: const Text('Choose PDF')),
+                              label: Text(_t('Choose PDF'))),
                         ])),
                   const SizedBox(height: 18),
                   Row(children: [
@@ -1164,23 +1177,22 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                             onPressed: _busy ? null : widget.onCamera,
                             icon:
                                 const Icon(Icons.camera_alt_outlined, size: 20),
-                            label: const Text('Take photo'))),
+                            label: Text(_t('Take photo')))),
                     const SizedBox(width: 12),
                     Expanded(
                         child: OutlinedButton.icon(
                             onPressed: _busy ? null : widget.onPhoto,
                             icon: const Icon(Icons.image_outlined, size: 20),
-                            label: const Text('Choose photo')))
+                            label: Text(_t('Choose photo'))))
                   ]),
                   if (widget.error != null)
                     Padding(
                         padding: const EdgeInsets.only(top: 18),
-                        child: Text(widget.error!,
+                        child: Text(_error(widget.error!),
                             style: const TextStyle(
                                 color: ReportPalette.burgundy))),
                   const SizedBox(height: 22),
-                  const Text(
-                      'Keep the full page in view, with good light and no blur. For clear, printed English reports.',
+                  Text(_t('Keep the full page in view, with good light and no blur. For clear, printed English reports.'),
                       style: TextStyle(
                           fontSize: 13,
                           color: ReportPalette.muted,
@@ -1188,8 +1200,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   const SizedBox(height: 18),
                   const Divider(),
                   const SizedBox(height: 10),
-                  const Text(
-                      'Reports and voice questions use Groq. Spoken answers use Microsoft Edge neural speech.',
+                  Text(_t('Reports and voice questions use Groq. Spoken answers use Microsoft Edge neural speech.'),
                       style: TextStyle(
                           fontSize: 12,
                           height: 1.6,
@@ -1199,7 +1210,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     TextButton.icon(
                         onPressed: () => widget.onNavigate(1),
                         icon: const Icon(Icons.arrow_forward_rounded),
-                        label: const Text('Return to your current report'))
+                        label: Text(_t('Return to your current report')))
                   ],
                 ]));
         return size.maxWidth >= 800
@@ -1234,11 +1245,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title,
+          Text(_t(title),
               style:
                   const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 3),
-          Text(body,
+          Text(_t(body),
               style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
         ]))
       ]));
@@ -1251,25 +1262,25 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
               border: Border.all(color: ReportPalette.border),
               borderRadius: BorderRadius.circular(16)),
           child: child);
-  Widget _progress() => const Padding(
+  Widget _progress() => Padding(
       padding: EdgeInsets.all(32),
       child: Column(children: [
         CircularProgressIndicator(),
         SizedBox(height: 20),
-        Text('Reading your report…')
+        Text(AppStrings(widget.language).progress(widget.loadingMessage))
       ]));
   Widget _empty() =>
       _surface(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('A clearer view starts with your report.',
+        Text(_t('A clearer view starts with your report.'),
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        const Text(
-            'Upload a PDF or a clear photo to see your results and start a conversation.'),
+        Text(_t(
+            'Upload a PDF or a clear photo to see your results and start a conversation.')),
         const SizedBox(height: 24),
         FilledButton.icon(
             onPressed: () => widget.onNavigate(0),
             icon: const Icon(Icons.upload_file_outlined),
-            label: const Text('Add a report'))
+            label: Text(_t('Add a report')))
       ]));
   Widget _settings() => Align(
         alignment: Alignment.topCenter,
@@ -1304,8 +1315,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                           '语音与阅读偏好')),
                       _settingsRow(
                           Icons.translate_rounded,
-                          _copy('Explanation language', 'समझाने की भाषा',
-                              'Idioma de explicación', '讲解语言'),
+                          _t('App language'),
                           _copy(
                               'Change it for the whole app using the selector in the top bar.',
                               'ऊपर भाषा चुनें। यह पूरी ऐप में लागू होगी।',
@@ -1369,7 +1379,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                               'Hablar al seleccionar un resultado. Si lo desactivas, lee primero; Escuchar y las preguntas por voz siguen reproduciendo audio.',
                               '选择结果后自动讲解。关闭后可先阅读，收听按钮和语音提问仍播放音频。'),
                           trailing: Semantics(
-                              label: 'Play explanations automatically',
+                              label: _copy(
+                                  'Play explanations automatically',
+                                  'जवाब अपने आप सुनाएं',
+                                  'Reproducir explicaciones automáticamente',
+                                  '自动播放讲解'),
                               child: Switch.adaptive(
                                   value: widget.speechEnabled,
                                   activeTrackColor: ReportPalette.sage,
@@ -1417,7 +1431,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                   'कोई रिपोर्ट सेव नहीं है',
                                   'No hay informe guardado',
                                   '没有已保存的报告')
-                              : (widget.fileName ?? 'Your report'),
+                              : (widget.fileName ?? _t('Your report')),
                           widget.report == null
                               ? _copy(
                                   'Add a medical report to start a conversation.',
@@ -1428,7 +1442,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                       if (widget.storageError != null)
                         Padding(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                            child: Text(widget.storageError!,
+                            child: Text(_error(widget.storageError!),
                                 style: const TextStyle(
                                     fontSize: 13,
                                     color: ReportPalette.burgundy))),
@@ -1659,12 +1673,15 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
 }
 
 class _Brand extends StatelessWidget {
-  const _Brand();
+  const _Brand({this.language = 'English'});
+  final String language;
   @override
   Widget build(BuildContext context) =>
       Row(mainAxisSize: MainAxisSize.min, children: [
         Image.asset('assets/images/arogya_pandit_logo.png',
-            width: 36, height: 36, semanticLabel: 'Medivaanii logo'),
+            width: 36,
+            height: 36,
+            semanticLabel: AppStrings(language).t('Medivaanii logo')),
         const SizedBox(width: 10),
         const Flexible(
             child: Text('Medivaanii',

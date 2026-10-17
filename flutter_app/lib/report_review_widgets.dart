@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'report_data.dart';
 import 'app_content_utils.dart';
+import 'review_strings.dart';
+import 'app_strings.dart';
 
 const _ink = Color(0xFF242C2B);
 const _muted = Color(0xFF626A67);
@@ -9,10 +11,12 @@ const _body =
     TextStyle(fontFamily: 'NotoSans', fontSize: 16, height: 1.6, color: _ink);
 
 Future<Map<String, dynamic>?> editReportResult(
-        BuildContext context, Map<String, dynamic> row, String? source) =>
+        BuildContext context, Map<String, dynamic> row, String? source,
+        {String language = 'English'}) =>
     showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (_) => _ResultEditor(row: row, source: source));
+        builder: (_) =>
+            _ResultEditor(row: row, source: source, language: language));
 
 class ReportReviewPanel extends StatefulWidget {
   const ReportReviewPanel(
@@ -23,18 +27,21 @@ class ReportReviewPanel extends StatefulWidget {
       this.onOpenSource,
       this.onReextract,
       this.busy = false,
+      this.language = 'English',
       this.error});
   final Map<String, dynamic> report;
   final ValueChanged<List<Map<String, dynamic>>> onConfirm;
   final Widget? sourcePreview;
   final VoidCallback? onOpenSource, onReextract;
   final bool busy;
+  final String language;
   final String? error;
   @override
   State<ReportReviewPanel> createState() => _ReportReviewPanelState();
 }
 
 class _ReportReviewPanelState extends State<ReportReviewPanel> {
+  ReviewStrings get _s => ReviewStrings(widget.language);
   late final List<Map<String, dynamic>> _rows =
       reportLabValues(widget.report['parsed_data'])
           .map((row) => {
@@ -84,7 +91,8 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
         context: context,
         builder: (_) => _ResultEditor(
             row: _rows[index],
-            source: _source(index)['source_quote']?.toString()));
+            source: _source(index)['source_quote']?.toString(),
+            language: widget.language));
     if (!mounted || result == null) return;
     setState(() {
       if (['test_name', 'value', 'unit', 'reference_range', 'status']
@@ -112,23 +120,22 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
             child: Row(children: [
               const Icon(Icons.description_outlined, size: 20, color: _muted),
               const SizedBox(width: 10),
-              const Expanded(
-                  child: Text('Original document',
-                      style: TextStyle(
+              Expanded(
+                  child: Text(_s.t('originalDocument'),
+                      style: const TextStyle(
                           fontSize: 17, fontWeight: FontWeight.w600))),
               if (widget.onOpenSource != null)
                 IconButton(
-                    tooltip: 'Open original document',
+                    tooltip: _s.t('openOriginal'),
                     onPressed: widget.onOpenSource,
                     icon: const Icon(Icons.open_in_new, size: 18)),
             ])),
         const Divider(height: 1),
         if (widget.sourcePreview != null) widget.sourcePreview!,
         ExpansionTile(
-            title: const Text('View extracted text', style: _cell),
+            title: Text(_s.t('viewExtracted'), style: _cell),
             subtitle: widget.sourcePreview == null
-                ? const Text('Original document preview unavailable',
-                    style: _small)
+                ? Text(_s.t('previewUnavailable'), style: _small)
                 : null,
             initiallyExpanded: widget.sourcePreview == null,
             children: [
@@ -138,7 +145,7 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                       padding: const EdgeInsets.all(20),
                       child: SelectableText(
                           (widget.report['extracted_text'] ??
-                                  'Source text unavailable. Upload the original again.')
+                                  _s.t('sourceTextUnavailable'))
                               .toString(),
                           style: _cell)))
             ]),
@@ -148,14 +155,14 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
     final status = (_rows[index]['status'] ?? 'unknown').toString();
     final edited = _edited.contains(index);
     final label = edited
-        ? 'Edited'
+        ? _s.t('edited')
         : switch (status) {
-            'normal' => 'Normal',
-            'high' => 'High',
-            'low' => 'Low',
-            'critical' => 'Critical',
-            'abnormal' => 'Abnormal',
-            _ => _uncertain(index) ? 'Check' : 'No comparison',
+            'normal' => _s.t('status_normal'),
+            'high' => _s.t('status_high'),
+            'low' => _s.t('status_low'),
+            'critical' => _s.t('status_critical'),
+            'abnormal' => _s.t('status_abnormal'),
+            _ => _uncertain(index) ? _s.t('check') : _s.t('noComparison'),
           };
     final color = edited
         ? _muted
@@ -183,7 +190,7 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
       if (row['unit'].toString().isNotEmpty) Text(row['unit'], style: _small),
     ]);
     final range = row['reference_range'].toString().isEmpty
-        ? 'Not shown'
+        ? _s.t('notShown')
         : row['reference_range'].toString();
     final unit = row['unit'].toString();
     final hasRangeUnit = unit.isNotEmpty && range.endsWith(unit);
@@ -197,13 +204,13 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
     ]);
     final edit = IconButton(
         key: ValueKey('edit-result-$index'),
-        tooltip: 'Edit ${row['test_name']}',
+        tooltip: _s.t('editTest', {'test': row['test_name']}),
         onPressed: widget.busy ? null : () => _edit(index),
         icon: const Icon(Icons.edit_outlined, size: 18));
     return Semantics(
         selected: selected,
         button: true,
-        label: 'Select ${row['test_name']} source',
+        label: _s.t('selectSource', {'test': row['test_name']}),
         child: InkWell(
             onTap: () => setState(() => _selected = index),
             child: Container(
@@ -239,7 +246,7 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            const Text('Reference',
+                                            Text(_s.t('reference'),
                                                 style: _small),
                                             reference
                                           ]))
@@ -286,26 +293,26 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Row(children: [
-                          const Expanded(
-                              child: Text('Extracted results',
-                                  style: TextStyle(
+                          Expanded(
+                              child: Text(_s.t('extractedResults'),
+                                  style: const TextStyle(
                                       fontSize: 19,
                                       fontWeight: FontWeight.w600))),
-                          Text('${_rows.length} tests', style: _small)
+                          Text(_s.t('tests', {'count': _rows.length}),
+                              style: _small)
                         ]),
                         const SizedBox(height: 4),
-                        const Text(
-                            'Select a row to see its source. Edit only what needs correcting.',
-                            style: _small),
+                        Text(_s.t('selectRow'), style: _small),
                         const SizedBox(height: 14),
                         Wrap(spacing: 8, runSpacing: 8, children: [
                           ChoiceChip(
-                              label: const Text('All results'),
+                              label: Text(_s.t('allResults')),
                               selected: !_onlyUncertain,
                               onSelected: (_) =>
                                   setState(() => _onlyUncertain = false)),
                           ChoiceChip(
-                              label: Text('Needs check · $uncertain'),
+                              label: Text(
+                                  _s.t('needsCheck', {'count': uncertain})),
                               selected: _onlyUncertain,
                               onSelected: (_) =>
                                   setState(() => _onlyUncertain = true)),
@@ -314,11 +321,12 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                           const SizedBox(height: 12),
                           TextField(
                               style: _cell,
-                              decoration: const InputDecoration(
-                                  hintText: 'Find a test',
-                                  prefixIcon: Icon(Icons.search, size: 20),
+                              decoration: InputDecoration(
+                                  hintText: _s.t('findTest'),
+                                  prefixIcon:
+                                      const Icon(Icons.search, size: 20),
                                   isDense: true,
-                                  border: OutlineInputBorder()),
+                                  border: const OutlineInputBorder()),
                               onChanged: (value) =>
                                   setState(() => _query = value))
                         ],
@@ -327,16 +335,23 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                 Container(
                     color: const Color(0xFFF7F6F3),
                     padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
-                    child: const Row(children: [
-                      Expanded(flex: 3, child: Text('TEST', style: _small)),
-                      SizedBox(width: 10),
-                      Expanded(flex: 2, child: Text('RESULT', style: _small)),
-                      SizedBox(width: 10),
+                    child: Row(children: [
                       Expanded(
-                          flex: 4, child: Text('REFERENCE', style: _small)),
-                      SizedBox(width: 10),
-                      SizedBox(width: 76, child: Text('FLAG', style: _small)),
-                      SizedBox(width: 48)
+                          flex: 3,
+                          child: Text(_s.t('testHeader'), style: _small)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          flex: 2,
+                          child: Text(_s.t('resultHeader'), style: _small)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          flex: 4,
+                          child: Text(_s.t('referenceHeader'), style: _small)),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                          width: 76,
+                          child: Text(_s.t('flagHeader'), style: _small)),
+                      const SizedBox(width: 48)
                     ])),
               const Divider(height: 1),
               if (visible.isNotEmpty)
@@ -358,10 +373,10 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                     padding: const EdgeInsets.all(24),
                     child: Text(
                         _rows.isEmpty
-                            ? 'No laboratory values were extracted. Read the source text before continuing.'
+                            ? _s.t('noValues')
                             : _onlyUncertain
-                                ? 'No results need an uncertainty check. Compare the values with your original before continuing.'
-                                : 'No tests match your search.',
+                                ? _s.t('noUncertain')
+                                : _s.t('noSearchMatches'),
                         style: _cell)),
               if (_rows.isNotEmpty) ...[
                 const Divider(height: 1),
@@ -377,23 +392,26 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                             const SizedBox(width: 8),
                             Expanded(
                                 child: Text(
-                                    'SOURCE · ${_rows[_selected]['test_name']}',
+                                    _s.t('sourceTest', {
+                                      'test': _rows[_selected]['test_name']
+                                    }),
                                     style: _small.copyWith(
                                         fontWeight: FontWeight.w600)))
                           ]),
                           const SizedBox(height: 8),
                           SelectableText(
                               (_source(_selected)['source_quote'] ??
-                                      'A matching source line was not located. Check this result in the original document.')
+                                      _s.t('missingSource'))
                                   .toString(),
                               style: _cell),
                           const SizedBox(height: 8),
                           Text(
                               _edited.contains(_selected)
-                                  ? 'Correction ready. Range comparisons update when you continue.'
-                                  : (_source(_selected)['status_description'] ??
-                                          'Check the value, unit, range and flag against the original.')
-                                      .toString(),
+                                  ? _s.t('correctionReady')
+                                  : (_source(_selected)['status_description'] ==
+                                          null
+                                      ? _s.t('compareOriginal')
+                                      : _s.resultDescription(_rows[_selected])),
                               style: _small),
                         ])),
               ],
@@ -421,7 +439,7 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
         if (widget.error != null)
           Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text(widget.error!,
+              child: Text(AppStrings(widget.language).error(widget.error!),
                   style: _body.copyWith(color: const Color(0xFFA32E35)))),
         _card(Padding(
             padding: const EdgeInsets.all(16),
@@ -431,13 +449,15 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                   children: [
                     Text(
                         _edited.isEmpty
-                            ? 'Ready when you are.'
-                            : '${_edited.length} ${_edited.length == 1 ? 'correction' : 'corrections'} ready.',
+                            ? _s.t('ready')
+                            : _s.t(
+                                _edited.length == 1
+                                    ? 'oneCorrection'
+                                    : 'corrections',
+                                {'count': _edited.length}),
                         style: _cell.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
-                    const Text(
-                        'Confirm the extracted text before reading your explanation.',
-                        style: _small),
+                    Text(_s.t('confirmExtracted'), style: _small),
                   ]);
               final actions = Wrap(
                   spacing: 10,
@@ -448,7 +468,7 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                       TextButton.icon(
                           onPressed: widget.busy ? null : widget.onReextract,
                           icon: const Icon(Icons.refresh, size: 18),
-                          label: const Text('Re-read source')),
+                          label: Text(_s.t('rereadSource'))),
                     FilledButton.icon(
                         onPressed: widget.busy ||
                                 reportQualityState(widget.report) ==
@@ -459,8 +479,8 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
                                 .toList()),
                         icon: const Icon(Icons.arrow_forward, size: 18),
                         label: Text(widget.busy
-                            ? 'Updating results…'
-                            : 'Confirm & continue')),
+                            ? _s.t('updatingResults')
+                            : _s.t('confirmContinue'))),
                   ]);
               return size.maxWidth >= 760
                   ? Row(children: [
@@ -482,14 +502,17 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
 }
 
 class _ResultEditor extends StatefulWidget {
-  const _ResultEditor({required this.row, this.source});
+  const _ResultEditor(
+      {required this.row, this.source, this.language = 'English'});
   final Map<String, dynamic> row;
   final String? source;
+  final String language;
   @override
   State<_ResultEditor> createState() => _ResultEditorState();
 }
 
 class _ResultEditorState extends State<_ResultEditor> {
+  ReviewStrings get _s => ReviewStrings(widget.language);
   final _form = GlobalKey<FormState>();
   late final _draft = Map<String, dynamic>.from(widget.row);
   Widget _field(String key, String label,
@@ -504,12 +527,12 @@ class _ResultEditorState extends State<_ResultEditor> {
                   counterText: '',
                   border: const OutlineInputBorder()),
           validator: (value) => required && (value ?? '').trim().isEmpty
-              ? 'Enter the $label from your report.'
+              ? _s.t('enterField', {'field': label})
               : null,
           onChanged: (value) => _draft[key] = value);
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: Text('Edit ${widget.row['test_name']}',
+        title: Text(_s.t('editTest', {'test': widget.row['test_name']}),
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
         content: SizedBox(
             width: 460,
@@ -520,9 +543,8 @@ class _ResultEditorState extends State<_ResultEditor> {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                              'Copy the result exactly as it appears in the original document.',
-                              style: TextStyle(
+                          Text(_s.t('copyExactly'),
+                              style: const TextStyle(
                                   fontSize: 14, height: 1.5, color: _muted)),
                           if (widget.source != null) ...[
                             const SizedBox(height: 12),
@@ -536,26 +558,25 @@ class _ResultEditorState extends State<_ResultEditor> {
                                         fontSize: 14, height: 1.5)))
                           ],
                           const SizedBox(height: 20),
-                          _field('test_name', 'Test name', required: true),
+                          _field('test_name', _s.t('testName'), required: true),
                           const SizedBox(height: 16),
                           Row(children: [
                             Expanded(
-                                child:
-                                    _field('value', 'Value', required: true)),
+                                child: _field('value', _s.t('value'),
+                                    required: true)),
                             const SizedBox(width: 12),
-                            Expanded(child: _field('unit', 'Unit'))
+                            Expanded(child: _field('unit', _s.t('unit')))
                           ]),
                           const SizedBox(height: 16),
-                          _field('reference_range', 'Reference range'),
+                          _field('reference_range', _s.t('referenceRange')),
                           if ((widget.row['source_fields'] as Map? ?? {})
                               .values
                               .any((field) =>
                                   field is Map &&
-                                  ['ocr', 'docling_ocr']
+                                  ['ocr', 'docling_ocr', 'groq_vision']
                                       .contains(field['method']))) ...[
                             const SizedBox(height: 16),
-                            const Text(
-                                'Check each photo field against the original. These checks confirm the transcription, not a diagnosis.'),
+                            Text(_s.t('checkPhotoFields')),
                             for (final key in [
                               'test_name',
                               'value',
@@ -575,8 +596,7 @@ class _ResultEditorState extends State<_ResultEditor> {
                                           .isNotEmpty))
                                 CheckboxListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  title: Text(
-                                      'Checked ${key.replaceAll('_', ' ')} in original'),
+                                  title: Text(_s.checkedField(key)),
                                   value: (_draft['source_checked_fields']
                                               as List? ??
                                           [])
@@ -607,23 +627,28 @@ class _ResultEditorState extends State<_ResultEditor> {
                               ].contains(_draft['status'])
                                   ? _draft['status']
                                   : 'unknown',
-                              decoration: const InputDecoration(
-                                  labelText: 'Flag shown on the report',
-                                  border: OutlineInputBorder()),
-                              items: const [
+                              decoration: InputDecoration(
+                                  labelText: _s.t('reportFlag'),
+                                  border: const OutlineInputBorder()),
+                              items: [
                                 DropdownMenuItem(
                                     value: 'unknown',
-                                    child: Text('Not shown / uncertain')),
+                                    child: Text(_s.t('notShownUncertain'))),
                                 DropdownMenuItem(
-                                    value: 'normal', child: Text('Normal')),
+                                    value: 'normal',
+                                    child: Text(_s.t('status_normal'))),
                                 DropdownMenuItem(
-                                    value: 'high', child: Text('High')),
+                                    value: 'high',
+                                    child: Text(_s.t('status_high'))),
                                 DropdownMenuItem(
-                                    value: 'low', child: Text('Low')),
+                                    value: 'low',
+                                    child: Text(_s.t('status_low'))),
                                 DropdownMenuItem(
-                                    value: 'abnormal', child: Text('Abnormal')),
+                                    value: 'abnormal',
+                                    child: Text(_s.t('status_abnormal'))),
                                 DropdownMenuItem(
-                                    value: 'critical', child: Text('Critical'))
+                                    value: 'critical',
+                                    child: Text(_s.t('status_critical')))
                               ],
                               onChanged: (value) {
                                 _draft['status'] = value;
@@ -633,14 +658,14 @@ class _ResultEditorState extends State<_ResultEditor> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+              child: Text(_s.t('cancel'))),
           FilledButton(
               onPressed: () {
                 if (_form.currentState!.validate()) {
                   Navigator.pop(context, _draft);
                 }
               },
-              child: const Text('Save correction'))
+              child: Text(_s.t('saveCorrection')))
         ],
       );
 }
@@ -659,16 +684,18 @@ class ReportQuestions extends StatefulWidget {
 }
 
 class _ReportQuestionsState extends State<ReportQuestions> {
+  ReviewStrings get _s => ReviewStrings(widget.language);
   final _question = TextEditingController();
   Map<String, dynamic>? _reply;
-  String? _asked, _error;
+  String? _asked;
+  bool _failed = false;
   bool _busy = false;
   Future<void> _ask([String? prompt]) async {
     final question = (prompt ?? _question.text).trim();
     if (question.isEmpty || _busy) return;
     setState(() {
       _busy = true;
-      _error = null;
+      _failed = false;
       _reply = null;
       _asked = question;
     });
@@ -677,8 +704,7 @@ class _ReportQuestionsState extends State<ReportQuestions> {
       if (mounted) setState(() => _reply = reply);
     } catch (_) {
       if (mounted) {
-        setState(() => _error =
-            'The answer is unavailable. Check your connection and try again.');
+        setState(() => _failed = true);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -694,18 +720,13 @@ class _ReportQuestionsState extends State<ReportQuestions> {
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('Ask about this report',
+        Text(_s.t('askAboutReport'),
             style: _body.copyWith(fontSize: 22, fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
-        const Text(
-            'Ask about a test shown in your report. Answers use the extracted results and show their source.',
-            style: _body),
+        Text(_s.t('questionIntro'), style: _body),
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final prompt in [
-            'Which results are flagged?',
-            'Summarise my report'
-          ])
+          for (final prompt in [_s.t('flaggedPrompt'), _s.t('summaryPrompt')])
             OutlinedButton(
                 onPressed: _busy ? null : () => _ask(prompt),
                 child: Text(prompt)),
@@ -718,20 +739,21 @@ class _ReportQuestionsState extends State<ReportQuestions> {
             maxLines: 3,
             style: _body,
             enabled: !_busy,
-            decoration: const InputDecoration(
-                labelText: 'Your question',
-                hintText: 'For example: What does my glucose result mean?',
-                border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: _s.t('yourQuestion'),
+                hintText: _s.t('questionExample'),
+                border: const OutlineInputBorder()),
             onSubmitted: (_) => _ask()),
         Align(
             alignment: Alignment.centerLeft,
             child: FilledButton(
                 onPressed: _busy ? null : () => _ask(),
-                child: Text(_busy ? 'Checking the report…' : 'Ask question'))),
-        if (_error != null)
+                child: Text(
+                    _busy ? _s.t('checkingReport') : _s.t('askQuestion')))),
+        if (_failed)
           Padding(
               padding: const EdgeInsets.only(top: 16),
-              child: Text(_error!, style: _body)),
+              child: Text(_s.t('answerUnavailable'), style: _body)),
         if (_reply != null)
           Container(
               margin: const EdgeInsets.only(top: 20),
@@ -747,11 +769,12 @@ class _ReportQuestionsState extends State<ReportQuestions> {
                         style: _body.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
                     if (_reply!['answer_language'] != null &&
-                        _reply!['answer_language'] != widget.language)
+                        ReviewStrings.languageCode(
+                                _reply!['answer_language'].toString()) !=
+                            ReviewStrings.languageCode(widget.language))
                       Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                              'Translation unavailable; the answer is shown in English.',
+                          child: Text(_s.t('translationUnavailable'),
                               style: _body.copyWith(color: _muted))),
                     SelectableText(
                         professionalReportText(
@@ -762,19 +785,19 @@ class _ReportQuestionsState extends State<ReportQuestions> {
                           type: MaterialType.transparency,
                           child: ExpansionTile(
                               tilePadding: EdgeInsets.zero,
-                              title: Text('Source: ${source['test_name']}'),
+                              title: Text(_s.t('questionSource',
+                                  {'test': source['test_name']})),
                               children: [
                                 SelectableText(
                                     (source['source_quote'] ??
-                                            'A matching original line was not located. Review this result against the document.')
+                                            _s.t('questionMissingSource'))
                                         .toString(),
                                     style: _body),
                                 const SizedBox(height: 8),
                               ])),
                     TextButton(
                         onPressed: widget.onReview,
-                        child: const Text(
-                            'Review original and extracted results')),
+                        child: Text(_s.t('reviewOriginal'))),
                   ])),
       ]);
 }

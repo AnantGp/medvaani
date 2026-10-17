@@ -5,6 +5,8 @@ import 'dart:html' as html;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/foundation.dart';
 import 'report_workspace.dart';
+import 'app_strings.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'report_pdf.dart';
 import 'report_data.dart';
 import 'voice_panel.dart';
@@ -18,6 +20,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'dart:async';
+
+final _appLocale = ValueNotifier<Locale>(const Locale('en'));
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,11 +41,26 @@ class MedicalCDSSApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Medivaanii',
-      debugShowCheckedModeBanner: false,
-      theme: medivaaniiTheme(),
-      home: const HomePage(),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: _appLocale,
+      builder: (context, locale, child) => MaterialApp(
+        title: 'Medivaanii',
+        debugShowCheckedModeBanner: false,
+        theme: medivaaniiTheme(),
+        locale: locale,
+        supportedLocales: const [
+          Locale('en'),
+          Locale('hi'),
+          Locale('es'),
+          Locale('zh')
+        ],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate
+        ],
+        home: const HomePage(),
+      ),
     );
   }
 }
@@ -102,6 +121,8 @@ class _HomePageState extends State<HomePage> {
   bool _isTranslating = false;
   bool _isDownloadingPdf = false;
   String _selectedLanguage = 'English';
+  bool _languagePreferenceSet = false;
+  AppStrings get _strings => AppStrings(_selectedLanguage);
   bool _ttsEnabled = true;
   List<dynamic> _availableVoices = [];
   Timer? _pollingTimer;
@@ -116,6 +137,9 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     try {
+      final preference = html.window.localStorage['medivaanii-language'];
+      _languagePreferenceSet = AppStrings.supportedNames.contains(preference);
+      _selectedLanguage = AppStrings.preferredName(preference);
       _ttsEnabled = html.window.localStorage['medivaanii-autoplay'] != 'false';
       _voiceRate =
           html.window.localStorage['medivaanii-voice-rate'] == '0.85' ? .85 : 1;
@@ -124,6 +148,9 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {
       /* Preferences still work for this visit if storage is blocked. */
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _applyAppLocale();
+    });
     _initTts();
     _restoreReport();
     _dropOver = html.document.onDragOver.listen((event) {
@@ -217,12 +244,9 @@ class _HomePageState extends State<HomePage> {
     final sources = (_reportData!['source_evidence'] as List? ?? [])
         .whereType<Map>()
         .where((source) => source['measurement_id'] == id);
-    final corrected = await editReportResult(
-        context,
-        matches.single,
-        sources.length == 1
-            ? sources.single['source_quote']?.toString()
-            : null);
+    final corrected = await editReportResult(context, matches.single,
+        sources.length == 1 ? sources.single['source_quote']?.toString() : null,
+        language: _selectedLanguage);
     if (!mounted || corrected == null || generation != _reportGeneration) {
       return;
     }
@@ -313,12 +337,14 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _reportData = restored;
         final language = snapshot['language'];
-        if (_languages.any((item) => item['name'] == language)) {
+        if (!_languagePreferenceSet &&
+            _languages.any((item) => item['name'] == language)) {
           _selectedLanguage = language.toString();
         }
         _reviewOpen = snapshot['review_open'] == true;
         _currentIndex = 1;
       });
+      _applyAppLocale();
       if (!reportOutputAllowed(_reportData!)) _reviewOpen = true;
     } catch (_) {
       if (mounted) {
@@ -403,7 +429,7 @@ class _HomePageState extends State<HomePage> {
             onElementCreated: (element) {
               final frame = element as html.IFrameElement;
               frame.src = url;
-              frame.title = 'Original uploaded report';
+              frame.title = _strings.t('Original uploaded report');
               frame.style.border = '0';
               frame.style.width = '100%';
               frame.style.height = '100%';
@@ -425,7 +451,7 @@ class _HomePageState extends State<HomePage> {
         _explorerBridge.watch(frame.id, _onExplorerMessage);
         _explorerFrameLoad?.cancel();
         _explorerAttachObserver?.disconnect();
-        frame.title = 'Interactive report explorer';
+        frame.title = _strings.t('Interactive report explorer');
         frame.style.border = '0';
         frame.style.width = '100%';
         frame.style.height = '100%';
@@ -450,7 +476,7 @@ class _HomePageState extends State<HomePage> {
   void _sendExplorerSource() {
     if (!mounted || _sourceBytes == null || _reportData == null) return;
     _explorerBridge.source(_sourceBytes!, '$_sourceGeneration:$_viewerRevision',
-        _fileName ?? 'Your uploaded report');
+        _fileName ?? _strings.t('Your uploaded report'));
   }
 
   void _sendExplorerReport() {
@@ -910,7 +936,9 @@ class _HomePageState extends State<HomePage> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(
+          content: Text(_strings.error(message)),
+          backgroundColor: ReportPalette.burgundy),
     );
   }
 
@@ -1232,8 +1260,8 @@ class _HomePageState extends State<HomePage> {
       html.Url.revokeObjectUrl(url);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('PDF downloaded successfully'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_strings.t('PDF downloaded successfully')),
           backgroundColor: ReportPalette.ink,
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
@@ -1242,7 +1270,8 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to generate PDF: $e'),
+          content:
+              Text(_strings.t('Could not create the PDF. Please try again.')),
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ));
@@ -1252,10 +1281,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _applyAppLocale() {
+    final code = AppStrings.languageCode(_selectedLanguage);
+    _appLocale.value = Locale(code);
+    html.document.documentElement?.lang = code;
+  }
+
   void _changeLanguage(String language) {
-    if (_isLoading ||
-        _isTranslating ||
-        _reviewSaving ||
+    if (!AppStrings.supportedNames.contains(language) ||
         language == _selectedLanguage) {
       return;
     }
@@ -1275,8 +1308,13 @@ class _HomePageState extends State<HomePage> {
         };
       }
     });
+    _languagePreferenceSet = true;
+    try {
+      html.window.localStorage['medivaanii-language'] = language;
+    } catch (_) {}
+    _applyAppLocale();
     _applyVoiceForLanguage(language);
-    // The local conversational model answers in the selected language.
+    // The conversational model answers in the selected language.
     _saveReport();
   }
 

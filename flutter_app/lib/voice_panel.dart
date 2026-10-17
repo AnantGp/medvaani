@@ -6,6 +6,7 @@ import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'report_data.dart';
+import 'app_strings.dart';
 import 'report_snapshot.dart';
 import 'body_systems.dart';
 
@@ -127,6 +128,8 @@ class _VoicePanelState extends State<VoicePanel> {
     ],
   };
   List<String> get _copy => labels[widget.language] ?? labels['en']!;
+  String _t(String source, [Map<String, Object?> values = const {}]) =>
+      AppStrings(widget.language).t(source, values);
 
   @override
   void initState() {
@@ -190,7 +193,9 @@ class _VoicePanelState extends State<VoicePanel> {
       _answer = '';
       _lastQuestion = '';
       _citations = [];
-      _history.clear();
+      if (oldWidget.report['parsed_data'] != widget.report['parsed_data']) {
+        _history.clear();
+      }
       _lastAnswer = null;
       _error = null;
     }
@@ -657,7 +662,7 @@ class _VoicePanelState extends State<VoicePanel> {
 
   Widget _errorMessage() => Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: Text(_error!,
+      child: Text(AppStrings(widget.language).error(_error!),
           style: const TextStyle(
               fontSize: 14, height: 1.5, color: Color(0xffa32e35))));
 
@@ -810,19 +815,20 @@ class _VoicePanelState extends State<VoicePanel> {
                   context: context,
                   builder: (context) => AlertDialog(
                           title: Text(row['test_name'].toString()),
-                          content:
-                              SingleChildScrollView(
-                                  child: SelectableText(
-                                      'Reference range\n$reference')),
+                          content: SingleChildScrollView(
+                              child: SelectableText(
+                                  '${_t('Reference range')}\n$reference')),
                           actions: [
                             TextButton(
                                 onPressed: () => Navigator.pop(context),
-                                child: const Text('Close'))
+                                child: Text(_t('Close')))
                           ])),
           child: Row(children: [
             Expanded(
                 child: Text(
-                    'Ref: ${reference.isEmpty ? 'Not printed' : reference}',
+                    _t('Ref: {range}', {
+                      'range': reference.isEmpty ? _t('Not printed') : reference
+                    }),
                     maxLines: mobile ? 1 : 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -886,7 +892,7 @@ class _VoicePanelState extends State<VoicePanel> {
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700)),
               if ((row['reference_range'] ?? '').toString().isNotEmpty)
-                Text('Ref: ${row['reference_range']}',
+                Text(_t('Ref: {range}', {'range': row['reference_range']}),
                     style: const TextStyle(
                         fontSize: 11, color: Color(0xff626a67))),
             ]),
