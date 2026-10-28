@@ -1,5 +1,7 @@
 # Medivaanii
 
+> **Research prototype:** Use synthetic or otherwise authorised, non-identifiable sample data only. Do not upload real patient records or personal health information. This MVP uses external services, is not clinically validated and is not intended for diagnosis or treatment.
+
 A Flutter Web and Python Starlette MVP for reading medical reports and discussing them by voice in English, Hindi, Spanish and Mandarin.
 
 Upload a PDF or photo, inspect its extracted results beside the original document, correct a value, and ask about any test or report section. Spoken answers cite measurement IDs so the viewer can highlight the corresponding source.
@@ -30,6 +32,12 @@ flutter run -d chrome --web-port 3000 --dart-define=API_BASE_URL=http://127.0.0.
 ```
 
 ## Data flow
+
+```text
+Synthetic report -> text extraction -> review and correction
+  -> report context + question -> hosted language model
+  -> answer -> external speech service -> audio playback
+```
 
 Digital PDFs use pdfplumber to preserve source coordinates. When native OCR is unavailable, photos and scanned PDF pages are rendered with Pillow/PDFium and read by Groq Vision. Vision row locations are estimates and require review. Local Docling support remains optional; it is excluded from the Vercel bundle.
 
