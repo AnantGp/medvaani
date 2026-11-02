@@ -220,3 +220,57 @@ def test_summary_reference_stops_before_numeric_followup_prose(tmp_path):
         rows, _ = extract(p)
         assert len(rows) == 1
         assert rows[0]['reference_range'] == '70 - 100'
+
+
+def _generic_report(path, header, rows, flag_x=None):
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas(str(path), pagesize=(600, 800))
+    c.setFont('Helvetica', 10)
+    c.drawString(40, 760, 'Sample Diagnostics Laboratory')
+    c.drawString(40, 740, 'Sample Collected On : 01/Nov/2026')
+    columns = [40, 230, 310, 400]
+    for x, text in zip(columns, header):
+        c.drawString(x, 700, text)
+    if flag_x:
+        c.drawString(flag_x, 700, 'Flag')
+    y = 680
+    for row in rows:
+        for x, text in zip(columns, row[:4]):
+            c.drawString(x, y, text)
+        if flag_x and len(row) > 4:
+            c.drawString(flag_x, y, row[4])
+        y -= 18
+    c.save()
+    return str(path)
+
+
+def test_common_result_header_layout_is_read(tmp_path):
+    path = _generic_report(tmp_path / 'generic.pdf', ['Test', 'Result', 'Units', 'Reference Range'], [
+        ('Haemoglobin', '11.2', 'g/dL', '12.0 - 15.5'),
+        ('Ferritin', '9', 'ng/mL', '15 - 150'),
+    ], flag_x=520)
+    rows, diagnostics = extract(path)
+    assert [(r['test_name'], r['value'], r['unit']) for r in rows] == [
+        ('Haemoglobin', '11.2', 'g/dL'), ('Ferritin', '9', 'ng/mL')]
+    assert rows[0]['reference_range'] == '12.0 - 15.5'
+    # Unknown layouts are still sent to source review, never silently trusted.
+    assert any(d['code'] == 'unsupported_layout' for d in diagnostics)
+
+
+def test_investigation_observed_value_header_is_read(tmp_path):
+    path = _generic_report(tmp_path / 'investigation.pdf', ['Investigation', 'Observed Value', 'Unit', 'Biological Ref. Interval'], [
+        ('Serum Creatinine', '0.9', 'mg/dL', '0.6 - 1.1'),
+    ])
+    rows, _ = extract(path)
+    assert [(r['test_name'], r['value']) for r in rows] == [('Serum Creatinine', '0.9')]
+
+
+def test_sentence_mentioning_header_words_is_not_a_table(tmp_path):
+    path = _generic_report(tmp_path / 'prose.pdf', ['', '', '', ''], [])
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas(str(path), pagesize=(600, 800))
+    c.drawString(40, 700, 'This test result value is reported in the unit shown with its reference range for your doctor to review today')
+    c.drawString(40, 680, 'Creatinine 0.9 mg/dL 0.6 - 1.1')
+    c.save()
+    rows, _ = extract(path)
+    assert rows == []

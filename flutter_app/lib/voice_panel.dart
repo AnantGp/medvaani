@@ -674,8 +674,8 @@ class _VoicePanelState extends State<VoicePanel> {
                   minimumSize: const Size(48, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   backgroundColor: _recording
-                      ? const Color(0xff8b1a1a)
-                      : const Color(0xff1d5c3a),
+                      ? const Color(0xff5c0a0a)
+                      : const Color(0xff8b1a1a),
                   shape: const StadiumBorder()),
               onPressed: _recording
                   ? _finishRecording
@@ -718,7 +718,7 @@ class _VoicePanelState extends State<VoicePanel> {
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
                 borderSide:
-                    const BorderSide(color: Color(0xff1d5c3a), width: 2)),
+                    const BorderSide(color: Color(0xff8b1a1a), width: 2)),
             suffixIcon: IconButton(
                 tooltip: _copy[12],
                 onPressed: _checking || _recording ? null : () => _ask(),

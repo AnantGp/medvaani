@@ -75,3 +75,18 @@ jobs:
         run: |
           url=$(npx --yes vercel@latest deploy --yes --token "$VERCEL_TOKEN")
           echo "::notice title=Vercel preview::$url"
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -r ../requirements.txt pytest reportlab
+      - name: Extraction tests
+        run: python -m pytest -q test_digital_results.py test_report_quality.py test_lab_parsing.py

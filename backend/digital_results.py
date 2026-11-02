@@ -49,6 +49,49 @@ def _context(lines):
     return sample_date, specimen_text
 
 
+_TEST_HEADERS = {'test', 'tests', 'investigation', 'investigations', 'parameter',
+                 'parameters', 'examination', 'analyte'}
+_VALUE_HEADERS = {'value', 'values', 'result', 'results', 'observed'}
+_UNIT_HEADERS = {'unit', 'units', 'uom'}
+_REFERENCE_PREFIXES = ('bio.', 'bio', 'biological', 'reference', 'ref', 'normal')
+_FLAG_HEADERS = {'flag', 'flags', 'status'}
+
+
+def _header_anchors(words):
+    """Find the table header of a lab report and the word that starts each column.
+
+    Accepts the common printed layouts (``Test Name | Value | Unit | Bio. Ref
+    Interval`` and ``Test | Result | Units | Reference Range | Flag``). Returns
+    None unless the test, value, unit and reference columns appear in that
+    left-to-right order, so prose that merely mentions these words is ignored.
+    """
+    def label(word):
+        return re.sub(r'[^a-z.]', '', word['text'].casefold())
+
+    anchors = {}
+    for word in sorted(words, key=lambda w: w['x']):
+        text = label(word)
+        if 'test' not in anchors:
+            if text in _TEST_HEADERS:
+                anchors['test'] = word
+            continue
+        if 'value' not in anchors and text in _VALUE_HEADERS:
+            anchors['value'] = word
+        elif 'value' in anchors and 'unit' not in anchors and text in _UNIT_HEADERS:
+            anchors['unit'] = word
+        elif 'unit' in anchors and 'reference' not in anchors and (
+                text.startswith(_REFERENCE_PREFIXES) or text == 'range'):
+            anchors['reference'] = word
+        elif 'reference' in anchors and 'flag' not in anchors and text in _FLAG_HEADERS:
+            anchors['flag'] = word
+    if not all(key in anchors for key in ['test', 'value', 'unit', 'reference']):
+        return None
+    # A header is a short label row, not a sentence that mentions the words.
+    if len(words) > 12:
+        return None
+    return anchors
+
+
 def extract_digital_results(pages, source_digest):
     records, diagnostics, summary_pages = [], [], []
     document_profile = any('healthians' in re.sub(r'[^a-z]', '', l['text'].casefold())
@@ -59,27 +102,24 @@ def extract_digital_results(pages, source_digest):
         provider_known = document_profile
         headers = []
         for i, line in enumerate(lines):
-            labels = [w['text'].casefold() for w in line['words']]
-            if all(word in labels for word in ['test', 'name', 'value', 'unit']):
-                ref = next((w for w in line['words'] if w['text'].casefold().startswith(('bio.', 'reference', 'ref'))), None)
-                if ref is not None:
-                    headers.append((i, line, ref))
+            anchors = _header_anchors(line['words'])
+            if anchors is not None:
+                headers.append((i, line, anchors))
         sample_date, specimen = _context(lines)
-        for hi, (start, header, reference_header) in enumerate(headers):
+        for hi, (start, header, anchors) in enumerate(headers):
             finish = headers[hi + 1][0] if hi + 1 < len(headers) else len(lines)
             context = result_context(l['text'] for l in lines[:start])
             if context in {'historical', 'guideline'}:
                 diagnostics.append({'code': 'nonmeasurement_row', 'page': number, 'record_type': context})
                 continue
-            left = next(w['x'] for w in header['words'] if w['text'].casefold() == 'test')
-            boundaries = [next(w['x'] for w in header['words'] if w['text'].casefold() == label) - .001 for label in ['value', 'unit']]
-            boundaries.append(reference_header['x'] - .001)
+            left = anchors['test']['x']
+            boundaries = [anchors[key]['x'] - .001 for key in ['value', 'unit', 'reference']]
             if boundaries != sorted(boundaries) or boundaries[0] <= left:
                 diagnostics.append({'code': 'unresolved_result_region', 'page': number})
                 continue
             if not provider_known:
                 diagnostics.append({'code': 'unsupported_layout', 'page': number})
-            flag_x = next((w['x'] - .001 for w in header['words'] if w['text'].casefold() == 'flag'), None)
+            flag_x = anchors['flag']['x'] - .001 if anchors.get('flag') else None
             def table_columns(words):
                 return _columns([w for w in words if flag_x is None or w['x'] < flag_x], boundaries)
             panel = 'Laboratory results'
