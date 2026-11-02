@@ -32,6 +32,8 @@ void main() {
           await rootBundle.loadString('assets/fonts/NotoSans$family-OFL.txt');
       yield LicenseEntryWithLineBreaks(['Noto Sans $family'], license);
     }
+    yield LicenseEntryWithLineBreaks(['Noto Serif'],
+        await rootBundle.loadString('assets/fonts/NotoSerif-OFL.txt'));
   });
   runApp(const MedicalCDSSApp());
 }
@@ -102,6 +104,7 @@ class _HomePageState extends State<HomePage> {
   final _voicePanelKey = GlobalKey();
   StreamSubscription<html.MouseEvent>? _dropOver, _dropLeave, _dropFile;
   bool _dragging = false;
+  bool _sampleConsent = false;
 
   // Data state
   Map<String, dynamic>? _reportData;
@@ -145,6 +148,8 @@ class _HomePageState extends State<HomePage> {
           html.window.localStorage['medivaanii-voice-rate'] == '0.85' ? .85 : 1;
       _largeReadingText =
           html.window.localStorage['medivaanii-large-text'] == 'true';
+      _sampleConsent =
+          html.window.localStorage['medivaanii-sample-consent'] == 'true';
     } catch (_) {
       /* Preferences still work for this visit if storage is blocked. */
     }
@@ -167,6 +172,11 @@ class _HomePageState extends State<HomePage> {
       if (mounted) setState(() => _dragging = false);
       final files = event.dataTransfer.files;
       if (_currentIndex != 0 || _isLoading || files == null || files.isEmpty) {
+        return;
+      }
+      if (!_sampleConsent) {
+        setState(() => _uploadError =
+            'Confirm this is a sample or anonymised report before uploading.');
         return;
       }
       final file = files.first;
@@ -1406,6 +1416,20 @@ class _HomePageState extends State<HomePage> {
             _selectMeasurement(id, true, forceAudio: true),
         onEditMeasurement: _editExplorerResult,
         dragging: _dragging,
+        sampleConsent: _sampleConsent,
+        onSampleConsent: (value) {
+          setState(() {
+            _sampleConsent = value;
+            if (value &&
+                _uploadError ==
+                    'Confirm this is a sample or anonymised report before uploading.') {
+              _uploadError = null;
+            }
+          });
+          try {
+            html.window.localStorage['medivaanii-sample-consent'] = '$value';
+          } catch (_) {}
+        },
         voiceExplanationRequest: _voiceExplanationRequest,
         voicePanelBuilder: _reportData == null
             ? null

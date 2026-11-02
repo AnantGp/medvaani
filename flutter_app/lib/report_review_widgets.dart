@@ -4,9 +4,9 @@ import 'app_content_utils.dart';
 import 'review_strings.dart';
 import 'app_strings.dart';
 
-const _ink = Color(0xFF242C2B);
-const _muted = Color(0xFF626A67);
-const _border = Color(0xFFE5E0D8);
+const _ink = Color(0xff1f1b1a);
+const _muted = Color(0xff5e5754);
+const _border = Color(0xffe8deda);
 const _body =
     TextStyle(fontFamily: 'NotoSans', fontSize: 16, height: 1.6, color: _ink);
 
@@ -167,9 +167,9 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
     final color = edited
         ? _muted
         : status == 'normal'
-            ? const Color(0xFF3F6050)
+            ? const Color(0xff1d5c3a)
             : ['high', 'low', 'critical', 'abnormal'].contains(status)
-                ? const Color(0xFFA32E35)
+                ? const Color(0xff8b1a1a)
                 : const Color(0xFF826326);
     return Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
@@ -440,7 +440,7 @@ class _ReportReviewPanelState extends State<ReportReviewPanel> {
           Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(AppStrings(widget.language).error(widget.error!),
-                  style: _body.copyWith(color: const Color(0xFFA32E35)))),
+                  style: _body.copyWith(color: const Color(0xff8b1a1a)))),
         _card(Padding(
             padding: const EdgeInsets.all(16),
             child: LayoutBuilder(builder: (context, size) {

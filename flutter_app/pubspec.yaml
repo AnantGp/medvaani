@@ -41,6 +41,13 @@ flutter:
   uses-material-design: true
 
   fonts:
+    - family: NotoSerif
+      fonts:
+        - asset: assets/fonts/NotoSerif-Regular.ttf
+        - asset: assets/fonts/NotoSerif-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSerif-SemiBold.ttf
+          weight: 600
     - family: NotoSansSC
       fonts:
         - asset: assets/fonts/NotoSansSC-Regular.otf
@@ -78,6 +85,7 @@ flutter:
     - assets/fonts/NotoSansSC-Pdf-Regular.ttf
     - assets/fonts/NotoSansSC-Pdf-OFL.txt
     - assets/fonts/NotoSansSC-OFL.txt
+    - assets/fonts/NotoSerif-OFL.txt
     - assets/fonts/NotoSansTelugu-OFL.txt
     - assets/fonts/NotoSansGujarati-OFL.txt
     - assets/fonts/NotoSansKannada-OFL.txt

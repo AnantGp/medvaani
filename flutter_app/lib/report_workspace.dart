@@ -5,15 +5,45 @@ import 'app_strings.dart';
 import 'body_systems.dart';
 
 class ReportPalette {
-  static const ground = Color(0xFFF7F5F1);
-  static const ink = Color(0xFF242C2B);
-  static const muted = Color(0xFF626A67);
-  static const burgundy = Color(0xFFA32E35);
-  static const border = Color(0xFFE5E0D8);
-  static const rose = Color(0xFFF9EBEC);
-  static const sage = Color(0xFF3F6050);
-  static const sageLight = Color(0xFFEDF3EF);
+  static const ground = Color(0xFFFBF7F4);
+  static const ink = Color(0xFF1F1B1A);
+  static const body = Color(0xFF3C3533);
+  static const muted = Color(0xFF5E5754);
+  static const burgundy = Color(0xFF8B1A1A);
+  static const burgundyDark = Color(0xFF5C0A0A);
+  static const border = Color(0xFFE8DEDA);
+  static const strongBorder = Color(0xFFDCCFCA);
+  static const rose = Color(0xFFF7ECEA);
+  static const blush = Color(0xFFFBF4F2);
+  static const sand = Color(0xFFF3ECE9);
+  static const charcoal = Color(0xFF2B2B2B);
+  static const sage = Color(0xFF1D5C3A);
+  static const sageLight = Color(0xFFE6F0EA);
+  static const lowInk = Color(0xFF17407F);
+  static const lowBg = Color(0xFFE3ECFA);
+  static const highInk = Color(0xFF7A3A05);
+  static const highBg = Color(0xFFFBE6D2);
+  static const warnBg = Color(0xFFFDF3E6);
+  static const warnBorder = Color(0xFFF1D3A8);
+  static const serif = 'NotoSerif';
 }
+
+TextStyle serifStyle(double size,
+        {FontWeight weight = FontWeight.w500,
+        Color color = ReportPalette.ink,
+        double height = 1.15}) =>
+    TextStyle(
+        fontFamily: ReportPalette.serif,
+        fontFamilyFallback: const [
+          'NotoSans',
+          'NotoSansSC',
+          'NotoDevanagari'
+        ],
+        fontSize: size,
+        fontWeight: weight,
+        height: height,
+        letterSpacing: size >= 32 ? -0.4 : 0,
+        color: color);
 
 ThemeData medivaaniiTheme() {
   final base = ThemeData(
@@ -42,7 +72,7 @@ ThemeData medivaaniiTheme() {
       error: Color(0xFF9E2930),
     ),
   );
-  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
+  final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
   return base.copyWith(
     textTheme: base.textTheme
         .apply(bodyColor: ReportPalette.ink, displayColor: ReportPalette.ink)
@@ -54,7 +84,11 @@ ThemeData medivaaniiTheme() {
         ),
     filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-      minimumSize: const Size(44, 48),
+      backgroundColor: ReportPalette.burgundy,
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: ReportPalette.sand,
+      disabledForegroundColor: ReportPalette.muted,
+      minimumSize: const Size(44, 52),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       textStyle: const TextStyle(
           fontFamily: 'NotoSans', fontSize: 16, fontWeight: FontWeight.w600),
@@ -66,8 +100,9 @@ ThemeData medivaaniiTheme() {
                     : BorderSide.none))),
     outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-      minimumSize: const Size(44, 48),
+      minimumSize: const Size(44, 52),
       foregroundColor: ReportPalette.ink,
+      backgroundColor: Colors.white,
       textStyle: const TextStyle(
           fontFamily: 'NotoSans', fontSize: 16, fontWeight: FontWeight.w600),
       shape: shape,
@@ -76,7 +111,7 @@ ThemeData medivaaniiTheme() {
             side: WidgetStateProperty.resolveWith((states) => BorderSide(
                 color: states.contains(WidgetState.focused)
                     ? ReportPalette.burgundy
-                    : ReportPalette.border,
+                    : ReportPalette.strongBorder,
                 width: states.contains(WidgetState.focused) ? 2 : 1)))),
     iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(minimumSize: const Size(48, 48))),
@@ -160,7 +195,11 @@ class ReportWorkspace extends StatefulWidget {
       this.onEditMeasurement,
       this.onDropFile,
       this.dragging = false,
+      this.sampleConsent = false,
+      this.onSampleConsent,
       this.activeSpeech});
+  final bool sampleConsent;
+  final ValueChanged<bool>? onSampleConsent;
   final void Function(String id, bool speak)? onSelectMeasurement;
   final ValueChanged<String>? onEditMeasurement;
   final ValueChanged<String>? onListenMeasurement;
@@ -298,166 +337,137 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, size) {
         final desktop = size.maxWidth >= 900;
         final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
-        final expandedRail = size.maxWidth >= 1350;
         final workspace = widget.index == 1 || widget.index == 2;
         return Scaffold(
           body: SafeArea(
-              child: Row(children: [
-            if (desktop) _sidebar(expandedRail),
+              child: Column(children: [
+            if (!keyboard) _prototypeBanner(desktop),
+            if (desktop || !keyboard) _header(desktop),
             Expanded(
-                child: Column(children: [
-              if (desktop || !keyboard) _header(desktop),
-              Expanded(
-                  child: IndexedStack(
-                      index: workspace && widget.report != null ? 0 : 1,
-                      children: [
-                    if (widget.report != null)
-                      _report(desktop)
-                    else
-                      const SizedBox(),
-                    SingleChildScrollView(
-                        padding: EdgeInsets.all(desktop ? 24 : 16),
-                        child: Align(
-                            alignment: Alignment.topCenter,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 1440),
-                              child: widget.index == 3
-                                  ? _settings()
-                                  : workspace
-                                      ? _empty()
-                                      : _upload(),
-                            ))),
-                  ])),
-            ])),
+                child: IndexedStack(
+                    index: workspace && widget.report != null ? 0 : 1,
+                    children: [
+                  if (widget.report != null)
+                    _report(desktop)
+                  else
+                    const SizedBox(),
+                  SingleChildScrollView(
+                      child: widget.index == 3
+                          ? Padding(
+                              padding: EdgeInsets.all(desktop ? 24 : 16),
+                              child: _settings())
+                          : workspace
+                              ? Padding(
+                                  padding: EdgeInsets.all(desktop ? 24 : 16),
+                                  child: Align(
+                                      alignment: Alignment.topCenter,
+                                      child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                              maxWidth: 720),
+                                          child: _empty())))
+                              : _upload()),
+                ])),
           ])),
           bottomNavigationBar: desktop || keyboard
               ? null
               : NavigationBar(
-                  height: 62,
+                  height: 64,
                   selectedIndex:
                       _nav.indexOf(widget.index == 2 ? 1 : widget.index),
                   onDestinationSelected: (i) => widget.onNavigate(_nav[i]),
                   destinations: [
                     NavigationDestination(
-                        icon: Icon(Icons.upload_file_outlined),
+                        icon: const Icon(Icons.upload_file_outlined),
                         label: _t('Upload')),
                     NavigationDestination(
-                        icon: Icon(Icons.space_dashboard_outlined),
+                        icon: const Icon(Icons.space_dashboard_outlined),
                         label: _t('Report')),
                     NavigationDestination(
-                        icon: Icon(Icons.tune_rounded), label: _t('Settings')),
+                        icon: const Icon(Icons.tune_rounded),
+                        label: _t('Settings')),
                   ],
                 ),
         );
       });
 
-  Widget _sidebar(bool expanded) => Container(
-        width: expanded ? 208 : 84,
-        decoration: const BoxDecoration(
-            color: Colors.white,
-            border: Border(right: BorderSide(color: ReportPalette.border))),
-        padding:
-            EdgeInsets.symmetric(horizontal: expanded ? 16 : 12, vertical: 24),
-        child: Column(children: [
-          if (expanded)
-            _Brand(language: widget.language)
-          else
-            Image.asset('assets/images/arogya_pandit_logo.png',
-                width: 40, height: 40, semanticLabel: _t('Medivaanii logo')),
-          const SizedBox(height: 40),
-          for (final i in _nav)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Tooltip(
-                  excludeFromSemantics: true,
-                  message: _labels[i],
-                  child: Material(
-                    color: (widget.index == i || i == 1 && widget.index == 2)
-                        ? ReportPalette.rose
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => widget.onNavigate(i),
-                      child: Padding(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: expanded ? 14 : 0,
-                              vertical: expanded ? 16 : 11),
-                          child: expanded
-                              ? Row(
-                                  mainAxisAlignment: expanded
-                                      ? MainAxisAlignment.start
-                                      : MainAxisAlignment.center,
-                                  children: [
-                                      Icon(_icons[i],
-                                          size: 22,
-                                          color: widget.index == i
-                                              ? ReportPalette.burgundy
-                                              : ReportPalette.muted),
-                                      if (expanded) ...[
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                            child: Text(_labels[i],
-                                                style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: widget.index == i
-                                                        ? ReportPalette.burgundy
-                                                        : ReportPalette.ink)))
-                                      ],
-                                    ])
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                      Icon(_icons[i],
-                                          size: 22,
-                                          color: widget.index == i
-                                              ? ReportPalette.burgundy
-                                              : ReportPalette.muted),
-                                      const SizedBox(height: 5),
-                                      Text(
-                                          _t(i == 0
-                                              ? 'Upload'
-                                              : i == 1
-                                                  ? 'Report'
-                                                  : 'Settings'),
-                                          style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w600,
-                                              color: widget.index == i
-                                                  ? ReportPalette.burgundy
-                                                  : ReportPalette.muted)),
-                                    ])),
-                    ),
-                  )),
-            ),
-          const Spacer(),
-          if (expanded)
-            Text(_t('Clarity, in your language.'),
-                style: TextStyle(fontSize: 12, color: ReportPalette.muted)),
-        ]),
+  Widget _prototypeBanner(bool desktop) => Semantics(
+        container: true,
+        child: Container(
+          width: double.infinity,
+          color: ReportPalette.charcoal,
+          padding: EdgeInsets.symmetric(
+              horizontal: 16, vertical: desktop ? 10 : 8),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.warning_amber_rounded,
+                size: 16, color: Color(0xFFF5EFEC)),
+            const SizedBox(width: 8),
+            Flexible(
+                child: Text(
+                    _t('Research prototype. Please use sample reports only — not real patient records.'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: desktop ? 14 : 12,
+                        height: 1.4,
+                        color: const Color(0xFFF5EFEC)))),
+          ]),
+        ),
       );
 
   Widget _header(bool desktop) => Container(
         padding:
-            EdgeInsets.symmetric(horizontal: desktop ? 24 : 16, vertical: 14),
+            EdgeInsets.symmetric(horizontal: desktop ? 24 : 16, vertical: 12),
         decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(bottom: BorderSide(color: ReportPalette.border))),
         child: desktop
-            ? Row(children: [
-                Expanded(
-                    child: Text(_labels[widget.index == 2 ? 1 : widget.index],
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w700))),
-                _languages(),
-              ])
+            ? Center(
+                child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1392),
+                    child: Row(children: [
+                      Semantics(
+                          button: true,
+                          label: _t('Upload report'),
+                          child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => widget.onNavigate(0),
+                              child: _Brand(language: widget.language))),
+                      const SizedBox(width: 32),
+                      for (final i in _nav) _navLink(i),
+                      const Spacer(),
+                      _languages(),
+                    ])))
             : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 _Brand(language: widget.language),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _languages(),
               ]),
       );
+
+  Widget _navLink(int i) {
+    final active = widget.index == i || (i == 1 && widget.index == 2);
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Semantics(
+        selected: active,
+        child: TextButton.icon(
+          onPressed: () => widget.onNavigate(i),
+          icon: Icon(_icons[i],
+              size: 19,
+              color: active ? ReportPalette.burgundy : ReportPalette.muted),
+          label: Text(_labels[i],
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                  color: active ? ReportPalette.burgundy : ReportPalette.body)),
+          style: TextButton.styleFrom(
+              backgroundColor: active ? ReportPalette.rose : Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10))),
+        ),
+      ),
+    );
+  }
 
   Widget _languages() => Semantics(
       label: _t('App language'),
@@ -575,36 +585,51 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 _surface(Center(
                     child: Text(_t(
                         'Upload the original document to view its source.')))));
+        final reviewMode = widget.reviewing && rows.isNotEmpty;
         if (desktop) {
           return Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 1440),
                   child: Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                       child: Column(children: [
+                        Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: _stepper(reviewMode, true)),
                         toolbar,
                         Expanded(
                             child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                               Expanded(flex: 52, child: source),
-                              const SizedBox(width: 16),
-                              Expanded(flex: 48, child: _reportCompanion()),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                  flex: 48,
+                                  child: reviewMode
+                                      ? _reviewPanel(rows, review)
+                                      : _reportCompanion()),
                             ])),
                       ]))));
+        }
+        if (reviewMode && _mobileView == 'conversation') {
+          _mobileView = 'results';
         }
         return Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: Column(children: [
-              if (!keyboard && _mobileView != 'conversation') toolbar,
+              if (!keyboard && _mobileView != 'conversation') ...[
+                _stepper(reviewMode, false),
+                const SizedBox(height: 10),
+                toolbar,
+              ],
               SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
                       showSelectedIcon: false,
                       style: SegmentedButton.styleFrom(
-                          selectedBackgroundColor: ReportPalette.sageLight,
-                          selectedForegroundColor: ReportPalette.sage,
+                          selectedBackgroundColor: ReportPalette.rose,
+                          selectedForegroundColor: ReportPalette.burgundy,
                           backgroundColor: Colors.white,
                           foregroundColor: ReportPalette.muted,
                           textStyle: const TextStyle(fontSize: 12),
@@ -618,10 +643,11 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                             value: 'results',
                             label: Text(
                                 _copy('Results', 'नतीजे', 'Resultados', '结果'))),
-                        ButtonSegment(
-                            value: 'conversation',
-                            label: Text(_copy('Conversation', 'बातचीत',
-                                'Conversación', '对话'))),
+                        if (!reviewMode)
+                          ButtonSegment(
+                              value: 'conversation',
+                              label: Text(_copy('Conversation', 'बातचीत',
+                                  'Conversación', '对话'))),
                       ],
                       selected: {_mobileView},
                       onSelectionChanged: (s) =>
@@ -643,7 +669,10 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     else
                       const SizedBox(),
                   ])),
-              if (_mobileView != 'conversation' &&
+              if (reviewMode) ...[
+                const SizedBox(height: 10),
+                _confirmButton(rows),
+              ] else if (_mobileView != 'conversation' &&
                   widget.voicePanelBuilder != null) ...[
                 const SizedBox(height: 10),
                 _surface(widget.voicePanelBuilder!(false, _openConversation),
@@ -651,6 +680,145 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
               ],
             ]));
       });
+
+  Widget _stepper(bool reviewMode, bool desktop) {
+    Widget step(int n, String label, {required bool done, required bool current,
+        VoidCallback? onTap}) {
+      final color = current
+          ? Colors.white
+          : done
+              ? ReportPalette.sage
+              : ReportPalette.muted;
+      final child = Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: desktop ? 14 : 10, vertical: desktop ? 8 : 6),
+        decoration: BoxDecoration(
+            color: current ? ReportPalette.burgundy : Colors.transparent,
+            borderRadius: BorderRadius.circular(999)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (done && !current)
+            Icon(Icons.check_rounded, size: 16, color: color)
+          else
+            Text('$n', style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          const SizedBox(width: 6),
+          Text(_t(label), style: TextStyle(
+              fontSize: desktop ? 14 : 13,
+              fontWeight: current ? FontWeight.w600 : FontWeight.w500,
+              color: color)),
+        ]),
+      );
+      return Semantics(
+        button: onTap != null,
+        selected: current,
+        child: onTap == null
+            ? child
+            : InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: _busy ? null : onTap,
+                child: child),
+      );
+    }
+
+    return Align(
+      alignment: desktop ? Alignment.centerLeft : Alignment.center,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          step(1, 'Upload', done: true, current: false,
+              onTap: () => widget.onNavigate(0)),
+          const Icon(Icons.chevron_right_rounded,
+              size: 18, color: ReportPalette.strongBorder),
+          step(2, 'Check the numbers', done: !reviewMode, current: reviewMode,
+              onTap: reviewMode ? null : widget.onReview),
+          const Icon(Icons.chevron_right_rounded,
+              size: 18, color: ReportPalette.strongBorder),
+          step(3, 'Ask', done: false, current: !reviewMode),
+        ]),
+      ),
+    );
+  }
+
+  Widget _confirmButton(List<Map<String, dynamic>> rows) => FilledButton.icon(
+      onPressed: widget.reviewSaving || widget.onConfirmReview == null
+          ? null
+          : () => widget.onConfirmReview!(rows),
+      icon: widget.reviewSaving
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: ReportPalette.muted))
+          : const Icon(Icons.arrow_forward_rounded, size: 20),
+      label: Text(_t(widget.reviewSaving
+          ? 'Updating your explanation…'
+          : 'Looks right — explain my report')));
+
+  Widget _reviewPanel(List<Map<String, dynamic>> rows, int review) => _surface(
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Semantics(
+                header: true,
+                child: Text(_t('Check the numbers'), style: serifStyle(28))),
+            const SizedBox(height: 8),
+            Text(
+                _t('We found {count} results. Compare them with your report — anything we misread changes every explanation that follows.',
+                    {'count': rows.length}),
+                style: const TextStyle(
+                    fontSize: 15, height: 1.55, color: ReportPalette.body)),
+            if (review > 0) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: ReportPalette.warnBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: ReportPalette.warnBorder)),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline_rounded,
+                          size: 20, color: ReportPalette.highInk),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: Text(
+                              _t('{count} results need your eyes. Use the pencil to correct a value, or continue if they match your report.',
+                                  {'count': review}),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  height: 1.5,
+                                  color: Color(0xFF5A2E04)))),
+                    ]),
+              ),
+            ],
+          ]),
+        ),
+        Expanded(child: _measurements(embedded: true)),
+        const Divider(height: 1),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(
+                _t('Status labels repeat the flag printed on your report. Medivaanii never decides on its own whether a result is normal.'),
+                style: const TextStyle(
+                    fontSize: 13, height: 1.5, color: ReportPalette.muted)),
+            const SizedBox(height: 14),
+            Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton(
+                      onPressed: _busy ? null : () => widget.onNavigate(0),
+                      child: Text(_t('Upload a different report'))),
+                  _confirmButton(rows),
+                ]),
+          ]),
+        ),
+      ]),
+      padding: EdgeInsets.zero);
 
   Widget _reportCompanion() => _surface(
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -724,11 +892,12 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         selected: _filter == value,
         showCheckmark: false,
         onSelected: (_) => _setFilter(value),
-        selectedColor: ReportPalette.sageLight,
+        selectedColor: ReportPalette.rose,
         backgroundColor: Colors.white,
         side: BorderSide(
-            color:
-                _filter == value ? ReportPalette.sage : ReportPalette.border),
+            color: _filter == value
+                ? ReportPalette.burgundy
+                : ReportPalette.border),
         shape: const StadiumBorder(),
         visualDensity: VisualDensity.compact,
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
@@ -888,31 +1057,45 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
     final status = checked ? (row['status'] ?? 'unknown').toString() : 'review';
     final labels = {
       'normal': 'Within range',
-      'high': 'High',
-      'low': 'Low',
+      'high': 'Above range',
+      'low': 'Below range',
       'critical': 'Flagged',
       'abnormal': 'Flagged',
       'unknown': 'Unclassified',
-      'review': 'Check source'
+      'review': 'Please confirm'
     };
-    final flagged = ['high', 'low', 'critical', 'abnormal'].contains(status);
-    final color = flagged
-        ? ReportPalette.burgundy
-        : status == 'normal'
-            ? ReportPalette.sage
-            : ReportPalette.muted;
+    final (Color chipBg, Color color, IconData? chipIcon) = switch (status) {
+      'high' => (ReportPalette.highBg, ReportPalette.highInk,
+          Icons.arrow_upward_rounded),
+      'low' => (ReportPalette.lowBg, ReportPalette.lowInk,
+          Icons.arrow_downward_rounded),
+      'critical' || 'abnormal' => (ReportPalette.highBg,
+          ReportPalette.highInk, Icons.flag_outlined),
+      'normal' => (ReportPalette.ground, ReportPalette.body, null),
+      'review' => (ReportPalette.warnBg, ReportPalette.highInk,
+          Icons.visibility_outlined),
+      _ => (ReportPalette.sand, ReportPalette.muted, null),
+    };
     final reference = (row['reference_range'] ?? '').toString();
     return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Material(
-          color: selected ? const Color(0xffedf3ef) : Colors.white,
+          color: selected
+              ? ReportPalette.blush
+              : status == 'review'
+                  ? const Color(0xFFFFFBF5)
+                  : Colors.white,
           shape: RoundedRectangleBorder(
               side: BorderSide(
-                  color: selected ? ReportPalette.sage : ReportPalette.border,
+                  color: selected
+                      ? ReportPalette.burgundy
+                      : status == 'review'
+                          ? ReportPalette.warnBorder
+                          : ReportPalette.border,
                   width: selected ? 1.5 : 1),
-              borderRadius: BorderRadius.circular(10)),
+              borderRadius: BorderRadius.circular(12)),
           child: InkWell(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               onTap: () => _chooseMeasurement(id),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
@@ -985,17 +1168,25 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                         const SizedBox(width: 6),
                         Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
+                                horizontal: 9, vertical: 4),
                             decoration: BoxDecoration(
-                                color: flagged
-                                    ? ReportPalette.rose
-                                    : ReportPalette.sageLight,
-                                borderRadius: BorderRadius.circular(5)),
-                            child: Text(_t(labels[status] ?? 'Check source'),
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: color))),
+                                color: chipBg,
+                                borderRadius: BorderRadius.circular(999),
+                                border: status == 'review'
+                                    ? Border.all(
+                                        color: ReportPalette.warnBorder)
+                                    : null),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              if (chipIcon != null) ...[
+                                Icon(chipIcon, size: 13, color: color),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(_t(labels[status] ?? 'Please confirm'),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: color)),
+                            ])),
                         IconButton(
                             tooltip: _t(
                                 'Listen to {test}', {'test': row['test_name']}),
@@ -1004,8 +1195,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                             icon:
                                 const Icon(Icons.volume_up_outlined, size: 19),
                             style: IconButton.styleFrom(
-                                minimumSize: const Size(40, 40),
-                                foregroundColor: ReportPalette.sage)),
+                                minimumSize: const Size(44, 44),
+                                foregroundColor: ReportPalette.burgundy)),
                         IconButton(
                             tooltip: _t(
                                 'Correct {test}', {'test': row['test_name']}),
@@ -1061,198 +1252,404 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   }
 
   Widget _upload() => LayoutBuilder(builder: (context, size) {
+        final wide = size.maxWidth >= 900;
+        final pad = wide ? 24.0 : 16.0;
+        Widget band(Widget child, {Color? color, double vertical = 56}) =>
+            Container(
+                width: double.infinity,
+                decoration: color == null
+                    ? null
+                    : BoxDecoration(
+                        color: color,
+                        border: const Border.symmetric(
+                            horizontal:
+                                BorderSide(color: ReportPalette.border))),
+                padding:
+                    EdgeInsets.symmetric(horizontal: pad, vertical: vertical),
+                child: Center(
+                    child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1240),
+                        child: child)));
         final intro =
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_t('UNDERSTAND. ASK. FEEL INFORMED.'),
-              style: TextStyle(
-                  fontSize: 12,
+          Text(_t('LAB REPORTS, IN YOUR LANGUAGE'),
+              style: const TextStyle(
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
-                  color: ReportPalette.sage)),
-          const SizedBox(height: 20),
-          Text(_t('Your report.\nA clearer conversation.'),
-              style: TextStyle(
-                  fontSize: 42,
-                  height: 1.15,
-                  letterSpacing: -1.4,
-                  fontWeight: FontWeight.w700)),
+                  letterSpacing: 1.2,
+                  color: ReportPalette.burgundy)),
           const SizedBox(height: 18),
-          Text(_t('Make sense of medical terms and numbers, in a language that feels like home.'),
-              style: TextStyle(
-                  fontSize: 18, height: 1.6, color: ReportPalette.muted)),
-          const SizedBox(height: 30),
-          _step('01', 'Add your report',
-              'Upload a PDF, choose a photo, or use your camera.'),
-          _step('02', 'See it at the source',
-              'Review the numbers alongside the original report.'),
-          _step('03', 'Talk it through',
-              'Ask a question and hear a simple explanation.'),
+          Semantics(
+              header: true,
+              child: Text(
+                  _t('Understand your report. Then talk it through with your doctor.'),
+                  style: serifStyle(wide ? 52 : 34, height: 1.1))),
+          const SizedBox(height: 20),
+          Text(
+              _t('Upload a printed lab report. Medivaanii reads each value, shows you exactly where it came from, and answers your questions out loud — in English, Hindi, Spanish or Mandarin.'),
+              style: const TextStyle(
+                  fontSize: 18, height: 1.6, color: ReportPalette.body)),
+          const SizedBox(height: 28),
+          Text(_t('Explain it to me in'),
+              style:
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
-          _surface(
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(Icons.auto_stories_outlined,
-                  color: ReportPalette.sage, size: 21),
-              SizedBox(width: 10),
-              Expanded(
-                  child: Text(_t('An example explanation'),
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 16)))
-            ]),
-            SizedBox(height: 14),
-            Text(_t('“What does hemoglobin measure?”'),
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-            SizedBox(height: 8),
-            Text(
-                _t('Hemoglobin carries oxygen through your blood. Your doctor looks at this result alongside your other tests and how you feel.'),
-                style: TextStyle(fontSize: 16, height: 1.6)),
-            SizedBox(height: 12),
-            Text(_t('Illustrative content · not your report'),
-                style: TextStyle(fontSize: 12, color: ReportPalette.muted)),
-          ])),
+          Wrap(spacing: 10, runSpacing: 10, children: [
+            for (final language in widget.languages)
+              _languageChoice(language['name']!, language['native']!),
+          ]),
+          const SizedBox(height: 10),
+          Text(
+              _t('You can switch at any time. The report itself needs to be printed in English for now.'),
+              style: const TextStyle(
+                  fontSize: 14, height: 1.5, color: ReportPalette.muted)),
         ]);
+        final canUpload = !_busy && widget.sampleConsent;
         final upload = AnimatedContainer(
             duration: const Duration(milliseconds: 160),
-            padding: const EdgeInsets.all(30),
+            padding: EdgeInsets.all(wide ? 28 : 20),
             decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                     color: widget.dragging
-                        ? ReportPalette.sage
+                        ? ReportPalette.burgundy
                         : ReportPalette.border,
-                    width: widget.dragging ? 2 : 1)),
+                    width: widget.dragging ? 2 : 1),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x0F2B1B18),
+                      blurRadius: 32,
+                      offset: Offset(0, 12))
+                ]),
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(_t('Add your medical report'),
-                      style:
-                          TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 10),
-                  Text(_t('A PDF or a clear photo is all you need.'),
-                      style: TextStyle(color: ReportPalette.muted)),
-                  const SizedBox(height: 28),
+                  Text(_t('Add your report'), style: serifStyle(24)),
+                  const SizedBox(height: 18),
                   if (widget.loading)
                     _progress()
                   else
                     Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 36),
+                            horizontal: 20, vertical: 32),
                         decoration: BoxDecoration(
-                            color: ReportPalette.ground,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: ReportPalette.border)),
+                            color: widget.dragging
+                                ? ReportPalette.rose
+                                : ReportPalette.blush,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                                color: const Color(0xFFD9B8B3), width: 1.5)),
                         child: Column(children: [
                           Container(
-                              padding: const EdgeInsets.all(18),
-                              decoration: const BoxDecoration(
-                                  color: ReportPalette.rose,
-                                  shape: BoxShape.circle),
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                  color: const Color(0xFFF3E2DF),
+                                  borderRadius: BorderRadius.circular(16)),
                               child: const Icon(Icons.upload_file_outlined,
-                                  size: 34, color: ReportPalette.burgundy)),
-                          const SizedBox(height: 20),
+                                  size: 28, color: ReportPalette.burgundy)),
+                          const SizedBox(height: 14),
                           Text(
                               _t(widget.dragging
                                   ? 'Drop your report here'
-                                  : 'Drag your report here'),
+                                  : 'Drop a PDF or photo here'),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 8),
+                                  fontSize: 18, fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 6),
                           Text(_t('PDF, JPG, PNG or WebP · under 4 MB'),
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: const TextStyle(
                                   fontSize: 14, color: ReportPalette.muted)),
-                          const SizedBox(height: 22),
-                          FilledButton.icon(
-                              onPressed: _busy ? null : widget.onUpload,
-                              icon: const Icon(Icons.upload_file_outlined,
-                                  size: 20),
-                              label: Text(_t('Choose PDF'))),
                         ])),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                      onPressed: canUpload ? widget.onUpload : null,
+                      icon: const Icon(Icons.upload_file_outlined, size: 20),
+                      label: Text(_t('Choose PDF'))),
+                  const SizedBox(height: 12),
                   Row(children: [
                     Expanded(
                         child: OutlinedButton.icon(
-                            onPressed: _busy ? null : widget.onCamera,
+                            onPressed: canUpload ? widget.onCamera : null,
                             icon:
                                 const Icon(Icons.camera_alt_outlined, size: 20),
                             label: Text(_t('Take photo')))),
                     const SizedBox(width: 12),
                     Expanded(
                         child: OutlinedButton.icon(
-                            onPressed: _busy ? null : widget.onPhoto,
+                            onPressed: canUpload ? widget.onPhoto : null,
                             icon: const Icon(Icons.image_outlined, size: 20),
                             label: Text(_t('Choose photo'))))
                   ]),
-                  if (widget.error != null)
+                  const SizedBox(height: 16),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: _busy
+                          ? null
+                          : () => widget.onSampleConsent
+                              ?.call(!widget.sampleConsent),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Checkbox(
+                                  value: widget.sampleConsent,
+                                  activeColor: ReportPalette.burgundy,
+                                  onChanged: _busy
+                                      ? null
+                                      : (value) => widget.onSampleConsent
+                                          ?.call(value ?? false)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                  child: Padding(
+                                      padding: const EdgeInsets.only(top: 10),
+                                      child: Text(
+                                          _t('This is a sample or anonymised report. I understand this prototype is not for real patient data.'),
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              height: 1.5,
+                                              color: ReportPalette.body)))),
+                            ]),
+                      ),
+                    ),
+                  ),
+                  if (!widget.sampleConsent && !widget.loading)
                     Padding(
-                        padding: const EdgeInsets.only(top: 18),
+                        padding: const EdgeInsets.only(left: 52, top: 2),
+                        child: Text(
+                            _t('Tick the box above to enable upload.'),
+                            style: const TextStyle(
+                                fontSize: 13, color: ReportPalette.muted))),
+                  if (widget.error != null)
+                    Container(
+                        margin: const EdgeInsets.only(top: 16),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                            color: ReportPalette.rose,
+                            borderRadius: BorderRadius.circular(12)),
                         child: Text(_error(widget.error!),
                             style: const TextStyle(
-                                color: ReportPalette.burgundy))),
-                  const SizedBox(height: 22),
-                  Text(_t('Keep the full page in view, with good light and no blur. For clear, printed English reports.'),
-                      style: TextStyle(
+                                color: ReportPalette.burgundyDark,
+                                height: 1.5))),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text(
+                      _t('Keep the full page in view, with good light and no blur. For clear, printed English reports.'),
+                      style: const TextStyle(
                           fontSize: 13,
                           color: ReportPalette.muted,
                           height: 1.6)),
-                  const SizedBox(height: 18),
-                  const Divider(),
-                  const SizedBox(height: 10),
-                  Text(_t('Reports and voice questions use Groq. Spoken answers use Microsoft Edge neural speech.'),
-                      style: TextStyle(
-                          fontSize: 12,
-                          height: 1.6,
-                          color: ReportPalette.muted)),
                   if (widget.report != null) ...[
-                    const SizedBox(height: 20),
-                    TextButton.icon(
-                        onPressed: () => widget.onNavigate(1),
-                        icon: const Icon(Icons.arrow_forward_rounded),
-                        label: Text(_t('Return to your current report')))
+                    const SizedBox(height: 12),
+                    Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                            onPressed: () => widget.onNavigate(1),
+                            icon: const Icon(Icons.arrow_forward_rounded),
+                            label: Text(_t('Return to your current report')))),
                   ],
                 ]));
-        return size.maxWidth >= 800
-            ? Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
+        final hero = wide
+            ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(flex: 11, child: intro),
+                const SizedBox(width: 56),
+                Expanded(flex: 10, child: upload),
+              ])
+            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                intro,
+                const SizedBox(height: 28),
+                upload
+              ]);
+        final steps = [
+          _step('1', 'Upload',
+              'A PDF from the lab, or a photo taken on your phone. We read the tests, values, units and reference ranges printed on it.'),
+          _step('2', 'Check the numbers',
+              'Every value sits beside the original page. Reading a photo can go wrong, so we mark uncertain rows and let you fix them.'),
+          _step('3', 'Ask by voice',
+              'Speak or type a question. The answer is read aloud and points to the exact line on your report it is based on.'),
+        ];
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          band(hero, vertical: wide ? 56 : 28),
+          band(
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_t('Three steps, and you stay in control'),
+                    style: serifStyle(wide ? 34 : 26)),
+                const SizedBox(height: 28),
+                wide
+                    ? IntrinsicHeight(
+                        child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                            for (var i = 0; i < steps.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 20),
+                              Expanded(child: steps[i]),
+                            ]
+                          ]))
+                    : Column(children: [
+                        for (final step in steps)
+                          Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: step)
+                      ]),
+              ]),
+              color: Colors.white),
+          band(_honesty(wide), vertical: wide ? 56 : 32),
+          Container(
+              decoration: const BoxDecoration(
+                  border:
+                      Border(top: BorderSide(color: ReportPalette.border))),
+              padding: EdgeInsets.symmetric(horizontal: pad, vertical: 24),
+              child: Center(
+                  child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1240),
+                      child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          spacing: 24,
+                          runSpacing: 8,
+                          children: [
+                            Text(
+                                _t('Medivaanii · a research prototype by ArogyaPandit'),
+                                style: const TextStyle(
+                                    fontSize: 14, color: ReportPalette.muted)),
+                            Text(
+                                _t('Not a medical device. Always confirm results with a clinician.'),
+                                style: const TextStyle(
+                                    fontSize: 14, color: ReportPalette.muted)),
+                          ])))),
+        ]);
+      });
+
+  Widget _languageChoice(String name, String native) {
+    final selected = widget.language == name;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: OutlinedButton(
+        onPressed: () => widget.onLanguage(name),
+        style: OutlinedButton.styleFrom(
+            minimumSize: const Size(96, 50),
+            backgroundColor: selected ? ReportPalette.burgundy : Colors.white,
+            foregroundColor: selected ? Colors.white : ReportPalette.ink,
+            side: BorderSide(
+                color:
+                    selected ? ReportPalette.burgundy : ReportPalette.strongBorder,
+                width: 2),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        child: Text(native,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+
+  Widget _honesty(bool wide) {
+    Widget list(IconData icon, Color iconColor, String title,
+            List<String> items) =>
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: ReportPalette.border)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(icon, color: iconColor, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Text(_t(title),
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w600))),
+            ]),
+            const SizedBox(height: 14),
+            for (final item in items)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: intro),
-                      const SizedBox(width: 56),
-                      Expanded(child: upload)
-                    ]))
-            : Column(children: [intro, const SizedBox(height: 28), upload]);
-      });
+                      const Padding(
+                          padding: EdgeInsets.only(top: 9, right: 10),
+                          child: SizedBox(
+                              width: 5,
+                              height: 5,
+                              child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                      color: ReportPalette.muted,
+                                      shape: BoxShape.circle)))),
+                      Expanded(
+                          child: Text(_t(item),
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.55,
+                                  color: ReportPalette.body))),
+                    ]),
+              ),
+          ]),
+        );
+    final does = list(Icons.check_rounded, ReportPalette.sage,
+        'What Medivaanii does', [
+      'Explains the values printed on your report in plain words',
+      'Uses only the flags and ranges the lab printed — it doesn’t invent its own',
+      'Shows where every number and answer came from',
+      'Helps you prepare questions for your doctor',
+    ]);
+    final doesnt = list(Icons.close_rounded, ReportPalette.burgundy,
+        'What it won’t do', [
+      'Diagnose a condition or tell you which medicine to take',
+      'Replace your doctor — it has not been clinically validated',
+      'Read handwritten notes or reports in other scripts, yet',
+      'Keep a long-term history — your report stays in this browser until you clear it',
+    ]);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text(_t('Being honest about what this is'),
+          style: serifStyle(wide ? 34 : 26)),
+      const SizedBox(height: 24),
+      wide
+          ? IntrinsicHeight(
+              child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                  Expanded(child: does),
+                  const SizedBox(width: 20),
+                  Expanded(child: doesnt),
+                ]))
+          : Column(children: [does, const SizedBox(height: 14), doesnt]),
+      const SizedBox(height: 20),
+      Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+              color: ReportPalette.sand,
+              borderRadius: BorderRadius.circular(18)),
+          child: Text(
+              _t('Where your data goes: report text and your questions are sent to an AI service (Groq) to write explanations; answer text goes to a speech service to be read aloud. Your original file stays in your browser.'),
+              style: const TextStyle(
+                  fontSize: 15, height: 1.6, color: ReportPalette.body))),
+    ]);
+  }
 
-  Widget _step(String n, String title, String body) => Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-                color: ReportPalette.sageLight,
-                borderRadius: BorderRadius.circular(10)),
-            child: Text(n,
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: ReportPalette.sage,
-                    fontWeight: FontWeight.w700))),
-        const SizedBox(width: 14),
-        Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _step(String n, String title, String body) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+            color: ReportPalette.ground,
+            borderRadius: BorderRadius.circular(20)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(n, style: serifStyle(30, color: ReportPalette.burgundy)),
+          const SizedBox(height: 10),
           Text(_t(title),
               style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 3),
+                  const TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
           Text(_t(body),
-              style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
-        ]))
-      ]));
+              style: const TextStyle(
+                  fontSize: 15, height: 1.6, color: ReportPalette.body)),
+        ]),
+      );
   Widget _surface(Widget child,
           {EdgeInsetsGeometry padding = const EdgeInsets.all(22)}) =>
       Container(
@@ -1272,7 +1669,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   Widget _empty() =>
       _surface(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(_t('A clearer view starts with your report.'),
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
+            style: serifStyle(28)),
         const SizedBox(height: 12),
         Text(_t(
             'Upload a PDF or a clear photo to see your results and start a conversation.')),
@@ -1292,8 +1689,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             Text(
                 _copy('App settings & data', 'ऐप सेटिंग्स और डेटा',
                     'Configuración y datos', '应用设置与数据'),
-                style: const TextStyle(
-                    fontSize: 28, height: 1.3, fontWeight: FontWeight.w700)),
+                style: serifStyle(30, height: 1.25)),
             const SizedBox(height: 8),
             Text(
                 _copy(
@@ -1327,7 +1723,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                               style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: ReportPalette.sage))),
+                                  color: ReportPalette.burgundy))),
                       const Divider(height: 1, indent: 20, endIndent: 20),
                       _preferenceChoices(
                           Icons.slow_motion_video_rounded,
@@ -1386,7 +1782,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                   '自动播放讲解'),
                               child: Switch.adaptive(
                                   value: widget.speechEnabled,
-                                  activeTrackColor: ReportPalette.sage,
+                                  activeTrackColor: ReportPalette.burgundy,
                                   onChanged:
                                       _busy ? null : widget.onSpeechEnabled))),
                       const Divider(height: 1, indent: 20, endIndent: 20),
@@ -1564,8 +1960,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
       );
 
   ButtonStyle get _preferenceStyle => SegmentedButton.styleFrom(
-      selectedBackgroundColor: ReportPalette.sageLight,
-      selectedForegroundColor: ReportPalette.sage,
+      selectedBackgroundColor: ReportPalette.rose,
+      selectedForegroundColor: ReportPalette.burgundy,
       backgroundColor: Colors.white,
       foregroundColor: ReportPalette.muted,
       minimumSize: const Size(44, 42),
@@ -1678,16 +2074,15 @@ class _Brand extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Row(mainAxisSize: MainAxisSize.min, children: [
-        Image.asset('assets/images/arogya_pandit_logo.png',
-            width: 36,
-            height: 36,
-            semanticLabel: AppStrings(language).t('Medivaanii logo')),
+        ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: Image.asset('assets/images/arogya_pandit_logo.png',
+                width: 38,
+                height: 38,
+                semanticLabel: AppStrings(language).t('Medivaanii logo'))),
         const SizedBox(width: 10),
-        const Flexible(
+        Flexible(
             child: Text('Medivaanii',
-                style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -.6)))
+                style: serifStyle(22, weight: FontWeight.w600)))
       ]);
 }

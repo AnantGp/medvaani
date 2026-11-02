@@ -245,7 +245,7 @@ class BodySystemIcon extends StatelessWidget {
       width: size,
       height: size,
       excludeFromSemantics: true,
-      colorFilter: const ColorFilter.mode(Color(0xff3f6050), BlendMode.srcIn));
+      colorFilter: const ColorFilter.mode(Color(0xff1d5c3a), BlendMode.srcIn));
 }
 
 /// Shares the active selection with citations and the original source viewer.
@@ -274,7 +274,7 @@ class ActiveBodyVisual extends StatelessWidget {
                   colorFilter: system.illustrationName.startsWith('neutral-')
                       ? null
                       : const ColorFilter.mode(
-                          Color(0xff3f6050), BlendMode.srcIn))),
+                          Color(0xff1d5c3a), BlendMode.srcIn))),
           if (!compact) ...[
             const SizedBox(width: 6),
             SizedBox(

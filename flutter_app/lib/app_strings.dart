@@ -648,5 +648,205 @@ class AppStrings {
       "La pregunta es demasiado larga. Hazla más breve.",
       "问题过长，请简短提问。"
     ],
+    "Research prototype. Please use sample reports only — not real patient records.": [
+      "रिसर्च प्रोटोटाइप। कृपया केवल सैंपल रिपोर्ट इस्तेमाल करें — असली मरीज़ों के रिकॉर्ड नहीं।",
+      "Prototipo de investigación. Usa solo informes de ejemplo, no historiales reales de pacientes.",
+      "研究原型。请仅使用示例报告，不要上传真实的患者记录。"
+    ],
+    "LAB REPORTS, IN YOUR LANGUAGE": [
+      "लैब रिपोर्ट, आपकी भाषा में",
+      "INFORMES DE LABORATORIO, EN TU IDIOMA",
+      "用您的语言读懂化验报告"
+    ],
+    "Understand your report. Then talk it through with your doctor.": [
+      "अपनी रिपोर्ट समझें। फिर अपने डॉक्टर से उस पर बात करें।",
+      "Entiende tu informe. Luego coméntalo con tu médico.",
+      "先读懂您的报告，再与医生详细沟通。"
+    ],
+    "Upload a printed lab report. Medivaanii reads each value, shows you exactly where it came from, and answers your questions out loud — in English, Hindi, Spanish or Mandarin.": [
+      "छपी हुई लैब रिपोर्ट अपलोड करें। Medivaanii हर नतीजा पढ़ता है, दिखाता है कि वह रिपोर्ट में कहाँ लिखा है, और आपके सवालों का जवाब बोलकर देता है — अंग्रेज़ी, हिन्दी, स्पेनिश या मंदारिन में।",
+      "Sube un informe de laboratorio impreso. Medivaanii lee cada valor, te muestra exactamente de dónde viene y responde a tus preguntas en voz alta, en inglés, hindi, español o mandarín.",
+      "上传一份打印的化验报告。Medivaanii会读取每个数值，标出它在报告中的位置，并用英语、印地语、西班牙语或普通话语音回答您的问题。"
+    ],
+    "Explain it to me in": [
+      "मुझे इस भाषा में समझाएं",
+      "Explícamelo en",
+      "用这种语言为我讲解"
+    ],
+    "You can switch at any time. The report itself needs to be printed in English for now.": [
+      "आप कभी भी भाषा बदल सकते हैं। अभी रिपोर्ट अंग्रेज़ी में छपी होनी चाहिए।",
+      "Puedes cambiarlo cuando quieras. Por ahora, el informe debe estar impreso en inglés.",
+      "您可以随时切换语言。目前报告本身需为英文打印版。"
+    ],
+    "Drop a PDF or photo here": [
+      "PDF या फोटो यहाँ छोड़ें",
+      "Suelta aquí un PDF o una foto",
+      "将PDF或照片拖放到这里"
+    ],
+    "This is a sample or anonymised report. I understand this prototype is not for real patient data.": [
+      "यह सैंपल या पहचान हटाई गई रिपोर्ट है। मैं समझता/समझती हूँ कि यह प्रोटोटाइप असली मरीज़ों के डेटा के लिए नहीं है।",
+      "Es un informe de ejemplo o anonimizado. Entiendo que este prototipo no es para datos reales de pacientes.",
+      "这是示例或已匿名的报告。我了解此原型不适用于真实的患者数据。"
+    ],
+    "Tick the box above to enable upload.": [
+      "अपलोड चालू करने के लिए ऊपर का बॉक्स चुनें।",
+      "Marca la casilla de arriba para poder subir el informe.",
+      "勾选上方方框后即可上传。"
+    ],
+    "Confirm this is a sample or anonymised report before uploading.": [
+      "अपलोड से पहले पुष्टि करें कि यह सैंपल या पहचान हटाई गई रिपोर्ट है।",
+      "Antes de subirlo, confirma que es un informe de ejemplo o anonimizado.",
+      "上传前请确认这是示例或已匿名的报告。"
+    ],
+    "Three steps, and you stay in control": [
+      "तीन कदम, और नियंत्रण आपके हाथ में",
+      "Tres pasos, y tú tienes el control",
+      "三个步骤，一切由您掌控"
+    ],
+    "Check the numbers": [
+      "नतीजे जांचें",
+      "Revisa los números",
+      "核对数值"
+    ],
+    "Ask by voice": [
+      "बोलकर पूछें",
+      "Pregunta por voz",
+      "语音提问"
+    ],
+    "Ask": [
+      "पूछें",
+      "Preguntar",
+      "提问"
+    ],
+    "A PDF from the lab, or a photo taken on your phone. We read the tests, values, units and reference ranges printed on it.": [
+      "लैब की PDF या फोन से ली गई फोटो। हम उस पर छपे टेस्ट, नतीजे, यूनिट और संदर्भ सीमा पढ़ते हैं।",
+      "Un PDF del laboratorio o una foto hecha con tu teléfono. Leemos las pruebas, valores, unidades y rangos de referencia impresos.",
+      "化验室的PDF，或用手机拍的照片。我们读取上面打印的检测项目、数值、单位和参考范围。"
+    ],
+    "Every value sits beside the original page. Reading a photo can go wrong, so we mark uncertain rows and let you fix them.": [
+      "हर नतीजा मूल पन्ने के बगल में दिखता है। फोटो पढ़ने में गलती हो सकती है, इसलिए अनिश्चित पंक्तियाँ चिह्नित होती हैं और आप उन्हें सुधार सकते हैं।",
+      "Cada valor aparece junto a la página original. Leer una foto puede fallar, así que marcamos las filas dudosas y puedes corregirlas.",
+      "每个数值都显示在原始页面旁。照片识别可能出错，因此我们会标出不确定的行，供您更正。"
+    ],
+    "Speak or type a question. The answer is read aloud and points to the exact line on your report it is based on.": [
+      "सवाल बोलें या लिखें। जवाब पढ़कर सुनाया जाता है और रिपोर्ट की उसी पंक्ति की ओर इशारा करता है जिस पर वह आधारित है।",
+      "Habla o escribe una pregunta. La respuesta se lee en voz alta y señala la línea exacta del informe en la que se basa.",
+      "说出或输入问题。回答会朗读出来，并指向其所依据的报告原文行。"
+    ],
+    "Being honest about what this is": [
+      "यह ऐप क्या है, साफ़-साफ़",
+      "Con honestidad: qué es esto",
+      "坦诚说明：这是什么"
+    ],
+    "What Medivaanii does": [
+      "Medivaanii क्या करता है",
+      "Qué hace Medivaanii",
+      "Medivaanii能做什么"
+    ],
+    "What it won’t do": [
+      "यह क्या नहीं करेगा",
+      "Qué no hará",
+      "它不会做什么"
+    ],
+    "Explains the values printed on your report in plain words": [
+      "आपकी रिपोर्ट में छपे नतीजों को आसान शब्दों में समझाता है",
+      "Explica con palabras sencillas los valores de tu informe",
+      "用通俗的话解释报告上的数值"
+    ],
+    "Uses only the flags and ranges the lab printed — it doesn’t invent its own": [
+      "केवल लैब द्वारा छापे गए निशान और सीमा इस्तेमाल करता है — अपनी ओर से कुछ नहीं जोड़ता",
+      "Usa solo las marcas y rangos que imprimió el laboratorio; no inventa los suyos",
+      "只使用化验室打印的标记和范围，不会自行编造"
+    ],
+    "Shows where every number and answer came from": [
+      "दिखाता है कि हर नतीजा और जवाब कहाँ से आया",
+      "Muestra de dónde sale cada número y cada respuesta",
+      "标明每个数值和回答的出处"
+    ],
+    "Helps you prepare questions for your doctor": [
+      "डॉक्टर से पूछने के सवाल तैयार करने में मदद करता है",
+      "Te ayuda a preparar preguntas para tu médico",
+      "帮您准备要问医生的问题"
+    ],
+    "Diagnose a condition or tell you which medicine to take": [
+      "बीमारी का निदान करना या कौन-सी दवा लें यह बताना",
+      "Diagnosticar una enfermedad ni decirte qué medicamento tomar",
+      "诊断疾病或告诉您该吃什么药"
+    ],
+    "Replace your doctor — it has not been clinically validated": [
+      "डॉक्टर की जगह लेना — इसकी क्लिनिकल जांच नहीं हुई है",
+      "Sustituir a tu médico: no está validado clínicamente",
+      "替代医生——它未经临床验证"
+    ],
+    "Read handwritten notes or reports in other scripts, yet": [
+      "हाथ से लिखे नोट या दूसरी लिपि की रिपोर्ट अभी नहीं पढ़ता",
+      "Leer notas manuscritas o informes en otras escrituras, por ahora",
+      "目前还不能读取手写内容或其他文字的报告"
+    ],
+    "Keep a long-term history — your report stays in this browser until you clear it": [
+      "लंबा रिकॉर्ड रखना — आपकी रिपोर्ट हटाने तक इसी ब्राउज़र में रहती है",
+      "Guardar un historial a largo plazo: tu informe se queda en este navegador hasta que lo borres",
+      "长期保存记录——报告仅保存在此浏览器中，直到您清除"
+    ],
+    "Where your data goes: report text and your questions are sent to an AI service (Groq) to write explanations; answer text goes to a speech service to be read aloud. Your original file stays in your browser.": [
+      "आपका डेटा कहाँ जाता है: रिपोर्ट का टेक्स्ट और आपके सवाल समझाने के लिए एक AI सेवा (Groq) को भेजे जाते हैं; जवाब का टेक्स्ट सुनाने के लिए एक स्पीच सेवा को जाता है। आपकी मूल फाइल आपके ब्राउज़र में रहती है।",
+      "Adónde van tus datos: el texto del informe y tus preguntas se envían a un servicio de IA (Groq) para redactar las explicaciones; el texto de la respuesta va a un servicio de voz para leerlo en voz alta. Tu archivo original se queda en tu navegador.",
+      "数据去向：报告文字和您的问题会发送给AI服务（Groq）生成讲解；回答文字会发送给语音服务朗读。原始文件保留在您的浏览器中。"
+    ],
+    "Medivaanii · a research prototype by ArogyaPandit": [
+      "Medivaanii · ArogyaPandit का एक रिसर्च प्रोटोटाइप",
+      "Medivaanii · un prototipo de investigación de ArogyaPandit",
+      "Medivaanii · ArogyaPandit研究原型"
+    ],
+    "Not a medical device. Always confirm results with a clinician.": [
+      "यह मेडिकल डिवाइस नहीं है। नतीजों की पुष्टि हमेशा डॉक्टर से करें।",
+      "No es un dispositivo médico. Confirma siempre los resultados con un profesional sanitario.",
+      "这不是医疗器械。请始终与医生确认结果。"
+    ],
+    "Updating your explanation…": [
+      "आपकी व्याख्या अपडेट हो रही है…",
+      "Actualizando tu explicación…",
+      "正在更新讲解…"
+    ],
+    "Looks right — explain my report": [
+      "सही है — मेरी रिपोर्ट समझाएं",
+      "Todo correcto: explica mi informe",
+      "没问题——为我讲解报告"
+    ],
+    "We found {count} results. Compare them with your report — anything we misread changes every explanation that follows.": [
+      "हमें {count} नतीजे मिले। इन्हें अपनी रिपोर्ट से मिलाएं — कोई भी गलत पढ़ा गया नतीजा आगे की हर व्याख्या बदल देगा।",
+      "Encontramos {count} resultados. Compáralos con tu informe: cualquier error de lectura cambia todas las explicaciones que siguen.",
+      "我们找到{count}项结果。请与报告核对——任何读错的数值都会影响后续所有讲解。"
+    ],
+    "{count} results need your eyes. Use the pencil to correct a value, or continue if they match your report.": [
+      "{count} नतीजे जांचने हैं। गलत नतीजा पेंसिल से सुधारें, या रिपोर्ट से मेल खाए तो आगे बढ़ें।",
+      "{count} resultados necesitan tu revisión. Usa el lápiz para corregir un valor o continúa si coinciden con tu informe.",
+      "有{count}项结果需要您核对。可用铅笔图标更正数值；若与报告一致，请继续。"
+    ],
+    "Status labels repeat the flag printed on your report. Medivaanii never decides on its own whether a result is normal.": [
+      "स्थिति के लेबल रिपोर्ट पर छपे निशान को ही दोहराते हैं। Medivaanii अपने आप तय नहीं करता कि नतीजा सामान्य है या नहीं।",
+      "Las etiquetas de estado repiten la marca impresa en tu informe. Medivaanii nunca decide por su cuenta si un resultado es normal.",
+      "状态标签仅重复报告上打印的标记，Medivaanii不会自行判断结果是否正常。"
+    ],
+    "Upload a different report": [
+      "दूसरी रिपोर्ट अपलोड करें",
+      "Subir otro informe",
+      "上传其他报告"
+    ],
+    "Above range": [
+      "सीमा से ऊपर",
+      "Por encima del rango",
+      "高于范围"
+    ],
+    "Below range": [
+      "सीमा से नीचे",
+      "Por debajo del rango",
+      "低于范围"
+    ],
+    "Please confirm": [
+      "कृपया पुष्टि करें",
+      "Confírmalo",
+      "请确认"
+    ],
   };
 }

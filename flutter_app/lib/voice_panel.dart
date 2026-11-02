@@ -439,7 +439,7 @@ class _VoicePanelState extends State<VoicePanel> {
 
   @override
   Widget build(BuildContext context) {
-    const ink = Color(0xff242c2b), green = Color(0xff3f6050);
+    const ink = Color(0xff1f1b1a), green = Color(0xff1d5c3a);
     final rows = {
       for (final row in workspaceMeasurements(widget.report))
         row['measurement_id']: row
@@ -520,7 +520,7 @@ class _VoicePanelState extends State<VoicePanel> {
                 ? const EdgeInsets.fromLTRB(16, 0, 16, 12)
                 : const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: _selectedResult(selected)),
-      const Divider(height: 1, color: Color(0xffe5e0d8)),
+      const Divider(height: 1, color: Color(0xffe8deda)),
       Expanded(
           child: Scrollbar(
         controller: _answerScroll,
@@ -533,13 +533,13 @@ class _VoicePanelState extends State<VoicePanel> {
             if (_lastQuestion.isNotEmpty) ...[
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 const Icon(Icons.person_outline_rounded,
-                    size: 18, color: Color(0xff626a67)),
+                    size: 18, color: Color(0xff5e5754)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(_lastQuestion,
                         style: const TextStyle(
                             fontSize: 14,
-                            color: Color(0xff626a67),
+                            color: Color(0xff5e5754),
                             height: 1.5))),
               ]),
               const SizedBox(height: 18),
@@ -564,7 +564,7 @@ class _VoicePanelState extends State<VoicePanel> {
                       'Preparando una explicación basada en tu informe…',
                       '正在根据报告准备讲解…'),
                   style: const TextStyle(
-                      fontSize: 15, height: 1.6, color: Color(0xff626a67))),
+                      fontSize: 15, height: 1.6, color: Color(0xff5e5754))),
             ],
             if (firstQuestion) ...[
               Text(
@@ -579,7 +579,7 @@ class _VoicePanelState extends State<VoicePanel> {
               const SizedBox(height: 10),
               Text(_copy[11],
                   style: const TextStyle(
-                      fontSize: 15, height: 1.6, color: Color(0xff626a67))),
+                      fontSize: 15, height: 1.6, color: Color(0xff5e5754))),
               const SizedBox(height: 20),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 if (flagged > 0)
@@ -640,7 +640,7 @@ class _VoicePanelState extends State<VoicePanel> {
       Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Color(0xffe5e0d8)))),
+            border: Border(top: BorderSide(color: Color(0xffe8deda)))),
         child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -664,7 +664,7 @@ class _VoicePanelState extends State<VoicePanel> {
       padding: const EdgeInsets.only(top: 12),
       child: Text(AppStrings(widget.language).error(_error!),
           style: const TextStyle(
-              fontSize: 14, height: 1.5, color: Color(0xffa32e35))));
+              fontSize: 14, height: 1.5, color: Color(0xff8b1a1a))));
 
   Widget _composer() => Row(children: [
         SizedBox(
@@ -674,8 +674,8 @@ class _VoicePanelState extends State<VoicePanel> {
                   minimumSize: const Size(48, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   backgroundColor: _recording
-                      ? const Color(0xffa32e35)
-                      : const Color(0xff3f6050),
+                      ? const Color(0xff8b1a1a)
+                      : const Color(0xff1d5c3a),
                   shape: const StadiumBorder()),
               onPressed: _recording
                   ? _finishRecording
@@ -711,21 +711,21 @@ class _VoicePanelState extends State<VoicePanel> {
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
-                borderSide: const BorderSide(color: Color(0xffe5e0d8))),
+                borderSide: const BorderSide(color: Color(0xffe8deda))),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
-                borderSide: const BorderSide(color: Color(0xffc9ceca))),
+                borderSide: const BorderSide(color: Color(0xffdccfca))),
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
                 borderSide:
-                    const BorderSide(color: Color(0xff3f6050), width: 2)),
+                    const BorderSide(color: Color(0xff1d5c3a), width: 2)),
             suffixIcon: IconButton(
                 tooltip: _copy[12],
                 onPressed: _checking || _recording ? null : () => _ask(),
                 icon: const Icon(Icons.arrow_upward_rounded, size: 20),
                 style: IconButton.styleFrom(
                     minimumSize: const Size(44, 44),
-                    foregroundColor: const Color(0xffa32e35))),
+                    foregroundColor: const Color(0xff8b1a1a))),
           ),
         )),
       ]);
@@ -734,8 +734,8 @@ class _VoicePanelState extends State<VoicePanel> {
       label: Text(label,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
       onPressed: action,
-      backgroundColor: const Color(0xfffaf9f6),
-      side: const BorderSide(color: Color(0xffe5e0d8)),
+      backgroundColor: const Color(0xfffbf7f4),
+      side: const BorderSide(color: Color(0xffe8deda)),
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       visualDensity: VisualDensity.compact);
 
@@ -794,16 +794,16 @@ class _VoicePanelState extends State<VoicePanel> {
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                         color: flagged
-                            ? const Color(0xfff9ebec)
-                            : const Color(0xffedf3ef),
+                            ? const Color(0xfff7ecea)
+                            : const Color(0xffe6f0ea),
                         borderRadius: BorderRadius.circular(5)),
                     child: Text(label,
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: flagged
-                                ? const Color(0xffa32e35)
-                                : const Color(0xff3f6050)))),
+                                ? const Color(0xff8b1a1a)
+                                : const Color(0xff1d5c3a)))),
               ]),
         ])),
       ]),
@@ -834,10 +834,10 @@ class _VoicePanelState extends State<VoicePanel> {
                     style: TextStyle(
                         fontSize: widget.largeText ? 15 : 13,
                         height: 1.5,
-                        color: Color(0xff626a67)))),
+                        color: Color(0xff5e5754)))),
             if (reference.length > 65)
               const Icon(Icons.unfold_more_rounded,
-                  size: 18, color: Color(0xff626a67)),
+                  size: 18, color: Color(0xff5e5754)),
           ])),
       if (!mobile) ...[
         const SizedBox(height: 9),
@@ -848,16 +848,16 @@ class _VoicePanelState extends State<VoicePanel> {
             children: [
               Text(system.title(widget.language),
                   style:
-                      const TextStyle(fontSize: 12, color: Color(0xff626a67))),
+                      const TextStyle(fontSize: 12, color: Color(0xff5e5754))),
               Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                      color: const Color(0xffedf3ef),
+                      color: const Color(0xffe6f0ea),
                       borderRadius: BorderRadius.circular(20)),
                   child: Text(system.location(widget.language),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xff3f6050)))),
+                          fontSize: 11, color: Color(0xff1d5c3a)))),
             ]),
       ],
     ]);
@@ -894,11 +894,11 @@ class _VoicePanelState extends State<VoicePanel> {
               if ((row['reference_range'] ?? '').toString().isNotEmpty)
                 Text(_t('Ref: {range}', {'range': row['reference_range']}),
                     style: const TextStyle(
-                        fontSize: 11, color: Color(0xff626a67))),
+                        fontSize: 11, color: Color(0xff5e5754))),
             ]),
         onPressed: select,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-        backgroundColor: const Color(0xffedf3ef),
+        backgroundColor: const Color(0xffe6f0ea),
         side: const BorderSide(color: Color(0xffd4e0d7)),
       );
 
