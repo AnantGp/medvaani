@@ -76,10 +76,18 @@ void main() {
                   onSpeechEnabled: (_) {},
                 ))));
     for (final entry in _languages) {
-      await tester.tap(find.text(entry['native']!));
+      // The language appears in the top bar and in the home chooser.
+      expect(find.text(entry['native']!), findsNWidgets(2));
+      await tester.tap(find.text(entry['native']!).last);
       await tester.pumpAndSettle();
       final copy = AppStrings(entry['name']!);
-      expect(find.text(copy.t('Your report.\nA clearer conversation.')),
+      expect(
+          find.text(copy.t(
+              'Understand your report. Then talk it through with your doctor.')),
+          findsOneWidget);
+      expect(
+          find.text(copy.t(
+              'Research prototype. Please use sample reports only — not real patient records.')),
           findsOneWidget);
       expect(find.text(copy.t('Choose PDF')), findsOneWidget);
       expect(find.text(copy.t('Take photo')), findsOneWidget);
