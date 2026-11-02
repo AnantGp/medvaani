@@ -1,0 +1,71 @@
+name: Flutter check and preview
+
+on:
+  push:
+    branches: ["redesign/**", "feature/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    defaults:
+      run:
+        working-directory: flutter_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.7"
+          channel: stable
+          cache: true
+
+      - name: Install packages
+        run: flutter pub get
+
+      - name: Analyze (errors become annotations)
+        run: |
+          set +e
+          flutter analyze --no-fatal-infos --no-fatal-warnings --write=analyze.txt > /dev/null
+          code=$?
+          grep -E "^(error|warning) " analyze.txt | head -50 | while IFS= read -r line; do
+            file=$(echo "$line" | sed -E 's/.* - (lib|test)\//\1\//' | cut -d: -f1)
+            num=$(echo "$line" | sed -E 's/.* - (lib|test)\/[^:]+:([0-9]+):.*/\2/')
+            echo "::error file=flutter_app/$file,line=$num::$line"
+          done
+          exit $code
+
+      - name: Test
+        run: |
+          set +e
+          flutter test --reporter expanded > test.txt 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then
+            grep -nE "FAILED|Expected:|Actual:|Error|══" test.txt | head -60 | while IFS= read -r line; do
+              echo "::error title=flutter test::$line"
+            done
+          fi
+          tail -5 test.txt
+          exit $code
+
+      - name: Build web
+        run: flutter build web --release --no-tree-shake-icons --no-wasm-dry-run --dart-define=API_BASE_URL=/api
+
+      - name: Deploy Vercel preview
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        working-directory: .
+        env:
+          VERCEL_ORG_ID: team_9u66VQcU7m7GT4tRg3MaFUQK
+          VERCEL_PROJECT_ID: prj_u9KZ1KtLsvWNgZm0IMJOlDyaXArZ
+        run: |
+          url=$(npx --yes vercel@latest deploy --yes --token "$VERCEL_TOKEN")
+          echo "::notice title=Vercel preview::$url"
