@@ -78,6 +78,8 @@ void main() {
     for (final entry in _languages) {
       // The language appears in the top bar and in the home chooser.
       expect(find.text(entry['native']!), findsNWidgets(2));
+      await tester.ensureVisible(find.text(entry['native']!).last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text(entry['native']!).last);
       await tester.pumpAndSettle();
       final copy = AppStrings(entry['name']!);
