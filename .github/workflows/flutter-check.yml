@@ -50,11 +50,11 @@ jobs:
           flutter test --reporter expanded > test.txt 2>&1
           code=$?
           if [ $code -ne 0 ]; then
-            grep -nE "FAILED|Expected:|Actual:|Error|══" test.txt | head -60 | while IFS= read -r line; do
+            grep -E "\[E\]|Expected:|Actual:" test.txt | head -80 | while IFS= read -r line; do
               echo "::error title=flutter test::$line"
             done
           fi
-          tail -5 test.txt
+          echo "::notice title=test summary::$(tail -1 test.txt)"
           exit $code
 
       - name: Build web
