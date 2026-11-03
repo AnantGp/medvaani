@@ -848,5 +848,455 @@ class AppStrings {
       "Confírmalo",
       "请确认"
     ],
+    "Medicines": [
+      "दवाएं",
+      "Medicamentos",
+      "药物"
+    ],
+    "My medicines": [
+      "मेरी दवाएं",
+      "Mis medicamentos",
+      "我的药物"
+    ],
+    "Doctor follow-up": [
+      "डॉक्टर की निगरानी",
+      "Seguimiento médico",
+      "医生随访"
+    ],
+    "Patient": [
+      "मरीज़",
+      "Paciente",
+      "患者"
+    ],
+    "Doctor": [
+      "डॉक्टर",
+      "Médico",
+      "医生"
+    ],
+    "Preview feature. Medicines and check-ins are stored only in this browser, reminders appear only while this page is open, and the doctor view shows this browser’s data. Timing rules must come from a doctor.": [
+      "प्रीव्यू फ़ीचर। दवाएं और चेक-इन केवल इसी ब्राउज़र में सेव होते हैं, रिमाइंडर तभी दिखते हैं जब यह पेज खुला हो, और डॉक्टर व्यू इसी ब्राउज़र का डेटा दिखाता है। दवा लेने के समय के नियम डॉक्टर ही तय करें।",
+      "Función en prueba. Los medicamentos y registros se guardan solo en este navegador, los recordatorios aparecen solo con esta página abierta y la vista del médico muestra los datos de este navegador. Las pautas de horario deben venir de un médico.",
+      "预览功能。药物和打卡记录仅保存在此浏览器中，提醒仅在此页面打开时显示，医生视图显示的是此浏览器的数据。服药时间规则必须由医生制定。"
+    ],
+    "No medicines yet": [
+      "अभी कोई दवा नहीं",
+      "Aún no hay medicamentos",
+      "还没有药物"
+    ],
+    "Add the medicines your doctor prescribed, with their timing and food instructions, or try a sample plan to see how check-ins work.": [
+      "डॉक्टर द्वारा लिखी दवाएं उनके समय और खाने से जुड़े निर्देशों के साथ जोड़ें, या चेक-इन कैसे काम करता है यह देखने के लिए सैंपल प्लान आज़माएं।",
+      "Añade los medicamentos que te recetó tu médico, con su horario e instrucciones sobre comidas, o prueba un plan de ejemplo para ver cómo funcionan los registros.",
+      "添加医生开的药物及其服用时间和饮食说明，或试用示例方案，了解打卡如何运作。"
+    ],
+    "Add a medicine": [
+      "दवा जोड़ें",
+      "Añadir medicamento",
+      "添加药物"
+    ],
+    "Try a sample plan": [
+      "सैंपल प्लान आज़माएं",
+      "Probar un plan de ejemplo",
+      "试用示例方案"
+    ],
+    "Today": [
+      "आज",
+      "Hoy",
+      "今天"
+    ],
+    "This week": [
+      "इस हफ़्ते",
+      "Esta semana",
+      "本周"
+    ],
+    "{taken} of {total} doses": [
+      "{total} में से {taken} खुराक",
+      "{taken} de {total} dosis",
+      "{total}次中已服{taken}次"
+    ],
+    "Add blood pressure": [
+      "ब्लड प्रेशर जोड़ें",
+      "Añadir presión arterial",
+      "记录血压"
+    ],
+    "Clear medicines": [
+      "दवाएं हटाएं",
+      "Borrar medicamentos",
+      "清除药物"
+    ],
+    "{name}: {count} tablets left — ask for a refill soon.": [
+      "{name}: {count} गोलियां बची हैं — जल्द दोबारा मंगवाएं।",
+      "{name}: quedan {count} pastillas; pide más pronto.",
+      "{name}：剩余{count}片，请尽快续药。"
+    ],
+    "Time for {name}": [
+      "{name} लेने का समय",
+      "Es hora de {name}",
+      "该服用{name}了"
+    ],
+    "Check in": [
+      "चेक-इन करें",
+      "Registrar",
+      "打卡"
+    ],
+    "Before food · wait {min} min to eat": [
+      "खाने से पहले · खाने से {min} मिनट पहले",
+      "Antes de comer · espera {min} min para comer",
+      "饭前 · 服药{min}分钟后再进食"
+    ],
+    "After food": [
+      "खाने के बाद",
+      "Después de comer",
+      "饭后"
+    ],
+    "With food": [
+      "खाने के साथ",
+      "Con la comida",
+      "随餐"
+    ],
+    "Any time, same time daily": [
+      "कभी भी, रोज़ एक ही समय",
+      "Cualquier hora, siempre a la misma",
+      "任意时间，每天固定时间"
+    ],
+    "Taken": [
+      "ले ली",
+      "Tomada",
+      "已服"
+    ],
+    "Moved to bedtime": [
+      "सोने के समय पर",
+      "Pasada a la noche",
+      "改为睡前"
+    ],
+    "Skipped": [
+      "छोड़ी",
+      "Omitida",
+      "已跳过"
+    ],
+    "Missed · update": [
+      "छूट गई · अपडेट करें",
+      "Olvidada · actualizar",
+      "漏服 · 更新"
+    ],
+    "Later": [
+      "बाद में",
+      "Más tarde",
+      "稍后"
+    ],
+    "Missed": [
+      "छूटी",
+      "Olvidada",
+      "漏服"
+    ],
+    "Upcoming": [
+      "आने वाली",
+      "Próxima",
+      "待服"
+    ],
+    "Systolic (top number)": [
+      "सिस्टोलिक (ऊपर वाला नंबर)",
+      "Sistólica (número de arriba)",
+      "收缩压（上面的数字）"
+    ],
+    "Diastolic (bottom number)": [
+      "डायस्टोलिक (नीचे वाला नंबर)",
+      "Diastólica (número de abajo)",
+      "舒张压（下面的数字）"
+    ],
+    "Cancel": [
+      "रद्द करें",
+      "Cancelar",
+      "取消"
+    ],
+    "Save": [
+      "सेव करें",
+      "Guardar",
+      "保存"
+    ],
+    "Clear medicines?": [
+      "दवाएं हटाएं?",
+      "¿Borrar medicamentos?",
+      "清除药物？"
+    ],
+    "This removes the medicine plan, check-ins and readings from this browser.": [
+      "इससे इस ब्राउज़र से दवा प्लान, चेक-इन और रीडिंग हट जाएंगी।",
+      "Se eliminarán de este navegador el plan, los registros y las mediciones.",
+      "这将从此浏览器中删除用药方案、打卡和测量记录。"
+    ],
+    "Clear": [
+      "हटाएं",
+      "Borrar",
+      "清除"
+    ],
+    "Have you had breakfast yet?": [
+      "क्या आपने नाश्ता कर लिया है?",
+      "¿Ya has desayunado?",
+      "您吃过早饭了吗？"
+    ],
+    "Have you had lunch yet?": [
+      "क्या आपने दोपहर का खाना खा लिया है?",
+      "¿Ya has almorzado?",
+      "您吃过午饭了吗？"
+    ],
+    "Have you had dinner yet?": [
+      "क्या आपने रात का खाना खा लिया है?",
+      "¿Ya has cenado?",
+      "您吃过晚饭了吗？"
+    ],
+    "Not yet": [
+      "अभी नहीं",
+      "Todavía no",
+      "还没有"
+    ],
+    "Yes, I have eaten": [
+      "हाँ, खा लिया है",
+      "Sí, ya he comido",
+      "是的，已经吃过了"
+    ],
+    "This medicine works best on an empty stomach.": [
+      "यह दवा खाली पेट सबसे अच्छा काम करती है।",
+      "Este medicamento funciona mejor en ayunas.",
+      "这种药空腹服用效果最好。"
+    ],
+    "Your doctor’s plan: take it at bedtime instead, at least 2 hours after dinner. Do not take two doses.": [
+      "आपके डॉक्टर का निर्देश: इसके बजाय सोते समय लें, रात के खाने के कम से कम 2 घंटे बाद। दो खुराक न लें।",
+      "Indicación de tu médico: tómalo al acostarte, al menos 2 horas después de cenar. No tomes dos dosis.",
+      "医生的方案：改为睡前服用，晚饭后至少间隔2小时。不要服用两次。"
+    ],
+    "Remind me at bedtime": [
+      "सोते समय याद दिलाएं",
+      "Recuérdamelo al acostarme",
+      "睡前提醒我"
+    ],
+    "Your doctor’s plan: skip this dose and take the next one at its usual time. Do not take two doses.": [
+      "आपके डॉक्टर का निर्देश: यह खुराक छोड़ दें और अगली खुराक अपने सामान्य समय पर लें। दो खुराक न लें।",
+      "Indicación de tu médico: omite esta dosis y toma la siguiente a su hora habitual. No tomes dos dosis.",
+      "医生的方案：跳过这一次，下一次按平时时间服用。不要服用两次。"
+    ],
+    "Skip this dose": [
+      "यह खुराक छोड़ें",
+      "Omitir esta dosis",
+      "跳过这一次"
+    ],
+    "Your doctor’s plan: take it now anyway.": [
+      "आपके डॉक्टर का निर्देश: फिर भी अभी लें।",
+      "Indicación de tu médico: tómalo ahora de todos modos.",
+      "医生的方案：照常现在服用。"
+    ],
+    "I have taken it": [
+      "मैंने ले ली है",
+      "Ya lo he tomado",
+      "我已服用"
+    ],
+    "Your doctor has not set a plan for this. Do not take an extra dose; ask your doctor or pharmacist.": [
+      "आपके डॉक्टर ने इसके लिए कोई निर्देश नहीं दिया है। अतिरिक्त खुराक न लें; अपने डॉक्टर या फार्मासिस्ट से पूछें।",
+      "Tu médico no ha indicado qué hacer en este caso. No tomes una dosis extra; consulta a tu médico o farmacéutico.",
+      "医生尚未为此情况制定方案。请勿额外服药，请咨询医生或药剂师。"
+    ],
+    "Note it for my doctor": [
+      "डॉक्टर के लिए नोट करें",
+      "Anotarlo para mi médico",
+      "记录下来告诉医生"
+    ],
+    "Medivaanii only follows the instructions your doctor set. It never changes a dose.": [
+      "Medivaanii केवल आपके डॉक्टर के निर्देशों का पालन करता है। यह कभी खुराक नहीं बदलता।",
+      "Medivaanii solo sigue las indicaciones de tu médico. Nunca cambia una dosis.",
+      "Medivaanii只遵循医生设定的说明，从不更改剂量。"
+    ],
+    "Good timing. Take it now.": [
+      "सही समय है। अभी लें।",
+      "Buen momento. Tómalo ahora.",
+      "时间正好，现在服用。"
+    ],
+    "Have your meal first, then take it.": [
+      "पहले खाना खाएं, फिर दवा लें।",
+      "Come primero y luego tómalo.",
+      "先吃饭，再服药。"
+    ],
+    "Time to take it.": [
+      "दवा लेने का समय है।",
+      "Es hora de tomarlo.",
+      "该服药了。"
+    ],
+    "Then wait about {min} minutes before eating.": [
+      "फिर खाने से पहले लगभग {min} मिनट रुकें।",
+      "Luego espera unos {min} minutos antes de comer.",
+      "然后等待约{min}分钟再进食。"
+    ],
+    "Check in again after you have eaten.": [
+      "खाना खाने के बाद फिर से चेक-इन करें।",
+      "Vuelve a registrarlo después de comer.",
+      "吃完饭后再打卡。"
+    ],
+    "Remind me later": [
+      "बाद में याद दिलाएं",
+      "Recuérdamelo luego",
+      "稍后提醒我"
+    ],
+    "I can’t take it": [
+      "मैं नहीं ले सकता/सकती",
+      "No puedo tomarlo",
+      "我无法服用"
+    ],
+    "Logged": [
+      "दर्ज हो गया",
+      "Registrado",
+      "已记录"
+    ],
+    "How are you feeling today?": [
+      "आज आप कैसा महसूस कर रहे हैं?",
+      "¿Cómo te sientes hoy?",
+      "您今天感觉如何？"
+    ],
+    "Fine": [
+      "ठीक",
+      "Bien",
+      "还好"
+    ],
+    "Tired": [
+      "थकान",
+      "Cansado/a",
+      "疲倦"
+    ],
+    "Dizzy or shaky": [
+      "चक्कर या कंपकंपी",
+      "Mareo o temblor",
+      "头晕或发抖"
+    ],
+    "Something else": [
+      "कुछ और",
+      "Otra cosa",
+      "其他"
+    ],
+    "Skip": [
+      "छोड़ें",
+      "Omitir",
+      "跳过"
+    ],
+    "Done": [
+      "हो गया",
+      "Listo",
+      "完成"
+    ],
+    "Shared with your doctor so they can see how this medicine suits you.": [
+      "यह आपके डॉक्टर के साथ साझा होता है ताकि वे देख सकें कि यह दवा आपको कैसी सूट कर रही है।",
+      "Se comparte con tu médico para que vea cómo te sienta este medicamento.",
+      "会与医生共享，便于医生了解此药是否适合您。"
+    ],
+    "That’s okay. What’s stopping you?": [
+      "कोई बात नहीं। आपको क्या रोक रहा है?",
+      "No pasa nada. ¿Qué te lo impide?",
+      "没关系。是什么原因呢？"
+    ],
+    "Your answer helps your doctor, not to blame you.": [
+      "आपका जवाब डॉक्टर की मदद के लिए है, आपको दोष देने के लिए नहीं।",
+      "Tu respuesta ayuda a tu médico; no es para culparte.",
+      "您的回答是为了帮助医生，而不是责怪您。"
+    ],
+    "I have run out of tablets": [
+      "मेरी गोलियां खत्म हो गई हैं",
+      "Se me han acabado las pastillas",
+      "我的药吃完了"
+    ],
+    "It makes me feel unwell": [
+      "इससे मेरी तबीयत खराब लगती है",
+      "Me sienta mal",
+      "吃了感觉不舒服"
+    ],
+    "I am away from home": [
+      "मैं घर से बाहर हूँ",
+      "Estoy fuera de casa",
+      "我不在家"
+    ],
+    "Enter exactly what your doctor prescribed.": [
+      "डॉक्टर ने जो लिखा है ठीक वही दर्ज करें।",
+      "Introduce exactamente lo que te recetó tu médico.",
+      "请完全按照医生处方填写。"
+    ],
+    "Medicine name": [
+      "दवा का नाम",
+      "Nombre del medicamento",
+      "药物名称"
+    ],
+    "Dose (for example 500 mg, 1 tablet)": [
+      "खुराक (जैसे 500 mg, 1 गोली)",
+      "Dosis (por ejemplo, 500 mg, 1 pastilla)",
+      "剂量（例如500 mg，1片）"
+    ],
+    "Times": [
+      "समय",
+      "Horarios",
+      "服药时间"
+    ],
+    "Add time": [
+      "समय जोड़ें",
+      "Añadir hora",
+      "添加时间"
+    ],
+    "Food instruction": [
+      "खाने से जुड़ा निर्देश",
+      "Instrucción sobre comidas",
+      "饮食说明"
+    ],
+    "No food instruction": [
+      "खाने से जुड़ा कोई निर्देश नहीं",
+      "Sin instrucción sobre comidas",
+      "无饮食要求"
+    ],
+    "Before food (empty stomach)": [
+      "खाने से पहले (खाली पेट)",
+      "Antes de comer (en ayunas)",
+      "饭前（空腹）"
+    ],
+    "Which meal": [
+      "कौन-सा भोजन",
+      "Qué comida",
+      "哪一餐"
+    ],
+    "Breakfast": [
+      "नाश्ता",
+      "Desayuno",
+      "早餐"
+    ],
+    "Lunch": [
+      "दोपहर का खाना",
+      "Almuerzo",
+      "午餐"
+    ],
+    "Dinner": [
+      "रात का खाना",
+      "Cena",
+      "晚餐"
+    ],
+    "Minutes before eating": [
+      "खाने से कितने मिनट पहले",
+      "Minutos antes de comer",
+      "饭前分钟数"
+    ],
+    "If already eaten (doctor’s rule)": [
+      "अगर पहले ही खा लिया हो (डॉक्टर का नियम)",
+      "Si ya ha comido (pauta del médico)",
+      "如果已经吃过饭（医生规则）"
+    ],
+    "Ask the doctor": [
+      "डॉक्टर से पूछें",
+      "Consultar al médico",
+      "询问医生"
+    ],
+    "Take at bedtime instead": [
+      "इसके बजाय सोते समय लें",
+      "Tomarlo al acostarse",
+      "改为睡前服用"
+    ],
+    "Take it anyway": [
+      "फिर भी लें",
+      "Tomarlo igualmente",
+      "照常服用"
+    ],
+    "Tablets left (optional)": [
+      "बची हुई गोलियां (वैकल्पिक)",
+      "Pastillas restantes (opcional)",
+      "剩余药片（可选）"
+    ],
   };
 }

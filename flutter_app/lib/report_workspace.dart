@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'report_data.dart';
 import 'app_strings.dart';
 import 'body_systems.dart';
+import 'meds/meds_page.dart';
 
 class ReportPalette {
   static const ground = Color(0xFFFBF7F4);
@@ -316,9 +317,14 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
   }
 
   bool _showSearch = false;
-  static const _nav = [0, 1, 3];
-  List<String> get _labels =>
-      [_t('Upload report'), _t('Report workspace'), '', _t('Settings')];
+  static const _nav = [0, 1, 4, 3];
+  List<String> get _labels => [
+        _t('Upload report'),
+        _t('Report workspace'),
+        '',
+        _t('Settings'),
+        _t('Medicines')
+      ];
   String _t(String source, [Map<String, Object?> values = const {}]) =>
       AppStrings(widget.language).t(source, values);
   String _error(String message) => AppStrings(widget.language).error(message);
@@ -326,7 +332,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
     Icons.upload_file_outlined,
     Icons.space_dashboard_outlined,
     Icons.help_outline,
-    Icons.tune_rounded
+    Icons.tune_rounded,
+    Icons.medication_outlined
   ];
   bool get _busy => widget.loading || widget.reviewSaving || widget.restoring;
   List<Map<String, dynamic>> get _rows => workspaceMeasurements(widget.report);
@@ -351,6 +358,9 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     _report(desktop)
                   else
                     const SizedBox(),
+                  if (widget.index == 4)
+                    MedsPage(language: widget.language)
+                  else
                   SingleChildScrollView(
                       child: widget.index == 3
                           ? Padding(
@@ -382,6 +392,9 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     NavigationDestination(
                         icon: const Icon(Icons.space_dashboard_outlined),
                         label: _t('Report')),
+                    NavigationDestination(
+                        icon: const Icon(Icons.medication_outlined),
+                        label: _t('Medicines')),
                     NavigationDestination(
                         icon: const Icon(Icons.tune_rounded),
                         label: _t('Settings')),
