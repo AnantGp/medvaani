@@ -65,8 +65,9 @@ jobs:
           # One annotation each (the log itself is not reachable from outside).
           names=$(grep -E "\[E\]" test.txt | sed -E 's/^[0-9:]+ [+~-][^:]*: //; s/.*\/test\///' | sort -u | sed 's/%/%25/g' | paste -sd'|' -)
           echo "::notice title=failed test names::${names:0:6000}"
-          detail=$(awk '/\[E\]/{c=16} c>0{print; c--}' test.txt | grep -vE "^$|^#[0-9]|package:flutter|dart:" | sed 's/%/%25/g' | head -160 | paste -sd'|' -)
-          echo "::notice title=failure detail::${detail:0:12000}"
+          flutter test test/accessibility_test.dart --reporter expanded > a11y.txt 2>&1
+          detail=$(grep -vE "^$|^#[0-9]+ +(_|Widget|State|Element|Binding|Render|Stateful|Inherited|Multi|Container|Flex|Row)|package:flutter/|dart:|asynchronous suspension" a11y.txt | sed 's/%/%25/g' | head -220 | paste -sd'|' -)
+          echo "::notice title=a11y detail::${detail:0:14000}"
           exit $code
 
       - name: Keep full test log
