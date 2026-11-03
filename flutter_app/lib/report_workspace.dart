@@ -27,7 +27,25 @@ class ReportPalette {
   static const warnBg = Color(0xFFFDF3E6);
   static const warnBorder = Color(0xFFF1D3A8);
   static const serif = 'NotoSerif';
+
+  /// Borders of controls (inputs, outlined buttons, toggles) need 3:1 against
+  /// the page (WCAG 1.4.11); the softer [border] is for decoration only.
+  static const controlBorder = Color(0xFF867B76);
+
+  /// Keyboard focus ring: 6:1 against the page, visible on every control.
+  static const focusRing = Color(0xFF0B57D0);
+  static const amber = Color(0xFFB45309);
+
+  /// Two-layer shadow: a hairline for definition and a wide, faint lift.
+  static const cardShadow = [
+    BoxShadow(color: Color(0x0D2B1B18), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x0F2B1B18), blurRadius: 24, offset: Offset(0, 8)),
+  ];
 }
+
+/// A heading that assistive technology can jump to.
+Widget heading(String text, TextStyle style, {TextAlign? align}) =>
+    Semantics(header: true, child: Text(text, style: style, textAlign: align));
 
 TextStyle serifStyle(double size,
         {FontWeight weight = FontWeight.w500,
@@ -69,8 +87,9 @@ ThemeData medivaaniiTheme() {
       secondary: ReportPalette.sage,
       surface: Colors.white,
       onSurface: ReportPalette.ink,
-      outline: ReportPalette.border,
+      outline: ReportPalette.controlBorder,
       error: Color(0xFF9E2930),
+      outlineVariant: ReportPalette.border,
     ),
   );
   final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
@@ -97,7 +116,8 @@ ThemeData medivaaniiTheme() {
     ).copyWith(
             side: WidgetStateProperty.resolveWith((states) =>
                 states.contains(WidgetState.focused)
-                    ? const BorderSide(color: Colors.white, width: 2)
+                    ? const BorderSide(
+                        color: ReportPalette.focusRing, width: 3)
                     : BorderSide.none))),
     outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
@@ -111,15 +131,21 @@ ThemeData medivaaniiTheme() {
     ).copyWith(
             side: WidgetStateProperty.resolveWith((states) => BorderSide(
                 color: states.contains(WidgetState.focused)
-                    ? ReportPalette.burgundy
-                    : ReportPalette.strongBorder,
-                width: states.contains(WidgetState.focused) ? 2 : 1)))),
+                    ? ReportPalette.focusRing
+                    : ReportPalette.controlBorder,
+                width: states.contains(WidgetState.focused) ? 3 : 1.2)))),
     iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(minimumSize: const Size(48, 48))),
     textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-            minimumSize: const Size(44, 48),
-            textStyle: const TextStyle(fontFamily: 'NotoSans'))),
+                minimumSize: const Size(44, 48),
+                textStyle: const TextStyle(fontFamily: 'NotoSans'))
+            .copyWith(
+                side: WidgetStateProperty.resolveWith((states) =>
+                    states.contains(WidgetState.focused)
+                        ? const BorderSide(
+                            color: ReportPalette.focusRing, width: 3)
+                        : null))),
     dividerTheme:
         const DividerThemeData(color: ReportPalette.border, thickness: 1),
     navigationBarTheme: const NavigationBarThemeData(
@@ -456,12 +482,53 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                       const Spacer(),
                       _languages(),
                     ])))
-            : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _Brand(language: widget.language),
-                const SizedBox(height: 10),
-                _languages(),
+            : Row(children: [
+                Expanded(child: _Brand(language: widget.language)),
+                const SizedBox(width: 12),
+                _languageMenu(),
               ]),
       );
+
+  /// One compact control on phones instead of a second row of four pills.
+  Widget _languageMenu() {
+    final current = widget.languages.firstWhere(
+        (l) => l['name'] == widget.language,
+        orElse: () => widget.languages.first);
+    return PopupMenuButton<String>(
+      tooltip: _t('App language'),
+      position: PopupMenuPosition.under,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      onSelected: widget.onLanguage,
+      itemBuilder: (context) => [
+        for (final language in widget.languages)
+          CheckedPopupMenuItem<String>(
+              value: language['name']!,
+              checked: widget.language == language['name'],
+              height: 48,
+              child: Text(language['native']!,
+                  style: const TextStyle(fontSize: 16))),
+      ],
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+        padding: const EdgeInsets.only(left: 14, right: 8),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: ReportPalette.controlBorder)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.language_rounded,
+              size: 20, color: ReportPalette.burgundy),
+          const SizedBox(width: 8),
+          Text(current['native']!,
+              style:
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          const Icon(Icons.expand_more_rounded,
+              size: 22, color: ReportPalette.muted),
+        ]),
+      ),
+    );
+  }
 
   Widget _navLink(int i) {
     final active = widget.index == i || (i == 1 && widget.index == 2);
@@ -496,7 +563,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         decoration: BoxDecoration(
             color: ReportPalette.ground,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: ReportPalette.border)),
+            border: Border.all(color: ReportPalette.controlBorder)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           for (final language in widget.languages)
             Flexible(
@@ -507,7 +574,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   child: TextButton(
                     onPressed: () => widget.onLanguage(language['name']!),
                     style: TextButton.styleFrom(
-                        minimumSize: const Size(66, 38),
+                        minimumSize: const Size(66, 44),
                         padding: const EdgeInsets.symmetric(horizontal: 13),
                         backgroundColor: widget.language == language['name']
                             ? ReportPalette.burgundy
@@ -1347,7 +1414,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(_t('Add your report'), style: serifStyle(24)),
+                  heading(_t('Add your report'), serifStyle(24)),
                   const SizedBox(height: 18),
                   if (widget.loading)
                     _progress()
@@ -1386,6 +1453,35 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                                   fontSize: 14, color: ReportPalette.muted)),
                         ])),
                   const SizedBox(height: 16),
+                  Material(
+                    color: ReportPalette.blush,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(
+                            color: widget.sampleConsent
+                                ? ReportPalette.sage
+                                : ReportPalette.controlBorder,
+                            width: widget.sampleConsent ? 2 : 1.2)),
+                    clipBehavior: Clip.antiAlias,
+                    child: CheckboxListTile(
+                      value: widget.sampleConsent,
+                      onChanged: _busy
+                          ? null
+                          : (value) =>
+                              widget.onSampleConsent?.call(value ?? false),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: ReportPalette.sage,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      title: Text(
+                          _t('This is a sample or anonymised report. I understand this prototype is not for real patient data.'),
+                          style: const TextStyle(
+                              fontSize: 15,
+                              height: 1.5,
+                              color: ReportPalette.body)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   FilledButton.icon(
                       onPressed: canUpload ? widget.onUpload : null,
                       icon: const Icon(Icons.upload_file_outlined, size: 20),
@@ -1405,59 +1501,36 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                             icon: const Icon(Icons.image_outlined, size: 20),
                             label: Text(_t('Choose photo'))))
                   ]),
-                  const SizedBox(height: 16),
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: _busy
-                          ? null
-                          : () => widget.onSampleConsent
-                              ?.call(!widget.sampleConsent),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Checkbox(
-                                  value: widget.sampleConsent,
-                                  activeColor: ReportPalette.burgundy,
-                                  onChanged: _busy
-                                      ? null
-                                      : (value) => widget.onSampleConsent
-                                          ?.call(value ?? false)),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                  child: Padding(
-                                      padding: const EdgeInsets.only(top: 10),
-                                      child: Text(
-                                          _t('This is a sample or anonymised report. I understand this prototype is not for real patient data.'),
-                                          style: const TextStyle(
-                                              fontSize: 15,
-                                              height: 1.5,
-                                              color: ReportPalette.body)))),
-                            ]),
-                      ),
-                    ),
-                  ),
                   if (!widget.sampleConsent && !widget.loading)
                     Padding(
-                        padding: const EdgeInsets.only(left: 52, top: 2),
-                        child: Text(
-                            _t('Tick the box above to enable upload.'),
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(_t('Tick the box above to enable upload.'),
                             style: const TextStyle(
-                                fontSize: 13, color: ReportPalette.muted))),
+                                fontSize: 14, color: ReportPalette.muted))),
                   if (widget.error != null)
-                    Container(
-                        margin: const EdgeInsets.only(top: 16),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                            color: ReportPalette.rose,
-                            borderRadius: BorderRadius.circular(12)),
-                        child: Text(_error(widget.error!),
-                            style: const TextStyle(
-                                color: ReportPalette.burgundyDark,
-                                height: 1.5))),
+                    Semantics(
+                        liveRegion: true,
+                        container: true,
+                        child: Container(
+                            margin: const EdgeInsets.only(top: 16),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                                color: ReportPalette.rose,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: ReportPalette.burgundy, width: 1.2)),
+                            child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.error_outline_rounded,
+                                      size: 20, color: ReportPalette.burgundy),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                      child: Text(_error(widget.error!),
+                                          style: const TextStyle(
+                                              color: ReportPalette.burgundyDark,
+                                              height: 1.5))),
+                                ]))),
                   const SizedBox(height: 16),
                   const Divider(),
                   const SizedBox(height: 12),
@@ -1500,8 +1573,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
           band(hero, vertical: wide ? 56 : 28),
           band(
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_t('Three steps, and you stay in control'),
-                    style: serifStyle(wide ? 34 : 26)),
+                heading(_t('Three steps, and you stay in control'),
+                    serifStyle(wide ? 34 : 26)),
                 const SizedBox(height: 28),
                 wide
                     ? IntrinsicHeight(
@@ -1555,15 +1628,22 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
       child: OutlinedButton(
         onPressed: () => widget.onLanguage(name),
         style: OutlinedButton.styleFrom(
-            minimumSize: const Size(96, 50),
-            backgroundColor: selected ? ReportPalette.burgundy : Colors.white,
-            foregroundColor: selected ? Colors.white : ReportPalette.ink,
-            side: BorderSide(
-                color:
-                    selected ? ReportPalette.burgundy : ReportPalette.strongBorder,
-                width: 2),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                minimumSize: const Size(96, 50),
+                backgroundColor:
+                    selected ? ReportPalette.burgundy : Colors.white,
+                foregroundColor: selected ? Colors.white : ReportPalette.ink,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)))
+            .copyWith(
+                side: WidgetStateProperty.resolveWith((states) =>
+                    states.contains(WidgetState.focused)
+                        ? const BorderSide(
+                            color: ReportPalette.focusRing, width: 3)
+                        : BorderSide(
+                            color: selected
+                                ? ReportPalette.burgundy
+                                : ReportPalette.controlBorder,
+                            width: selected ? 2 : 1.2))),
         child: Text(native,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
       ),
@@ -1629,8 +1709,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
       'Keep a long-term history — your report stays in this browser until you clear it',
     ]);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(_t('Being honest about what this is'),
-          style: serifStyle(wide ? 34 : 26)),
+      heading(_t('Being honest about what this is'),
+          serifStyle(wide ? 34 : 26)),
       const SizedBox(height: 24),
       wide
           ? IntrinsicHeight(
@@ -1663,9 +1743,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(n, style: serifStyle(30, color: ReportPalette.burgundy)),
           const SizedBox(height: 10),
-          Text(_t(title),
-              style:
-                  const TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
+          heading(_t(title),
+              const TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(_t(body),
               style: const TextStyle(
@@ -1679,6 +1758,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
           decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: ReportPalette.border),
+              boxShadow: ReportPalette.cardShadow,
               borderRadius: BorderRadius.circular(16)),
           child: child);
   Widget _progress() => Padding(

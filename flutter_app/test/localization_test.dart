@@ -76,8 +76,9 @@ void main() {
                   onSpeechEnabled: (_) {},
                 ))));
     for (final entry in _languages) {
-      // The language appears in the top bar and in the home chooser.
-      expect(find.text(entry['native']!), findsNWidgets(2));
+      // On a phone the top bar shows only the current language (a menu);
+      // every language is offered by the home chooser.
+      expect(find.text(entry['native']!), findsWidgets);
       await tester.ensureVisible(find.text(entry['native']!).last);
       await tester.pumpAndSettle();
       await tester.tap(find.text(entry['native']!).last);

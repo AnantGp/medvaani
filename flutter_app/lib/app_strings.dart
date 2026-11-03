@@ -1298,5 +1298,30 @@ class AppStrings {
       "Pastillas restantes (opcional)",
       "剩余药片（可选）"
     ],
+    "Preview · saved only in this browser; reminders work only while this page is open.": [
+      "प्रीव्यू · डेटा केवल इसी ब्राउज़र में सेव होता है; रिमाइंडर तभी काम करते हैं जब यह पेज खुला हो।",
+      "Prueba · los datos se guardan solo en este navegador; los recordatorios funcionan solo con esta página abierta.",
+      "预览版 · 数据仅保存在此浏览器中；提醒仅在此页面打开时有效。"
+    ],
+    "Enter the medicine name.": [
+      "दवा का नाम लिखें।",
+      "Escribe el nombre del medicamento.",
+      "请输入药物名称。"
+    ],
+    "Enter a number between 50 and 260.": [
+      "50 और 260 के बीच की संख्या लिखें।",
+      "Escribe un número entre 50 y 260.",
+      "请输入 50 到 260 之间的数字。"
+    ],
+    "Check in for {name} at {time}": [
+      "{time} बजे {name} का चेक-इन",
+      "Registrar {name} de las {time}",
+      "为 {time} 的 {name} 打卡"
+    ],
+    "{name}, {day}: {status}": [
+      "{name}, {day}: {status}",
+      "{name}, {day}: {status}",
+      "{name}，{day}：{status}"
+    ],
   };
 }
