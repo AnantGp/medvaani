@@ -1,7 +1,5 @@
 // Medicine follow-up: meal-aware dose check-ins for the patient and a
 // follow-up summary for the doctor. Prototype: data stays in this browser.
-// ignore: avoid_web_libraries_in_flutter, deprecated_member_use
-import 'dart:html' as html;
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -11,11 +9,14 @@ import '../app_strings.dart';
 import '../report_workspace.dart' show ReportPalette, serifStyle;
 import 'med_engine.dart';
 
-const _storageKey = 'medivaanii-meds-v1';
-
 class MedsPage extends StatefulWidget {
-  const MedsPage({super.key, required this.language, this.now});
+  const MedsPage(
+      {super.key, required this.language, this.now, this.load, this.store});
   final String language;
+
+  /// Browser storage is injected so this widget also runs in VM tests.
+  final String? Function()? load;
+  final void Function(String value)? store;
 
   /// Injected clock for tests.
   final DateTime Function()? now;
@@ -38,7 +39,7 @@ class _MedsPageState extends State<MedsPage> {
     super.initState();
     String? raw;
     try {
-      raw = html.window.localStorage[_storageKey];
+      raw = widget.load?.call();
     } catch (_) {}
     _state = MedState.decode(raw);
     // Re-evaluate due/missed doses while the page is open.
@@ -56,7 +57,7 @@ class _MedsPageState extends State<MedsPage> {
   void _save(MedState next) {
     setState(() => _state = next);
     try {
-      html.window.localStorage[_storageKey] = next.encode();
+      widget.store?.call(next.encode());
     } catch (_) {/* Works for this visit if storage is blocked. */}
   }
 

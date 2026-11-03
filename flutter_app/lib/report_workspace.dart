@@ -198,9 +198,13 @@ class ReportWorkspace extends StatefulWidget {
       this.dragging = false,
       this.sampleConsent = false,
       this.onSampleConsent,
+      this.loadMeds,
+      this.storeMeds,
       this.activeSpeech});
   final bool sampleConsent;
   final ValueChanged<bool>? onSampleConsent;
+  final String? Function()? loadMeds;
+  final void Function(String value)? storeMeds;
   final void Function(String id, bool speak)? onSelectMeasurement;
   final ValueChanged<String>? onEditMeasurement;
   final ValueChanged<String>? onListenMeasurement;
@@ -359,7 +363,10 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   else
                     const SizedBox(),
                   if (widget.index == 4)
-                    MedsPage(language: widget.language)
+                    MedsPage(
+                        language: widget.language,
+                        load: widget.loadMeds,
+                        store: widget.storeMeds)
                   else
                   SingleChildScrollView(
                       child: widget.index == 3

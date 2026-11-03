@@ -1417,6 +1417,12 @@ class _HomePageState extends State<HomePage> {
         onEditMeasurement: _editExplorerResult,
         dragging: _dragging,
         sampleConsent: _sampleConsent,
+        loadMeds: () => html.window.localStorage['medivaanii-meds-v1'],
+        storeMeds: (value) {
+          try {
+            html.window.localStorage['medivaanii-meds-v1'] = value;
+          } catch (_) {}
+        },
         onSampleConsent: (value) {
           setState(() {
             _sampleConsent = value;
