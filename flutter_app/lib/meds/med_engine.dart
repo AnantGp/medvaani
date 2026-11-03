@@ -53,7 +53,11 @@ class Medicine {
     this.supply,
     this.note = '',
     this.prescribedBy = '',
+    this.start,
   });
+
+  /// First day of the plan; earlier days are never counted as missed.
+  final DateTime? start;
 
   final String id, name, dose, note, prescribedBy;
 
@@ -80,7 +84,8 @@ class Medicine {
       ateFirstRule: ateFirstRule,
       supply: supply ?? this.supply,
       note: note,
-      prescribedBy: prescribedBy);
+      prescribedBy: prescribedBy,
+      start: start);
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -94,6 +99,7 @@ class Medicine {
         'supply': supply,
         'note': note,
         'prescribedBy': prescribedBy,
+        'start': start?.toIso8601String(),
       };
 
   static Medicine fromJson(Map<String, dynamic> j) => Medicine(
@@ -109,6 +115,7 @@ class Medicine {
         supply: (j['supply'] as num?)?.toInt(),
         note: j['note'] as String? ?? '',
         prescribedBy: j['prescribedBy'] as String? ?? '',
+        start: j['start'] == null ? null : DateTime.parse(j['start'] as String),
       );
 }
 
@@ -204,6 +211,7 @@ List<ScheduledDose> dosesForDay(
   final start = _day(day);
   final doses = <ScheduledDose>[
     for (final m in medicines)
+      if (m.start == null || !start.isBefore(_day(m.start!)))
       for (final t in m.times)
         ScheduledDose(m, start.add(Duration(minutes: t)),
             byKey[doseKey(m.id, start.add(Duration(minutes: t)))]),
@@ -414,7 +422,8 @@ MedState sampleMedState(DateTime now) {
         gapMinutes: 30,
         ateFirstRule: AteFirstRule.moveToBedtime,
         supply: 40,
-        prescribedBy: 'Sample doctor'),
+        prescribedBy: 'Sample doctor',
+        start: _day(now).subtract(const Duration(days: 21))),
     Medicine(
         id: 'metformin',
         name: 'Metformin',
@@ -423,7 +432,8 @@ MedState sampleMedState(DateTime now) {
         meal: Meal.breakfast,
         mealRule: MealRule.afterFood,
         supply: 6,
-        prescribedBy: 'Sample doctor'),
+        prescribedBy: 'Sample doctor',
+        start: _day(now).subtract(const Duration(days: 21))),
     Medicine(
         id: 'amlodipine',
         name: 'Amlodipine',
@@ -431,7 +441,8 @@ MedState sampleMedState(DateTime now) {
         times: [21 * 60],
         mealRule: MealRule.any,
         supply: 20,
-        prescribedBy: 'Sample doctor'),
+        prescribedBy: 'Sample doctor',
+        start: _day(now).subtract(const Duration(days: 21))),
   ];
   var state = MedState(medicines: meds);
   final today = _day(now);

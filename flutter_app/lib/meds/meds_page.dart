@@ -1036,7 +1036,8 @@ class _AddMedicineDialogState extends State<_AddMedicineDialog> {
                         mealRule: _rule,
                         gapMinutes: _gap,
                         ateFirstRule: _ateFirst,
-                        supply: int.tryParse(_supply.text.trim())));
+                        supply: int.tryParse(_supply.text.trim()),
+                        start: DateTime.now()));
               },
               child: Text(_t('Save'))),
         ],

@@ -116,6 +116,15 @@ void main() {
     expect(signals.any((s) => s.message.contains('running out')), isTrue);
   });
 
+  test('days before a plan starts are never counted as missed', () {
+    final start = DateTime(2026, 11, 2);
+    final med = Medicine(
+        id: 'm', name: 'Test', dose: '1', times: [480], start: start);
+    final result = adherence([med], const [], DateTime(2026, 10, 20),
+        DateTime(2026, 11, 2), DateTime(2026, 11, 2, 23));
+    expect(result.missed, 1);
+  });
+
   test('state survives a storage round trip', () {
     final state = sampleMedState(DateTime(2026, 11, 3, 9));
     final restored = MedState.decode(state.encode());
