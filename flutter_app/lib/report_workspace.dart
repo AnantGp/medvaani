@@ -482,11 +482,21 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                       const Spacer(),
                       _languages(),
                     ])))
-            : Row(children: [
-                Expanded(child: _Brand(language: widget.language)),
-                const SizedBox(width: 12),
-                _languageMenu(),
-              ]),
+            : MediaQuery.textScalerOf(context).scale(16) > 22
+                // Large text: give the name the full width instead of
+                // letting it wrap letter by letter beside the menu.
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                        _Brand(language: widget.language),
+                        const SizedBox(height: 10),
+                        _languageMenu(),
+                      ])
+                : Row(children: [
+                    Expanded(child: _Brand(language: widget.language)),
+                    const SizedBox(width: 12),
+                    _languageMenu(),
+                  ]),
       );
 
   /// One compact control on phones instead of a second row of four pills.
