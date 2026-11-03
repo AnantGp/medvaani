@@ -144,6 +144,11 @@ def extract_digital_results(pages, source_digest):
                     continue
                 if not name or name.startswith(('Method:', 'Machine:')) or (not value and not unit):
                     continue
+                # Footer prose ("End of report. ...") spills across columns;
+                # a result row has a number or a unit/reference beside it.
+                if (not unit and not reference and not re.search(r'\d', value)
+                        and (len(words) > 6 or re.match(r'^\W*end of (?:the )?report', name, re.I))):
+                    continue
                 next_y = next((l['box'][1] for l in lines[i + 1:finish]
                                if l['words'] and l['words'][0]['x'] <= left + .025
                                and value_kind(' '.join(w['text'] for w in table_columns(l['words'])[1])) != 'unreadable'), 1)

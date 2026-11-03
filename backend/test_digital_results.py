@@ -274,3 +274,17 @@ def test_sentence_mentioning_header_words_is_not_a_table(tmp_path):
     c.save()
     rows, _ = extract(path)
     assert rows == []
+
+
+def test_footer_sentence_is_not_a_measurement(tmp_path):
+    from reportlab.pdfgen import canvas
+    path = tmp_path / 'footer.pdf'
+    c = canvas.Canvas(str(path), pagesize=(600, 800))
+    for x, text in zip([40, 230, 310, 400], ['Test', 'Result', 'Units', 'Reference Range']):
+        c.drawString(x, 700, text)
+    for x, text in zip([40, 230, 310, 400], ['Ferritin', '9', 'ng/mL', '15 - 150']):
+        c.drawString(x, 680, text)
+    c.drawString(40, 640, 'End of report. Synthetic sample for software testing.')
+    c.save()
+    rows, _ = extract(str(path))
+    assert [r['test_name'] for r in rows] == ['Ferritin']
