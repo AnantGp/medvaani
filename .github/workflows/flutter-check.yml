@@ -58,7 +58,19 @@ jobs:
             done
           fi
           echo "::notice title=test summary::failed=$(grep -c '\[E\]' test.txt) last=$(grep -oE '\+[0-9]+( ~[0-9]+)?( -[0-9]+)?:' test.txt | tail -1)"
+          {
+            echo "### Failed tests"
+            grep -E "\[E\]" test.txt | sed -E 's/^[0-9:]+ [+~-][^:]*: //' | sort -u
+          } >> "$GITHUB_STEP_SUMMARY"
           exit $code
+
+      - name: Keep full test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-test-log
+          path: flutter_app/test.txt
+          if-no-files-found: ignore
 
       - name: Build web
         run: |
