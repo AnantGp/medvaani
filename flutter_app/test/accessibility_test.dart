@@ -62,17 +62,20 @@ Future<List<String>> _errorsDuring(Future<void> Function() body) async {
   final errors = <String>[];
   final previous = FlutterError.onError;
   FlutterError.onError = (details) {
-    final lines = details
+    final text = details
         .toString(minLevel: DiagnosticLevel.debug)
         .split('\n')
         .where((l) =>
-            l.contains('overflowed') ||
-            l.contains('lib/') ||
-            l.contains('creator:') ||
-            l.contains('relevant'))
-        .take(6)
+            !l.contains('Consider applying') &&
+            !l.contains('This is considered') &&
+            !l.contains('seen. If the content') &&
+            !l.contains('ClipRect') &&
+            !l.contains('like a ListView') &&
+            !l.contains('black striped') &&
+            !l.contains('RenderFlex to fit') &&
+            !l.contains('This is usually'))
         .join(' // ');
-    errors.add(lines);
+    errors.add(text.length > 1500 ? text.substring(0, 1500) : text);
   };
   try {
     await body();

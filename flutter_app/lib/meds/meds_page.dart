@@ -223,12 +223,15 @@ class _MedsPageState extends State<MedsPage> {
           Expanded(
               child: heading(_t('This week'),
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.w600))),
-          Text(
-              week.percent == null
-                  ? ''
-                  : _t('{taken} of {total} doses',
-                      {'taken': week.taken, 'total': week.counted}),
-              style: const TextStyle(fontSize: 14, color: ReportPalette.muted)),
+          Flexible(
+              child: Text(
+                  week.percent == null
+                      ? ''
+                      : _t('{taken} of {total} doses',
+                          {'taken': week.taken, 'total': week.counted}),
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                      fontSize: 14, color: ReportPalette.muted))),
         ]),
         const SizedBox(height: 12),
         _weekGrid(now),
@@ -413,8 +416,10 @@ class _MedsPageState extends State<MedsPage> {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon, size: 14, color: fg),
           const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: fg)),
+          Flexible(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600, color: fg))),
         ]),
       );
 
