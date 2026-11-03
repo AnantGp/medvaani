@@ -531,7 +531,7 @@ class _MedsPageState extends State<MedsPage> {
                 Expanded(child: stats[i]),
               ]
             ])
-          : Column(children: [
+          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               for (final s in stats) Padding(padding: const EdgeInsets.only(bottom: 12), child: s)
             ]),
       const SizedBox(height: 14),
