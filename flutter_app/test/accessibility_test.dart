@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:medical_cdss/meds/med_engine.dart';
@@ -55,6 +56,32 @@ void _phone(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
+/// Runs [body] and returns every framework error with where it came from,
+/// so a failure names the widget instead of only "overflowed by N pixels".
+Future<List<String>> _errorsDuring(Future<void> Function() body) async {
+  final errors = <String>[];
+  final previous = FlutterError.onError;
+  FlutterError.onError = (details) {
+    final lines = details
+        .toString(minLevel: DiagnosticLevel.debug)
+        .split('\n')
+        .where((l) =>
+            l.contains('overflowed') ||
+            l.contains('lib/') ||
+            l.contains('creator:') ||
+            l.contains('relevant'))
+        .take(6)
+        .join(' // ');
+    errors.add(lines);
+  };
+  try {
+    await body();
+  } finally {
+    FlutterError.onError = previous;
+  }
+  return errors;
+}
+
 void main() {
   final now = DateTime(2026, 11, 3, 8, 50);
 
@@ -107,13 +134,14 @@ void main() {
 
     testWidgets('does not overflow at 200% text size', (tester) async {
       _phone(tester);
-      await tester.pumpWidget(_meds(now, textScale: 2));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      await tester.drag(find.byType(SingleChildScrollView).first,
-          const Offset(0, -1200));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      final errors = await _errorsDuring(() async {
+        await tester.pumpWidget(_meds(now, textScale: 2));
+        await tester.pumpAndSettle();
+        await tester.drag(find.byType(SingleChildScrollView).first,
+            const Offset(0, -1200));
+        await tester.pumpAndSettle();
+      });
+      expect(errors, isEmpty);
     });
 
     testWidgets('an empty medicine name is explained, not ignored',
@@ -146,9 +174,11 @@ void main() {
 
     testWidgets('does not overflow at 200% text size', (tester) async {
       _phone(tester);
-      await tester.pumpWidget(_upload(textScale: 2));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      final errors = await _errorsDuring(() async {
+        await tester.pumpWidget(_upload(textScale: 2));
+        await tester.pumpAndSettle();
+      });
+      expect(errors, isEmpty);
     });
   });
 }

@@ -1250,6 +1250,7 @@ class _AddMedicineDialogState extends State<_AddMedicineDialog> {
               ]),
               const SizedBox(height: 12),
               DropdownButtonFormField<MealRule>(
+                  isExpanded: true,
                   value: _rule,
                   decoration: InputDecoration(labelText: _t('Food instruction')),
                   items: [
@@ -1261,6 +1262,7 @@ class _AddMedicineDialogState extends State<_AddMedicineDialog> {
                   onChanged: (v) => setState(() => _rule = v ?? MealRule.any)),
               if (_rule != MealRule.any)
                 DropdownButtonFormField<Meal>(
+                    isExpanded: true,
                     value: _meal,
                     decoration: InputDecoration(labelText: _t('Which meal')),
                     items: [
@@ -1271,11 +1273,13 @@ class _AddMedicineDialogState extends State<_AddMedicineDialog> {
                     onChanged: (v) => setState(() => _meal = v ?? Meal.breakfast)),
               if (_rule == MealRule.beforeFood) ...[
                 DropdownButtonFormField<int>(
+                    isExpanded: true,
                     value: _gap,
                     decoration: InputDecoration(labelText: _t('Minutes before eating')),
                     items: [for (final m in [15, 30, 45, 60]) DropdownMenuItem(value: m, child: Text('$m'))],
                     onChanged: (v) => setState(() => _gap = v ?? 30)),
                 DropdownButtonFormField<AteFirstRule>(
+                    isExpanded: true,
                     value: _ateFirst,
                     decoration: InputDecoration(labelText: _t('If already eaten (doctor’s rule)')),
                     items: [

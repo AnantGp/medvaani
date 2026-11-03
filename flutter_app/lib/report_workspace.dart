@@ -1384,7 +1384,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           LayoutBuilder(
-              builder: (context, box) => box.maxWidth < 480
+              builder: (context, box) => box.maxWidth < 480 &&
+                      MediaQuery.textScalerOf(context).scale(16) <= 21
                   ? Row(children: [
                       for (var i = 0; i < widget.languages.length; i++) ...[
                         if (i > 0) const SizedBox(width: 8),
