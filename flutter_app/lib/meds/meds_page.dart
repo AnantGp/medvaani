@@ -89,12 +89,11 @@ class _MedsPageState extends State<MedsPage> {
         );
       });
 
-  Widget _modeSwitch() => Row(children: [
-        Expanded(
-            child: heading(_t(_doctorView ? 'Doctor follow-up' : 'My medicines'),
-                serifStyle(30))),
-        const SizedBox(width: 12),
-        SegmentedButton<bool>(
+  Widget _modeSwitch() => LayoutBuilder(builder: (context, box) {
+        final title = heading(
+            _t(_doctorView ? 'Doctor follow-up' : 'My medicines'),
+            serifStyle(30));
+        final toggle = SegmentedButton<bool>(
           showSelectedIcon: false,
           style: SegmentedButton.styleFrom(
               selectedBackgroundColor: ReportPalette.rose,
@@ -109,8 +108,19 @@ class _MedsPageState extends State<MedsPage> {
           ],
           selected: {_doctorView},
           onSelectionChanged: (s) => setState(() => _doctorView = s.first),
-        ),
-      ]);
+        );
+        return box.maxWidth < 460
+            ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                title,
+                const SizedBox(height: 12),
+                toggle,
+              ])
+            : Row(children: [
+                Expanded(child: title),
+                const SizedBox(width: 12),
+                toggle,
+              ]);
+      });
 
   /// Both limits that matter stay visible; the rest sits one tap away.
   Widget _previewNotice() => Material(
@@ -268,30 +278,41 @@ class _MedsPageState extends State<MedsPage> {
                     offset: Offset(0, 10))
               ],
               borderRadius: BorderRadius.circular(18)),
-          child: Row(children: [
-            const ExcludeSemantics(
-                child: Icon(Icons.notifications_active_outlined,
-                    color: Colors.white, size: 26)),
-            const SizedBox(width: 14),
-            Expanded(
-                child:
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_t('Time for {name}', {'name': dose.medicine.name}),
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white)),
-              const SizedBox(height: 2),
-              Text(dose.medicine.dose,
-                  style:
-                      const TextStyle(fontSize: 14, color: Color(0xFFF7E3E0))),
-            ])),
-            const SizedBox(width: 8),
-            _checkInButton(dose,
+          child: LayoutBuilder(builder: (context, box) {
+            final text = Row(children: [
+              const ExcludeSemantics(
+                  child: Icon(Icons.notifications_active_outlined,
+                      color: Colors.white, size: 26)),
+              const SizedBox(width: 14),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(_t('Time for {name}', {'name': dose.medicine.name}),
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text(dose.medicine.dose,
+                        style: const TextStyle(
+                            fontSize: 14, color: Color(0xFFF7E3E0))),
+                  ])),
+            ]);
+            final button = _checkInButton(dose,
                 style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
-                    foregroundColor: ReportPalette.burgundy)),
-          ]),
+                    foregroundColor: ReportPalette.burgundy));
+            return box.maxWidth < 380
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [text, const SizedBox(height: 14), button])
+                : Row(children: [
+                    Expanded(child: text),
+                    const SizedBox(width: 12),
+                    button
+                  ]);
+          }),
         ),
       );
 
@@ -347,24 +368,41 @@ class _MedsPageState extends State<MedsPage> {
               style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
           : _checkInButton(dose),
     };
+    final details =
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('${dose.medicine.name} · ${dose.medicine.dose}',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 2),
+      Text(_ruleLabel(dose.medicine),
+          style: const TextStyle(fontSize: 13, color: ReportPalette.muted)),
+    ]);
+    final time = SizedBox(
+        width: 56,
+        child: Text(_time(dose.scheduled),
+            style: const TextStyle(fontSize: 14, color: ReportPalette.muted)));
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(children: [
-        SizedBox(
-            width: 56,
-            child: Text(_time(dose.scheduled),
-                style: const TextStyle(fontSize: 14, color: ReportPalette.muted))),
-        Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${dose.medicine.name} · ${dose.medicine.dose}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(_ruleLabel(dose.medicine),
-              style: const TextStyle(fontSize: 13, color: ReportPalette.muted)),
-        ])),
-        const SizedBox(width: 8),
-        trailing,
-      ]),
+      child: LayoutBuilder(
+          builder: (context, box) => box.maxWidth < 420 && trailing is! Text
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        time,
+                        Expanded(child: details),
+                      ]),
+                      const SizedBox(height: 10),
+                      Padding(
+                          padding: const EdgeInsets.only(left: 56),
+                          child: Align(
+                              alignment: Alignment.centerLeft, child: trailing)),
+                    ])
+              : Row(children: [
+                  time,
+                  Expanded(child: details),
+                  const SizedBox(width: 8),
+                  trailing,
+                ])),
     );
   }
 

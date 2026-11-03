@@ -1383,10 +1383,22 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
               style:
                   const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
-          Wrap(spacing: 10, runSpacing: 10, children: [
-            for (final language in widget.languages)
-              _languageChoice(language['name']!, language['native']!),
-          ]),
+          LayoutBuilder(
+              builder: (context, box) => box.maxWidth < 480
+                  ? Row(children: [
+                      for (var i = 0; i < widget.languages.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        Expanded(
+                            child: _languageChoice(
+                                widget.languages[i]['name']!,
+                                widget.languages[i]['native']!,
+                                compact: true)),
+                      ]
+                    ])
+                  : Wrap(spacing: 10, runSpacing: 10, children: [
+                      for (final language in widget.languages)
+                        _languageChoice(language['name']!, language['native']!),
+                    ])),
           const SizedBox(height: 10),
           Text(
               _t('You can switch at any time. The report itself needs to be printed in English for now.'),
@@ -1487,20 +1499,29 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                       icon: const Icon(Icons.upload_file_outlined, size: 20),
                       label: Text(_t('Choose PDF'))),
                   const SizedBox(height: 12),
-                  Row(children: [
-                    Expanded(
-                        child: OutlinedButton.icon(
-                            onPressed: canUpload ? widget.onCamera : null,
-                            icon:
-                                const Icon(Icons.camera_alt_outlined, size: 20),
-                            label: Text(_t('Take photo')))),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: OutlinedButton.icon(
-                            onPressed: canUpload ? widget.onPhoto : null,
-                            icon: const Icon(Icons.image_outlined, size: 20),
-                            label: Text(_t('Choose photo'))))
-                  ]),
+                  LayoutBuilder(builder: (context, box) {
+                    final camera = OutlinedButton.icon(
+                        onPressed: canUpload ? widget.onCamera : null,
+                        icon: const Icon(Icons.camera_alt_outlined, size: 20),
+                        label: Text(_t('Take photo')));
+                    final gallery = OutlinedButton.icon(
+                        onPressed: canUpload ? widget.onPhoto : null,
+                        icon: const Icon(Icons.image_outlined, size: 20),
+                        label: Text(_t('Choose photo')));
+                    return box.maxWidth < 360
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                                camera,
+                                const SizedBox(height: 12),
+                                gallery
+                              ])
+                        : Row(children: [
+                            Expanded(child: camera),
+                            const SizedBox(width: 12),
+                            Expanded(child: gallery)
+                          ]);
+                  }),
                   if (!widget.sampleConsent && !widget.loading)
                     Padding(
                         padding: const EdgeInsets.only(top: 10),
@@ -1620,7 +1641,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         ]);
       });
 
-  Widget _languageChoice(String name, String native) {
+  Widget _languageChoice(String name, String native, {bool compact = false}) {
     final selected = widget.language == name;
     return Semantics(
       selected: selected,
@@ -1628,7 +1649,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
       child: OutlinedButton(
         onPressed: () => widget.onLanguage(name),
         style: OutlinedButton.styleFrom(
-                minimumSize: const Size(96, 50),
+                minimumSize: Size(compact ? 0 : 96, 50),
+                padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 16),
                 backgroundColor:
                     selected ? ReportPalette.burgundy : Colors.white,
                 foregroundColor: selected ? Colors.white : ReportPalette.ink,
