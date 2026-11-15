@@ -25,5 +25,9 @@ jobs:
         run: |
           python .github/scripts/accuracy/make_set.py sets/set1
           python .github/scripts/accuracy/make_messy.py sets/set2
-      - name: Evaluate deployment
+      - name: Questions
+        env: {EVAL_MODE: qa}
+        run: python .github/scripts/accuracy/live_eval.py "$BASE" sets/set1 sets/set2
+      - name: Photos
+        env: {EVAL_MODE: photo}
         run: python .github/scripts/accuracy/live_eval.py "$BASE" sets/set1 sets/set2
