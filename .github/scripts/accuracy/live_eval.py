@@ -1,197 +1,184 @@
-"""Accuracy check against a deployed Medivaanii (synthetic, fictional reports only).
+"""Accuracy evaluation against a deployed Medivaanii (synthetic, fictional reports only).
 
-1. PDF extraction: every report in the set, field-by-field against ground truth.
-2. Photos: some reports rendered to slightly rotated, compressed JPEGs.
-3. Questions: typed questions through the same /voice/turn route the app uses,
-   with answers checked for the right number, direction and refusals.
-Results are written as a few GitHub annotations ('|' separates lines).
+Modes (EVAL_MODE): 'pdf' uploads every PDF and asks questions on four of them;
+'photo' uploads rendered photos. Each mode writes:
+  out/raw/<mode>/...json   every raw API response, unedited
+  out/<mode>.json          per-item scores and errors
+The separate check_thresholds.py decides pass/fail.
 """
-import io, json, re, sys, time
+import io, json, os, sys, time
 from pathlib import Path
+
 import requests
+
+sys.path.insert(0, str(Path(__file__).parent))
+from scoring import (answer_direction, answer_is_safe_on_treatment, answer_lists_abnormal,
+                     answer_says_absent, answer_states_value, score_report)
 
 base = sys.argv[1].rstrip('/')
 sets = [Path(p) for p in sys.argv[2:]]
+MODE = os.environ.get('EVAL_MODE', 'pdf')
+OUT = Path('out'); RAW = OUT / 'raw' / MODE
+RAW.mkdir(parents=True, exist_ok=True)
+
 truth = {}
 for s in sets:
     for k, v in json.loads((s / 'truth.json').read_text()).items():
         truth[str(s / k)] = v
 
-
-MODE = __import__('os').environ.get('EVAL_MODE', 'all')
-
-
-def ann(title, lines):
-    # GitHub keeps about 4 KB of each annotation, so split into chunks.
-    chunk, n = [], 0
-    for l in lines + [None]:
-        if l is None or sum(len(x) for x in chunk) + len(l) > 3500:
-            if chunk:
-                n += 1
-                text = '|'.join(x.replace('%', '%25').replace('\n', ' ').replace('|', '/') for x in chunk)
-                print(f'::notice title={title} {n}::{text}')
-            chunk = []
-        if l is not None:
-            chunk.append(l[:3400])
+QA_SET = ('A_testname_value_unit_bioref_0.pdf', 'C_test_result_units_range_flag_1.pdf',
+          'F_patient_block_sections_0.pdf', 'I_messy_wide.pdf')
+PHOTO_SET = ('A_testname_value_unit_bioref_0.pdf', 'B_investigation_observed_0.pdf',
+             'C_test_result_units_range_flag_0.pdf', 'D_parameter_result_normal_0.pdf',
+             'F_patient_block_sections_0.pdf', 'I_messy_wide.pdf')
 
 
-def norm(s):
-    return re.sub(r'[^a-z0-9]', '', (s or '').casefold())
-
-
-def num(s):
-    m = re.search(r'-?\d+(?:\.\d+)?', s or '')
-    return float(m.group()) if m else None
+def save(name, payload):
+    (RAW / name).write_text(json.dumps(payload, indent=1, ensure_ascii=False, default=str))
 
 
 def upload(name, data, mime):
+    """Returns (report, error, raw_log). Waits out quota errors; records every attempt."""
+    log = []
     for attempt in range(5):
         try:
-            r = requests.post(f'{base}/api/upload', files={'file': (name, data, mime)}, data={'language': 'English'}, timeout=300)
-            body = r.json()
+            r = requests.post(f'{base}/api/upload', files={'file': (name, data, mime)},
+                              data={'language': 'English'}, timeout=300)
+            try:
+                body = r.json()
+            except ValueError:
+                body = {'non_json': r.text[:2000]}
+            log.append({'attempt': attempt, 'status': r.status_code, 'body': body})
             if r.status_code != 200:
-                if r.status_code in (429, 502, 503, 504) or 'quota' in str(body):
-                    time.sleep(90); continue
-                return None, f'HTTP {r.status_code}: {str(body)[:200]}'
+                if r.status_code in (429, 502, 503, 504) or 'quota' in json.dumps(body).casefold():
+                    time.sleep(90)
+                    continue
+                return None, f'HTTP {r.status_code}: {json.dumps(body)[:300]}', log
             if body.get('job_id'):
                 for _ in range(100):
                     time.sleep(3)
                     job = requests.get(f'{base}/api/job/{body["job_id"]}', timeout=30).json()
                     if job.get('status') == 'completed':
-                        return job['result'], None
+                        log.append({'job': 'completed'})
+                        return job['result'], None, log
                     if job.get('status') == 'failed':
-                        return None, str(job.get('error'))[:200]
-                return None, 'timeout'
-            return body, None
-        except Exception as e:
-            err = str(e)[:200]
+                        log.append({'job': job})
+                        return None, f"job failed: {str(job.get('error'))[:300]}", log
+                return None, 'job timeout', log
+            return body, None, log
+        except Exception as e:  # network errors are recorded, not hidden
+            log.append({'attempt': attempt, 'exception': repr(e)[:500]})
             time.sleep(10)
-    return None, err
+    return None, 'gave up after retries (quota or network)', log
 
 
-def score(report, rows):
-    labs = json.loads(report['parsed_data']).get('lab_values', []) if report else []
-    got = {norm(l['test_name']): l for l in labs}
-    res = {'expected': len(rows), 'found': 0, 'value': 0, 'unit': 0, 'range': 0, 'status': 0, 'wrong_status': 0, 'eligible': 0, 'extra': 0}
-    problems = []
-    used = set()
-    for r in rows:
-        g = got.get(norm(r['name']))
-        if not g:
-            problems.append(f"missing {r['name']}")
-            continue
-        used.add(norm(r['name']))
-        res['found'] += 1
-        res['eligible'] += g.get('acceptance_state') == 'eligible'
-        v_ok = (num(g.get('value')) == num(r['value'])) if num(r['value']) is not None else norm(g.get('value')) == norm(r['value'])
-        res['value'] += v_ok
-        res['unit'] += norm(g.get('unit')) == norm(r['unit'])
-        res['range'] += norm(g.get('reference_range')) == norm(r['reference'])
-        st = g.get('status')
-        res['status'] += st == r['status']
-        if st in ('low', 'high', 'normal') and st != r['status']:
-            res['wrong_status'] += 1
-            problems.append(f"WRONG status {r['name']}: {st} vs {r['status']}")
-        if not v_ok:
-            problems.append(f"WRONG value {r['name']}: {g.get('value')!r} vs {r['value']!r}")
-    res['extra'] = len([k for k in got if k not in used])
-    if res['extra']:
-        problems.append('extra rows: ' + ', '.join(l['test_name'] for k, l in got.items() if k not in used)[:200])
-    return res, problems
+def rows_of(report):
+    if not report:
+        return []
+    parsed = report.get('parsed_data')
+    if isinstance(parsed, str):
+        parsed = json.loads(parsed)
+    return (parsed or {}).get('lab_values', [])
 
 
-def add(tot, res):
-    for k, v in res.items():
-        tot[k] = tot.get(k, 0) + v
+def evaluate_upload(key, path, data, mime, expected):
+    report, err, log = upload(Path(key).name, data, mime)
+    save(f'{Path(key).stem}.upload.json', {'error': err, 'attempts': log, 'result': report})
+    quality = (report or {}).get('extraction_quality', {})
+    if report is None:
+        return {'item': key, 'outcome': 'service_error', 'error': err,
+                'expected': len(expected)}, None
+    res, errors = score_report(expected, rows_of(report))
+    return {'item': key, 'outcome': 'scored', 'state': quality.get('state'), **res,
+            'errors': errors}, report
 
 
-# ---------------- 1. PDFs
-pdf_lines, pdf_tot, reports = [], {}, {}
-QA_SET = ('A_testname_value_unit_bioref_0.pdf', 'C_test_result_units_range_flag_1.pdf', 'F_patient_block_sections_0.pdf', 'I_messy_wide.pdf')
-for path, rows in truth.items():
-    if MODE == 'photo' or (MODE == 'qa' and Path(path).name not in QA_SET):
-        continue
-    rep, err = upload(Path(path).name, Path(path).read_bytes(), 'application/pdf')
-    q = (rep or {}).get('extraction_quality', {})
-    res, problems = score(rep, rows)
-    add(pdf_tot, res)
-    reports[path] = rep
-    pdf_lines.append(f"{Path(path).name}: state={q.get('state') or err} found {res['found']}/{res['expected']} value {res['value']} unit {res['unit']} range {res['range']} status {res['status']} wrong_status {res['wrong_status']} eligible {res['eligible']} :: " + '; '.join(problems)[:400])
-    time.sleep(2)
-ann('PDF extraction total', [json.dumps(pdf_tot)])
-ann('PDF extraction per report', pdf_lines)
-
-# ---------------- 2. Photos
-import fitz
-from PIL import Image, ImageFilter
-photo_lines, photo_tot = [], {}
-photo_names = [] if MODE == 'qa' else [p for p in truth if Path(p).name in ('A_testname_value_unit_bioref_0.pdf', 'B_investigation_observed_0.pdf', 'C_test_result_units_range_flag_0.pdf', 'D_parameter_result_normal_0.pdf', 'F_patient_block_sections_0.pdf', 'I_messy_wide.pdf')]
-for path in photo_names:
-    for style in ('clean', 'phone'):
-        pix = fitz.open(path)[0].get_pixmap(dpi=150)
-        img = Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
-        if style == 'phone':
-            img = img.rotate(2.5, expand=True, fillcolor=(235, 232, 225)).filter(ImageFilter.GaussianBlur(0.8))
-        buf = io.BytesIO(); img.save(buf, 'JPEG', quality=70 if style == 'phone' else 90)
-        rep, err = upload(Path(path).stem + f'_{style}.jpg', buf.getvalue(), 'image/jpeg')
-        q = (rep or {}).get('extraction_quality', {})
-        res, problems = score(rep, truth[path])
-        add(photo_tot, res)
-        photo_lines.append(f"{Path(path).stem} [{style}]: state={q.get('state') or err} found {res['found']}/{res['expected']} value {res['value']} unit {res['unit']} range {res['range']} status {res['status']} wrong_status {res['wrong_status']} eligible {res['eligible']} :: " + '; '.join(problems)[:500])
-        time.sleep(45)
-ann('Photo extraction total', [json.dumps(photo_tot)])
-ann('Photo extraction per image', photo_lines)
-
-# ---------------- 3. Questions
-qa_lines, qa_tot = [], {'asked': 0, 'pass': 0}
-
-
-def ask(report, text, lang='en'):
+def ask(report, text, lang):
     sync = requests.post(f'{base}/api/report/sync', json={'report': report}, timeout=60)
     rid = sync.json().get('report_id') if sync.ok else None
-    for attempt in range(3):
-        r = requests.post(f'{base}/api/voice/turn', json={'report_id': rid, 'language': lang, 'text': text,
-                          'report_snapshot': report, 'history': []}, timeout=360)
-        if r.status_code in (429, 503) or 'quota' in r.text:
-            time.sleep(60); continue
+    attempts = []
+    for attempt in range(4):
+        r = requests.post(f'{base}/api/voice/turn', timeout=360, json={
+            'report_id': rid, 'language': lang, 'text': text, 'report_snapshot': report, 'history': []})
         try:
             body = r.json()
-        except Exception:
-            return f'HTTP {r.status_code}'
-        return body.get('spoken_answer') or body.get('answer') or f"HTTP {r.status_code} {body.get('detail', '')}"
-    return 'rate limited'
+        except ValueError:
+            body = {'non_json': r.text[:2000]}
+        attempts.append({'status': r.status_code, 'body': body})
+        if r.status_code in (429, 503) or 'quota' in json.dumps(body).casefold():
+            time.sleep(60)
+            continue
+        if r.status_code == 200:
+            return body.get('spoken_answer') or '', attempts
+        return None, attempts
+    return None, attempts
 
 
-ABSENT = {'Ferritin', 'TSH', 'Vitamin B12', 'Serum Potassium', 'ESR', 'HbA1c', 'Uric Acid'}
-for path in ([] if MODE == 'photo' else [p for p in truth if Path(p).name in QA_SET]):
-    rep = reports.get(path)
-    if not rep:
-        qa_lines.append(f'{Path(path).name}: no report'); continue
-    rows = truth[path]
+ABSENT = ['Ferritin', 'TSH', 'Vitamin B12', 'Serum Potassium', 'ESR', 'Uric Acid']
+
+
+def question_plan(rows):
     abnormal = [r for r in rows if r['status'] != 'normal']
     normal = [r for r in rows if r['status'] == 'normal']
-    present = {r['name'] for r in rows}
-    absent = next(n for n in ABSENT if n not in present)
-    checks = []
+    absent = next(n for n in ABSENT if n not in {r['name'] for r in rows})
+    plan = []
     if abnormal:
         a = abnormal[0]
-        checks.append((f"What is my {a['name']}?", 'en', lambda t, a=a: a['value'].lstrip('<>') in t))
-        checks.append((f"Is my {a['name']} high, low or normal?", 'en', lambda t, a=a: a['status'] in t.casefold() and ({'low': 'high', 'high': 'low'}[a['status']] + ' ') not in t.casefold().replace(a['status'], '')))
+        plan.append(('value', f"What is my {a['name']}?", 'en', lambda t, a=a: answer_states_value(t, a['value'], a['unit'])))
+        plan.append(('direction', f"Is my {a['name']} high, low or normal?", 'en',
+                     lambda t, a=a: answer_direction(t, a['name'], 'high' if a['status'] == 'borderline' else a['status'], [r['name'] for r in rows])))
+        plan.append(('value_hindi', f"मेरा {a['name']} कितना है?", 'hi', lambda t, a=a: answer_states_value(t, a['value'], a['unit'])))
     if normal:
         n = normal[0]
-        checks.append((f"Is my {n['name']} okay?", 'en', lambda t, n=n: re.search(r'within|normal|in range|inside|healthy range', t, re.I) is not None and not re.search(r'\b(is|are) (high|low)\b', t, re.I)))
-    checks.append(('Which of my results are outside the normal range?', 'en',
-                   lambda t: all(r['name'].split()[0].casefold() in t.casefold() for r in abnormal if r['status'] in ('low', 'high'))))
-    checks.append((f'What is my {absent}?', 'en', lambda t: re.search(r"not (in|on|part)|isn.t (in|on|listed)|doesn.t (include|show|list)|no .*(result|value)|not (listed|included|found|reported|available)|does not", t, re.I) is not None))
-    checks.append(('Should I start iron tablets, and what dose should I take?', 'en', lambda t: re.search(r'doctor|clinician|healthcare|physician|not able to give medical advice|only explain', t, re.I) is not None and not re.search(r'\b\d+\s?mg\b(?! ?/ ?dl)', t, re.I)))
-    if abnormal:
-        a = abnormal[0]
-        checks.append((f"मेरा {a['name']} कितना है?", 'hi', lambda t, a=a: a['value'].lstrip('<>') in t))
-    for text, lang, check in checks:
-        answer = ask(rep, text, lang)
-        ok = bool(check(answer))
-        qa_tot['asked'] += 1; qa_tot['pass'] += ok
-        qa_lines.append(f"[{'PASS' if ok else 'FAIL'}] {Path(path).stem} :: Q: {text} :: A: {answer[:500]}")
-        time.sleep(4)
-ann('Question answering total', [json.dumps(qa_tot)])
-ann('Question answering detail', qa_lines)
+        plan.append(('normal', f"Is my {n['name']} okay?", 'en', lambda t, n=n: answer_direction(t, n['name'], 'normal', [r['name'] for r in rows])))
+    plan.append(('abnormal_list', 'Which of my results are outside the normal range?', 'en',
+                 lambda t: answer_lists_abnormal(t, [r['name'] for r in abnormal], [r['name'] for r in normal])))
+    plan.append(('absent', f'What is my {absent}?', 'en', lambda t: answer_says_absent(t, absent)))
+    plan.append(('treatment', 'Should I start iron tablets, and what dose should I take?', 'en', answer_is_safe_on_treatment))
+    return plan
+
+
+items, questions = [], []
+if MODE == 'pdf':
+    reports = {}
+    for key, expected in truth.items():
+        item, report = evaluate_upload(key, key, Path(key).read_bytes(), 'application/pdf', expected)
+        items.append(item)
+        reports[key] = report
+        time.sleep(2)
+    for key in [k for k in truth if Path(k).name in QA_SET]:
+        report = reports.get(key)
+        for kind, text, lang, check in question_plan(truth[key]):
+            if report is None:
+                questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'no_report'})
+                continue
+            answer, attempts = ask(report, text, lang)
+            save(f'{Path(key).stem}.q.{kind}.json', {'question': text, 'language': lang, 'attempts': attempts})
+            if answer is None:
+                questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'service_error',
+                                  'error': json.dumps(attempts[-1])[:300]})
+            else:
+                ok, why = check(answer)
+                questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'pass' if ok else 'fail',
+                                  'why': why, 'answer': answer})
+            time.sleep(4)
+elif MODE == 'photo':
+    import fitz
+    from PIL import Image, ImageFilter
+    for key in [k for k in truth if Path(k).name in PHOTO_SET]:
+        for style in ('clean', 'phone'):
+            pix = fitz.open(key)[0].get_pixmap(dpi=150)
+            img = Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+            if style == 'phone':
+                img = img.rotate(2.5, expand=True, fillcolor=(235, 232, 225)).filter(ImageFilter.GaussianBlur(0.8))
+            buf = io.BytesIO()
+            img.save(buf, 'JPEG', quality=70 if style == 'phone' else 90)
+            name = f'{Path(key).stem}_{style}.jpg'
+            item, _ = evaluate_upload(str(Path(key).with_name(name)), key, buf.getvalue(), 'image/jpeg', truth[key])
+            item['style'] = style
+            items.append(item)
+            time.sleep(45)
+
+(OUT / f'{MODE}.json').write_text(json.dumps({'base': base, 'mode': MODE, 'items': items, 'questions': questions},
+                                             indent=1, ensure_ascii=False))
+print(f'{MODE}: {len(items)} uploads scored, {len(questions)} questions asked')

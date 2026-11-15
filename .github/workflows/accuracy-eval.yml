@@ -4,6 +4,7 @@ on:
   push:
     branches: [feature/medication-followup]
     paths: ['.github/scripts/accuracy/**', '.github/workflows/accuracy-eval.yml']
+  workflow_dispatch:
 
 env:
   BASE: https://medvaani-git-feature-medication-d9af8c-anants-projects-62dcac1f.vercel.app
@@ -14,20 +15,50 @@ permissions:
 jobs:
   eval:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: .github/scripts/accuracy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install reportlab requests pymupdf pillow
+      - run: pip install reportlab requests pymupdf pillow pytest
+
+      # The scorer must reject known-wrong answers before it scores anything live.
+      - name: Scorer self-tests
+        run: python -m pytest -q test_scoring.py
+
       - name: Build synthetic report sets
         run: |
-          python .github/scripts/accuracy/make_set.py sets/set1
-          python .github/scripts/accuracy/make_messy.py sets/set2
-      - name: Questions
-        env: {EVAL_MODE: qa}
+          python make_set.py "$GITHUB_WORKSPACE/sets/set1"
+          python make_messy.py "$GITHUB_WORKSPACE/sets/set2"
+
+      - name: PDFs and questions
+        working-directory: ${{ github.workspace }}
+        env: {EVAL_MODE: pdf}
         run: python .github/scripts/accuracy/live_eval.py "$BASE" sets/set1 sets/set2
+
       - name: Photos
+        working-directory: ${{ github.workspace }}
         env: {EVAL_MODE: photo}
         run: python .github/scripts/accuracy/live_eval.py "$BASE" sets/set1 sets/set2
+
+      - name: Check thresholds
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          set +e
+          python .github/scripts/accuracy/check_thresholds.py out
+          code=$?
+          [ -f out/summary.md ] && cat out/summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+
+      - name: Keep raw responses and scores
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accuracy-run
+          path: out/
+          if-no-files-found: warn

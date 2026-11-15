@@ -9,7 +9,7 @@ ROWS = [
  # name lines, value, unit, ref lines, expected status
  (['C-Reactive Protein (CRP)'], '<0.5', 'mg/L', ['< 5.0'], 'normal'),
  (['eGFR'], '>90', 'mL/min/1.73m2', ['> 60'], 'normal'),
- (['Total Cholesterol'], '232', 'mg/dL', ['Desirable: < 200', 'Borderline: 200-239', 'High: >= 240'], 'high'),
+ (['Total Cholesterol'], '232', 'mg/dL', ['Desirable: < 200', 'Borderline: 200-239', 'High: >= 240'], 'borderline'),
  (['LDL Cholesterol', '(Calculated)'], '148', 'mg/dL', ['< 100'], 'high'),
  (['Glycated Haemoglobin', '(HbA1c)'], '7.8', '%', ['Normal: < 5.7', 'Prediabetes: 5.7 - 6.4', 'Diabetes: >= 6.5'], 'high'),
  (['Urine Protein'], 'Negative', '', ['Negative'], 'normal'),

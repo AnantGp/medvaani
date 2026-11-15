@@ -1,0 +1,27 @@
+{
+  "pdf": {
+    "value_wrong": 0,
+    "unit_wrong": 0,
+    "range_wrong": 0,
+    "status_wrong": 0,
+    "extra": 0,
+    "name_errors": 0,
+    "service_errors": 0,
+    "min_exact_name_rate": 1.0,
+    "min_status_labelled_rate": 1.0
+  },
+  "photo": {
+    "value_wrong": 0,
+    "unit_wrong": 0,
+    "range_wrong": 0,
+    "status_wrong": 0,
+    "extra": 0,
+    "name_errors": 0,
+    "service_errors": 0,
+    "min_exact_name_rate": 1.0,
+    "min_status_labelled_rate": 1.0
+  },
+  "questions": {
+    "min_pass_rate": 1.0
+  }
+}
