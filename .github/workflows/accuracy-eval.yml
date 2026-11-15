@@ -1,0 +1,29 @@
+name: Accuracy evaluation
+
+on:
+  push:
+    branches: [feature/medication-followup]
+    paths: ['.github/scripts/accuracy/**', '.github/workflows/accuracy-eval.yml']
+
+env:
+  BASE: https://medvaani-git-feature-medication-d9af8c-anants-projects-62dcac1f.vercel.app
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install reportlab requests pymupdf pillow
+      - name: Build synthetic report sets
+        run: |
+          python .github/scripts/accuracy/make_set.py sets/set1
+          python .github/scripts/accuracy/make_messy.py sets/set2
+      - name: Evaluate deployment
+        run: python .github/scripts/accuracy/live_eval.py "$BASE" sets/set1 sets/set2
