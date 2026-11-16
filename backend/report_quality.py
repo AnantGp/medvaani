@@ -37,10 +37,11 @@ def value_kind(value):
 
 def _unit_problem(row):
     name = str(row.get('test_name', '')).casefold()
-    unit = normalized_unit(row.get('unit', ''))
+    # "UI" is how Spanish, French and Portuguese reports write IU.
+    unit = normalized_unit(row.get('unit', '')).replace('ui', 'iu')
     allowed = None
     if 'thyroid stimulating' in name or re.search(r'\btsh\b', name):
-        allowed = {'uiu/ml', 'uu/ml', 'miu/l'}
+        allowed = {'uiu/ml', 'uu/ml', 'miu/l', 'mu/l'}
     elif 'creatinine' in name and 'ratio' not in name:
         allowed = {'mg/dl', 'umol/l', 'µmol/l'}
     elif 'vitamin d' in name and 'ratio' not in name:

@@ -58,7 +58,8 @@ for mode in ('pdf', 'photo'):
     for it in data['items']:
         errs = it.get('errors') or ([it.get('error')] if it.get('error') else [])
         if errs:
-            lines.append(f"- `{Path(it['item']).name}` ({it.get('state') or it['outcome']}): " + '; '.join(errs)[:900])
+            lines.append(f"- `{Path(it['item']).name}` ({it.get('state') or it['outcome']}): " + '; '.join(errs)[:900]
+                         + (f" [diagnostics: {'; '.join(it['diagnostics'])[:300]}]" if it.get('diagnostics') else ''))
     qs = data.get('questions', [])
     if mode == 'pdf':
         passed = sum(q['outcome'] == 'pass' for q in qs)

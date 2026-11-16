@@ -39,12 +39,21 @@ def _dec(number: str) -> Decimal:
 
 
 # ----------------------------------------------------------------- values
+def to_number(printed: str) -> Decimal:
+    """'6,1' (decimal comma) -> 6.1; '7,200' (thousands) -> 7200; '13.6' -> 13.6."""
+    if re.fullmatch(r'\d{1,3}(?:,\d{3})+(?:\.\d+)?', printed):
+        return _dec(printed.replace(',', ''))
+    if re.fullmatch(r'\d+,\d+', printed):
+        return _dec(printed.replace(',', '.'))
+    return _dec(printed)
+
+
 def parse_value(text):
     """'<0.5' -> ('<', Decimal('0.5')); '9' -> ('=', 9); 'Negative' -> ('text', 'negative')."""
     t = clean(text)
-    m = re.fullmatch(r'(<=|>=|≤|≥|=<|=>|<|>)?\s*(' + NUM + r')', t)
+    m = re.fullmatch(r'(<=|>=|≤|≥|=<|=>|<|>)?\s*(\d+(?:[.,]\d+)*)', t)
     if m:
-        return (COMPARATORS.get(m.group(1) or '', '='), _dec(m.group(2)))
+        return (COMPARATORS.get(m.group(1) or '', '='), to_number(m.group(2)))
     if re.search(r'\d', t):
         return ('raw', t.casefold())
     return ('text', re.sub(r'[^a-z]+', ' ', t.casefold()).strip())
@@ -193,8 +202,8 @@ def answer_states_value(answer, value, unit):
     if comp == 'raw':
         return False, f'cannot check value {value!r}'
     seen_number = False
-    for m in re.finditer(r'(?<![\d.])\d+(?:\.\d+)?(?![\d])(?!\.\d)', text):
-        if _dec(m.group()) != expected:
+    for m in re.finditer(r'(?<![\d.,])\d+(?:[.,]\d+)*(?![\d])(?![.,]\d)', text):
+        if to_number(m.group()) != expected:
             continue
         seen_number = True
         before = text[max(0, m.start() - 20):m.start()].casefold()
@@ -221,10 +230,23 @@ def base_name(name):
     return re.sub(r'\s*\(.*?\)\s*', ' ', name).strip()
 
 
+DASHES = dict.fromkeys(map(ord, '\u2010\u2011\u2012\u2013\u2014\u2212'), '-')
+
+
+def _fold(text):
+    return clean(text).translate(DASHES).casefold().replace('hemoglobin', 'haemoglobin')
+
+
+def name_aliases(name):
+    """'葡萄糖(GLU)' may be called 'GLU' or 'Glucose (GLU)' in an answer."""
+    aliases = {base_name(name)}
+    aliases.update(a.strip() for a in re.findall(r'\(([^)]+)\)', name) if len(a.strip()) >= 2)
+    return {_fold(a) for a in aliases if a}
+
+
 def _mentions(sentence, name):
-    s = sentence.casefold().replace('hemoglobin', 'haemoglobin')
-    n = base_name(name).casefold().replace('hemoglobin', 'haemoglobin')
-    return n in s
+    s = _fold(sentence)
+    return any(a in s for a in name_aliases(name))
 
 
 def answer_direction(answer, name, expected, other_names=()):
@@ -249,9 +271,12 @@ def answer_direction(answer, name, expected, other_names=()):
     return ok, '' if ok else f'direction for {name} not stated as {expected}'
 
 
-def answer_lists_abnormal(answer, abnormal_names, normal_names):
-    """Every abnormal test named; no normal test presented as abnormal."""
-    missing = [n for n in abnormal_names if not _mentions(answer, n)]
+def answer_lists_abnormal(answer, abnormal_names, normal_names, abnormal_rows=()):
+    """Every abnormal test named (or its exact value and unit stated); no
+    normal test presented as abnormal."""
+    by_name = {r['name']: r for r in abnormal_rows}
+    missing = [n for n in abnormal_names if not _mentions(answer, n) and not (
+        n in by_name and answer_states_value(answer, by_name[n]['value'], by_name[n]['unit'])[0])]
     wrongly = []
     for n in normal_names:
         for s in _sentences(answer):

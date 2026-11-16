@@ -16,6 +16,7 @@ from report_quality import value_kind
 from report_records import measurement_id
 
 MAX_LINES_PER_CALL = 140
+RETRY_WAITS = (3, 8, 20)
 
 PROMPT = '''You read laboratory reports printed in any country and language.
 Below are the report's text lines. Each line starts with an id like p1.L12.
@@ -151,7 +152,13 @@ def rows_from_model(items, pages, digest, model=''):
             if not positions or positions[-1] - positions[0] != len(positions) - 1:
                 return [line]
             return [ordered[p] for p in positions]
-        value = _locate(index, [line], item.get('value', ''), numeric=True)
+        raw_value = _norm(item.get('value', ''))
+        glued = re.fullmatch(r'([<>≤≥]?\s*[+-]?\d+(?:[.,]\d+)*)\s*([^\d\s.,].*)', raw_value)
+        if glued and not re.fullmatch(r'\*?[HL]{1,2}\*?|[↑↓*]', glued[2]):
+            raw_value = glued[1]
+            if not _norm(item.get('unit', '')):
+                item = {**item, 'unit': glued[2]}
+        value = _locate(index, [line], raw_value, numeric=True)
         if value is None or value_kind(value[0]) == 'unreadable':
             problems.append({'code': 'ai_value_not_on_page', 'detail': f"{line}: {item.get('value')!r}"})
             continue
@@ -230,9 +237,7 @@ async def read_rows(pages, digest, chat=None):
         # per-minute token allowance is not spent on unused headroom.
         numeric = sum(1 for line in chunk if re.search(r'\d', line.split(':', 1)[-1]))
         budget = min(6000, 300 + 90 * numeric)
-        result, model = await chat([
-            {'role': 'system', 'content': PROMPT},
-            {'role': 'user', 'content': '\n'.join(chunk)}], max_tokens=budget, temperature=0)
+        result, model = await _ask(chat, chunk, budget)
         found = result.get('rows', [])
         if isinstance(found, list):
             items.extend(found)
@@ -240,6 +245,23 @@ async def read_rows(pages, digest, chat=None):
             problems.append({'code': 'ai_bad_response'})
     rows, more = rows_from_model(items, pages, digest, model)
     return rows, problems + more
+
+
+async def _ask(chat, chunk, budget, waits=None):
+    """One chunk, retried: free-tier AI calls fail transiently under load."""
+    last = None
+    for wait in (0,) + tuple(RETRY_WAITS if waits is None else waits):
+        if wait:
+            await asyncio.sleep(wait)
+        try:
+            return await chat([
+                {'role': 'system', 'content': PROMPT},
+                {'role': 'user', 'content': '\n'.join(chunk)}], max_tokens=budget, temperature=0)
+        except Exception as error:  # noqa: BLE001 - retried, then reported
+            last = error
+            if getattr(error, 'status', None) in (401, 403, 413):
+                break
+    raise last
 
 
 def read_rows_sync(pages, digest):

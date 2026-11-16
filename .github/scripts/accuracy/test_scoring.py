@@ -117,3 +117,19 @@ def test_direction_ignores_sentences_about_other_tests():
     ans = 'Your Haematocrit (PCV) is 51.9 %. The range is 40.0 - 50.0 %. Because 51.9 % is above that range, it is considered high.'
     assert answer_direction(ans, 'Haematocrit (PCV)', 'high', ['Haematocrit (PCV)', 'MCV'])[0]
     assert not answer_direction('Your TSH is 2.1. It is high.', 'TSH', 'normal', ['TSH'])[0]
+
+
+def test_decimal_comma_and_thousands():
+    assert value_matches('6,1', '6,1')[0]
+    assert value_matches('6.1', '6,1')[0]
+    assert value_matches('7200', '7,200')[0]
+    assert not value_matches('61', '6,1')[0]
+    assert answer_states_value('Tu HbA1c es 6,1 %.', '6,1', '%')[0]
+    assert not answer_states_value('Tu HbA1c es 16,1 %.', '6,1', '%')[0]
+
+
+def test_abnormal_list_accepts_printed_alias_dash_variants_and_values():
+    ans = '1. Glucose (GLU) 7.8 mmol/L. 2. LDL\u2011Cholesterin: 152 mg/dl. 3. Fasting glucose 108 mg/dL.'
+    ok, why = answer_lists_abnormal(ans, ['葡萄糖(GLU)', 'LDL-Cholesterin', 'Fasting plasma glucose'], [],
+                                    [{'name': 'Fasting plasma glucose', 'value': '108', 'unit': 'mg/dL'}])
+    assert ok, why

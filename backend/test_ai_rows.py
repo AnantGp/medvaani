@@ -105,3 +105,24 @@ def test_shami_report_with_a_perfect_reader_is_fully_grounded():
     for t in truth:
         assert by_name[t['name']]['value'] == t['value']
         assert by_name[t['name']]['status'] == t['status'], t['name']
+
+
+def test_unit_glued_to_the_value_is_separated():
+    page = _page([[('Haematocrit', .05), ('41.2%', .4), ('40–50%', .6)]])
+    rows, problems = rows_from_model([
+        {'line': 'p1.L1', 'test_name': 'Haematocrit', 'value': '41.2%', 'reference_range': '40–50%'}], page, 'd')
+    assert not problems and rows[0]['value'] == '41.2' and rows[0]['unit'] == '%'
+
+
+def test_transient_ai_failures_are_retried():
+    calls = []
+
+    async def flaky(messages, **_):
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError('temporarily unavailable')
+        return {'rows': [{'line': 'p1.L1', 'test_name': 'Haemoglobin', 'value': '13.6', 'unit': 'g/dL'}]}, 'm'
+    import ai_rows
+    ai_rows.RETRY_WAITS = (0, 0, 0)
+    rows, _ = asyncio.run(ai_rows.read_rows(PAGE, 'd', chat=flaky))
+    assert len(calls) == 3 and rows[0]['value'] == '13.6'

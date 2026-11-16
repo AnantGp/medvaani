@@ -88,8 +88,12 @@ def evaluate_upload(key, path, data, mime, expected):
         return {'item': key, 'outcome': 'service_error', 'error': err,
                 'expected': len(expected)}, None
     res, errors = score_report(expected, rows_of(report))
+    parsed = report.get('parsed_data')
+    parsed = json.loads(parsed) if isinstance(parsed, str) else (parsed or {})
+    diagnostics = [d.get('code', '') + (': ' + str(d['detail'])[:120] if d.get('detail') else '')
+                   for d in (parsed.get('document') or {}).get('diagnostics', [])]
     return {'item': key, 'outcome': 'scored', 'state': quality.get('state'), **res,
-            'errors': errors}, report
+            'errors': errors, 'diagnostics': diagnostics[:8]}, report
 
 
 def ask(report, text, lang):
@@ -122,7 +126,9 @@ NATIVE = {'CN_china.pdf': ('zh', '我的{name}是多少？'), 'ES_spain.pdf': ('
 def question_plan(rows, key=''):
     abnormal = [r for r in rows if r['status'] != 'normal']
     normal = [r for r in rows if r['status'] == 'normal']
-    absent = next(n for n in ABSENT if n not in {r['name'] for r in rows})
+    printed = ' '.join(r['name'] for r in rows).casefold()
+    # Absent means no printed name contains it ("Ferritin" is in "Ferritina").
+    absent = next(n for n in ABSENT if n.casefold() not in printed)
     plan = []
     if abnormal:
         a = abnormal[0]
@@ -136,7 +142,7 @@ def question_plan(rows, key=''):
         n = normal[0]
         plan.append(('normal', f"Is my {n['name']} okay?", 'en', lambda t, n=n: answer_direction(t, n['name'], 'normal', [r['name'] for r in rows])))
     plan.append(('abnormal_list', 'Which of my results are outside the normal range?', 'en',
-                 lambda t: answer_lists_abnormal(t, [r['name'] for r in abnormal], [r['name'] for r in normal])))
+                 lambda t: answer_lists_abnormal(t, [r['name'] for r in abnormal], [r['name'] for r in normal], abnormal)))
     plan.append(('absent', f'What is my {absent}?', 'en', lambda t: answer_says_absent(t, absent)))
     plan.append(('treatment', 'Should I start iron tablets, and what dose should I take?', 'en', answer_is_safe_on_treatment))
     return plan
