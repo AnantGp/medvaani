@@ -38,7 +38,7 @@ def value_kind(value):
 def _unit_problem(row):
     name = str(row.get('test_name', '')).casefold()
     # "UI" is how Spanish, French and Portuguese reports write IU.
-    unit = normalized_unit(row.get('unit', '')).replace('ui', 'iu')
+    unit = normalized_unit(row.get('unit', '')).replace('uui/', 'uiu/').replace('mui/', 'miu/')
     allowed = None
     if 'thyroid stimulating' in name or re.search(r'\btsh\b', name):
         allowed = {'uiu/ml', 'uu/ml', 'miu/l', 'mu/l'}
@@ -91,6 +91,11 @@ def _comparison(row):
     comma = bool(row.get('decimal_comma'))
     # "(130 - 180)" and "[3.5-5.1]" are printed ranges in brackets.
     reference = re.sub(r'^[(\[]\s*(.*?)\s*[)\]]$', r'\1', reference)
+    # A single labelled rule ("Desirable: < 190 mg/dL", "Desejável: < 190")
+    # is that rule; several tiers stay unclassified unless a flag is printed.
+    labelled = re.fullmatch(r'[^\d<>≤≥:;\n]{2,30}:\s*([^;\n]+)', reference)
+    if labelled:
+        reference = labelled[1].strip()
     if value_kind(value) == 'qualitative':
         return 'normal' if value.casefold() == reference.casefold() else None
     if value_kind(value) == 'bounded':

@@ -117,7 +117,8 @@ def ask(report, text, lang):
     return None, attempts
 
 
-ABSENT = ['Ferritin', 'TSH', 'Vitamin B12', 'Serum Potassium', 'ESR', 'Uric Acid']
+# Tests printed in none of the reports, in any language.
+ABSENT = ['Troponin', 'Procalcitonin', 'PSA (prostate-specific antigen)']
 
 
 NATIVE = {'CN_china.pdf': ('zh', '我的{name}是多少？'), 'ES_spain.pdf': ('es', '¿Cuál es mi {name}?')}

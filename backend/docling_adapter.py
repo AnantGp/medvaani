@@ -139,7 +139,9 @@ def reconcile_measurements(native, docling):
             continue  # Not a competing validated identity; keep the original native proof.
         for key in ('test_name', 'value', 'unit', 'reference_range'):
             a, b = _norm(match.get(key, '')), _norm(extra.get(key, ''))
-            if a and b and a != b:
+            # One reader taking part of the same printed text ("mL/min" of
+            # "mL/min/1.73m2", "(>90)" vs ">90") is not a disagreement.
+            if a and b and a != b and a.strip('()[]') not in b and b.strip('()[]') not in a:
                 match.setdefault('issues', []).append({'code': 'engine_conflict', 'field': key, 'persistent': True})
             elif not a and b:
                 match[key] = extra[key]

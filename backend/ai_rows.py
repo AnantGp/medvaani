@@ -236,7 +236,7 @@ async def read_rows(pages, digest, chat=None):
         # Ask only for the output room the chunk can need, so a free-tier
         # per-minute token allowance is not spent on unused headroom.
         numeric = sum(1 for line in chunk if re.search(r'\d', line.split(':', 1)[-1]))
-        budget = min(6000, 300 + 90 * numeric)
+        budget = min(8000, 400 + 160 * numeric)
         result, model = await _ask(chat, chunk, budget)
         found = result.get('rows', [])
         if isinstance(found, list):

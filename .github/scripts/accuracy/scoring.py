@@ -246,7 +246,8 @@ def name_aliases(name):
 
 def _mentions(sentence, name):
     s = _fold(sentence)
-    return any(a in s for a in name_aliases(name))
+    # Whole words only: "AST" must not match inside "Fasting".
+    return any(re.search(r'(?<![a-z0-9])' + re.escape(a) + r'(?![a-z0-9])', s) for a in name_aliases(name))
 
 
 def answer_direction(answer, name, expected, other_names=()):

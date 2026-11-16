@@ -8,6 +8,7 @@ Run:  python make_world_reports.py <out_dir>
 Writes one PDF per country and truth.json in the evaluator's format.
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -182,7 +183,7 @@ REPORTS = {
 
  'AU_australia': dict(font='Sans', title='Southern Cross Pathology, Melbourne', meta=[
     'Patient: TEST PERSON   DOB: 21/09/1966   Sex: F   Medicare: test only', 'Requested by: Dr Sample   Collected: 12/11/26 07:55'],
-  cols=[('Test', 40, 'name'), ('12/11/26', 230, 'value'), ('', 285, 'flag'), ('03/05/26', 320, 'prev'), ('Units', 390, 'unit'), ('Ref. range', 460, 'ref')],
+  cols=[('Test', 40, 'name'), ('12/11/26', 210, 'value'), ('', 255, 'flag'), ('03/05/26', 285, 'prev'), ('Units', 350, 'unit'), ('Ref. range', 470, 'ref')],
   section='BIOCHEMISTRY (cumulative)',
   rows=[('Sodium', '141', 'mmol/L', '(135-145)', None, 'normal', '139'),
         ('Potassium', '3.3', 'mmol/L', '(3.5-5.2)', 'L', 'low', '4.0'),
@@ -301,6 +302,11 @@ def truth_rows(spec):
     for row in spec['rows']:
         name, value, unit, ref, _flag, status = row[:6]
         printed_unit = unit if keys & {'unit', 'vu'} else ''
+        if not printed_unit and keys & {'in', 'out'}:
+            # US style: the unit is printed only after the range ("65-99 mg/dL");
+            # it is still the result's unit. "% of total Hgb" -> "%".
+            m = re.search(r'[\d.]\s*([^\d\s][^\d]*)$', ref)
+            printed_unit = m[1].split(' of ')[0].strip() if m else ''
         value = value.split(' ')[-1]  # "*H 7.2" prints a flag before the number
         out.append({'name': name, 'value': value, 'unit': printed_unit, 'reference': ref, 'status': status})
     return out

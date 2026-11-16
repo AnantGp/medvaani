@@ -75,70 +75,70 @@
   {
    "name": "GLUCOSE",
    "value": "112",
-   "unit": "",
+   "unit": "mg/dL",
    "reference": "65-99 mg/dL",
    "status": "high"
   },
   {
    "name": "UREA NITROGEN (BUN)",
    "value": "14",
-   "unit": "",
+   "unit": "mg/dL",
    "reference": "7-25 mg/dL",
    "status": "normal"
   },
   {
    "name": "CREATININE",
    "value": "0.88",
-   "unit": "",
+   "unit": "mg/dL",
    "reference": "0.50-1.03 mg/dL",
    "status": "normal"
   },
   {
    "name": "SODIUM",
    "value": "133",
-   "unit": "",
+   "unit": "mmol/L",
    "reference": "135-146 mmol/L",
    "status": "low"
   },
   {
    "name": "POTASSIUM",
    "value": "4.4",
-   "unit": "",
+   "unit": "mmol/L",
    "reference": "3.5-5.3 mmol/L",
    "status": "normal"
   },
   {
    "name": "CALCIUM",
    "value": "9.6",
-   "unit": "",
+   "unit": "mg/dL",
    "reference": "8.6-10.4 mg/dL",
    "status": "normal"
   },
   {
    "name": "ALT",
    "value": "58",
-   "unit": "",
+   "unit": "U/L",
    "reference": "6-29 U/L",
    "status": "high"
   },
   {
    "name": "CHOLESTEROL, TOTAL",
    "value": "236",
-   "unit": "",
+   "unit": "mg/dL",
    "reference": "<200 mg/dL",
    "status": "high"
   },
   {
    "name": "HDL CHOLESTEROL",
    "value": "52",
-   "unit": "",
+   "unit": "mg/dL",
    "reference": "> OR = 50 mg/dL",
    "status": "normal"
   },
   {
    "name": "HEMOGLOBIN A1c",
    "value": "5.4",
-   "unit": "",
+   "unit": "%",
    "reference": "<5.7 % of total Hgb",
    "status": "normal"
   }

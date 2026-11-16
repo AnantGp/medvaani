@@ -133,3 +133,8 @@ def test_abnormal_list_accepts_printed_alias_dash_variants_and_values():
     ok, why = answer_lists_abnormal(ans, ['葡萄糖(GLU)', 'LDL-Cholesterin', 'Fasting plasma glucose'], [],
                                     [{'name': 'Fasting plasma glucose', 'value': '108', 'unit': 'mg/dL'}])
     assert ok, why
+
+
+def test_short_alias_matches_whole_words_only():
+    ok, why = answer_lists_abnormal('Fasting plasma glucose: 108 mg/dL (high).', ['Fasting plasma glucose'], ['AST (SGOT)'])
+    assert ok, why
