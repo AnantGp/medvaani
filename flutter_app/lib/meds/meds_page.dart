@@ -43,8 +43,18 @@ class _MedsPageState extends State<MedsPage> {
       raw = widget.load?.call();
     } catch (_) {}
     _state = MedState.decode(raw);
-    // A demo is always shown as of today, so it never goes stale.
-    if (_state.demo) _state = sampleMedState(_now);
+    // A demo is always shown as of today, so it never goes stale. Demos saved
+    // before the demo flag existed are recognised by their sample prescriber.
+    final legacyDemo = _state.medicines.isNotEmpty &&
+        _state.medicines.every((m) => m.prescribedBy == 'Sample doctor');
+    if (_state.demo || legacyDemo) {
+      _state = sampleMedState(_now);
+      if (legacyDemo) {
+        try {
+          widget.store?.call(_state.encode());
+        } catch (_) {}
+      }
+    }
     // Re-evaluate due/missed doses while the page is open.
     _tick = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
