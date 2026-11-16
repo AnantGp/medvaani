@@ -304,9 +304,9 @@ def truth_rows(spec):
         printed_unit = unit if keys & {'unit', 'vu'} else ''
         if not printed_unit and keys & {'in', 'out'}:
             # US style: the unit is printed only after the range ("65-99 mg/dL");
-            # it is still the result's unit. "% of total Hgb" -> "%".
+            # it is still the result's unit.
             m = re.search(r'[\d.]\s*([^\d\s][^\d]*)$', ref)
-            printed_unit = m[1].split(' of ')[0].strip() if m else ''
+            printed_unit = m[1].strip() if m else ''
         value = value.split(' ')[-1]  # "*H 7.2" prints a flag before the number
         out.append({'name': name, 'value': value, 'unit': printed_unit, 'reference': ref, 'status': status})
     return out

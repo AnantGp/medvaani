@@ -138,7 +138,7 @@
   {
    "name": "HEMOGLOBIN A1c",
    "value": "5.4",
-   "unit": "%",
+   "unit": "% of total Hgb",
    "reference": "<5.7 % of total Hgb",
    "status": "normal"
   }

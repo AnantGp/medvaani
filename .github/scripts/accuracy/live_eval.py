@@ -157,13 +157,21 @@ if MODE == 'pdf':
         items.append(item)
         reports[key] = report
         time.sleep(2)
+    (OUT / f'{MODE}.json').write_text(json.dumps({'base': base, 'mode': MODE, 'items': items, 'questions': []},
+                                                 indent=1, ensure_ascii=False))
+    quota_failures = 0
     for key in [k for k in truth if Path(k).name in QA_SET]:
         report = reports.get(key)
         for kind, text, lang, check in question_plan(truth[key], key):
             if report is None:
                 questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'no_report'})
                 continue
+            if quota_failures >= 3:
+                questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'service_error',
+                                  'error': 'skipped: AI quota exhausted'})
+                continue
             answer, attempts = ask(report, text, lang)
+            quota_failures = quota_failures + 1 if answer is None and 'quota' in json.dumps(attempts[-1:]).casefold() else 0
             save(f'{Path(key).stem}.q.{kind}.json', {'question': text, 'language': lang, 'attempts': attempts})
             if answer is None:
                 questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'service_error',
