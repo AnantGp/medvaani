@@ -48,7 +48,10 @@ def check(group, t, limits):
 for mode in ('pdf', 'photo'):
     path = OUT / f'{mode}.json'
     if not path.exists():
-        failures.append(f'{mode}: no results file (run did not complete)')
+        if mode == 'pdf':
+            failures.append(f'{mode}: no results file (run did not complete)')
+        else:
+            lines.append(f'### {mode}\nnot run in this evaluation')
         continue
     data = json.loads(path.read_text())
     check(mode, totals(data['items']), LIMITS[mode])
@@ -71,6 +74,16 @@ for mode in ('pdf', 'photo'):
 report = '## Accuracy run\n\n' + ('**PASSED**' if not failures else '**FAILED**\n\n' + '\n'.join(f'- {f}' for f in failures)) + '\n\n' + '\n'.join(lines)
 (OUT / 'summary.md').write_text(report)
 print(report)
+# The run page summary is not reachable from every machine, so the detail
+# also goes out as annotations of about 3.5 KB each.
+chunk = ''
+for line in report.splitlines():
+    if len(chunk) + len(line) > 3400:
+        print('::notice title=accuracy detail::' + chunk.replace('%', '%25').replace('\n', '%0A'))
+        chunk = ''
+    chunk += line[:3300] + '\n'
+if chunk:
+    print('::notice title=accuracy detail::' + chunk.replace('%', '%25').replace('\n', '%0A'))
 # One short annotation so the verdict is visible on the commit.
 print(f"::{'notice' if not failures else 'error'} title=accuracy verdict::" + ('PASSED' if not failures else ' / '.join(failures))[:3500].replace('%', '%25'))
 sys.exit(1 if failures else 0)

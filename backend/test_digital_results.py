@@ -288,3 +288,14 @@ def test_footer_sentence_is_not_a_measurement(tmp_path):
     c.save()
     rows, _ = extract(str(path))
     assert [r['test_name'] for r in rows] == ['Ferritin']
+
+
+def test_flag_sharing_the_value_column_is_split_off():
+    from digital_results import _split_flag
+    w = lambda t, x: {'text': t, 'x': x, 'y': .1, 'width': .03, 'height': .01}
+    value, flag = _split_flag([w('5.6', .4), w('H', .45)])
+    assert [x['text'] for x in value] == ['5.6'] and [x['text'] for x in flag] == ['H']
+    value, flag = _split_flag([w('*H', .38), w('7.2', .42)])
+    assert [x['text'] for x in value] == ['7.2'] and [x['text'] for x in flag] == ['*H']
+    value, flag = _split_flag([w('Non', .4), w('Reactive', .45)])
+    assert [x['text'] for x in value] == ['Non', 'Reactive'] and flag == []

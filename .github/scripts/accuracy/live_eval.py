@@ -26,8 +26,7 @@ for s in sets:
     for k, v in json.loads((s / 'truth.json').read_text()).items():
         truth[str(s / k)] = v
 
-QA_SET = ('A_testname_value_unit_bioref_0.pdf', 'C_test_result_units_range_flag_1.pdf',
-          'F_patient_block_sections_0.pdf', 'I_messy_wide.pdf')
+QA_SET = ('shami_synthetic_report.pdf', 'CN_china.pdf', 'ES_spain.pdf', 'US_usa.pdf', 'DE_germany.pdf')
 PHOTO_SET = ('A_testname_value_unit_bioref_0.pdf', 'B_investigation_observed_0.pdf',
              'C_test_result_units_range_flag_0.pdf', 'D_parameter_result_normal_0.pdf',
              'F_patient_block_sections_0.pdf', 'I_messy_wide.pdf')
@@ -117,7 +116,10 @@ def ask(report, text, lang):
 ABSENT = ['Ferritin', 'TSH', 'Vitamin B12', 'Serum Potassium', 'ESR', 'Uric Acid']
 
 
-def question_plan(rows):
+NATIVE = {'CN_china.pdf': ('zh', '我的{name}是多少？'), 'ES_spain.pdf': ('es', '¿Cuál es mi {name}?')}
+
+
+def question_plan(rows, key=''):
     abnormal = [r for r in rows if r['status'] != 'normal']
     normal = [r for r in rows if r['status'] == 'normal']
     absent = next(n for n in ABSENT if n not in {r['name'] for r in rows})
@@ -127,7 +129,9 @@ def question_plan(rows):
         plan.append(('value', f"What is my {a['name']}?", 'en', lambda t, a=a: answer_states_value(t, a['value'], a['unit'])))
         plan.append(('direction', f"Is my {a['name']} high, low or normal?", 'en',
                      lambda t, a=a: answer_direction(t, a['name'], 'high' if a['status'] == 'borderline' else a['status'], [r['name'] for r in rows])))
-        plan.append(('value_hindi', f"मेरा {a['name']} कितना है?", 'hi', lambda t, a=a: answer_states_value(t, a['value'], a['unit'])))
+        lang, template = NATIVE.get(Path(key).name, ('hi', 'मेरा {name} कितना है?'))
+        plan.append((f'value_{lang}', template.format(name=a['name']), lang,
+                     lambda t, a=a: answer_states_value(t, a['value'], a['unit'])))
     if normal:
         n = normal[0]
         plan.append(('normal', f"Is my {n['name']} okay?", 'en', lambda t, n=n: answer_direction(t, n['name'], 'normal', [r['name'] for r in rows])))
@@ -148,7 +152,7 @@ if MODE == 'pdf':
         time.sleep(2)
     for key in [k for k in truth if Path(k).name in QA_SET]:
         report = reports.get(key)
-        for kind, text, lang, check in question_plan(truth[key]):
+        for kind, text, lang, check in question_plan(truth[key], key):
             if report is None:
                 questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'no_report'})
                 continue

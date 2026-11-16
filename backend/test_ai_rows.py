@@ -10,7 +10,7 @@ from ocr import read_document
 from report_quality import flag_status, validate_document
 
 ROOT = Path(__file__).resolve().parents[1]
-SHAMI = ROOT / 'test_data' / 'shami_synthetic_report.pdf'
+SHAMI = ROOT / 'test_data' / 'shami' / 'shami_synthetic_report.pdf'
 
 
 def _page(lines):
@@ -80,7 +80,7 @@ def test_decimal_comma_detection():
 @pytest.mark.skipif(not SHAMI.exists(), reason='fixture missing')
 def test_shami_report_with_a_perfect_reader_is_fully_grounded():
     """Given correct choices, every Shami result is located and labelled correctly."""
-    truth = json.loads((ROOT / 'test_data' / 'shami_truth.json').read_text())['shami_synthetic_report.pdf']
+    truth = json.loads((ROOT / 'test_data' / 'shami' / 'truth.json').read_text())['shami_synthetic_report.pdf']
     doc = read_document(str(SHAMI))
     lines = {l['text']: f"p{p['page']}.L{i}" for p in doc['pages'] for i, l in enumerate(p['lines'], 1) if l['words']}
     flags = ['Within range', 'Above normal range', 'Prediabetes range', 'Desirable', 'Above optimal',

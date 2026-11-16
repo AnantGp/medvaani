@@ -1,0 +1,1082 @@
+{
+ "IN_india.pdf": [
+  {
+   "name": "Hemoglobin",
+   "value": "11.8",
+   "unit": "g/dL",
+   "reference": "13.0 - 17.0",
+   "status": "low"
+  },
+  {
+   "name": "Total Leukocyte Count",
+   "value": "7.40",
+   "unit": "thou/mm3",
+   "reference": "4.00 - 10.00",
+   "status": "normal"
+  },
+  {
+   "name": "Platelet Count",
+   "value": "182",
+   "unit": "thou/mm3",
+   "reference": "150 - 410",
+   "status": "normal"
+  },
+  {
+   "name": "Glucose, Fasting",
+   "value": "126",
+   "unit": "mg/dL",
+   "reference": "70 - 100",
+   "status": "high"
+  },
+  {
+   "name": "HbA1c",
+   "value": "6.9",
+   "unit": "%",
+   "reference": "4.0 - 5.6",
+   "status": "high"
+  },
+  {
+   "name": "Creatinine",
+   "value": "1.02",
+   "unit": "mg/dL",
+   "reference": "0.70 - 1.30",
+   "status": "normal"
+  },
+  {
+   "name": "Cholesterol, Total",
+   "value": "214",
+   "unit": "mg/dL",
+   "reference": "< 200",
+   "status": "high"
+  },
+  {
+   "name": "Vitamin B12",
+   "value": "168",
+   "unit": "pg/mL",
+   "reference": "211 - 911",
+   "status": "low"
+  },
+  {
+   "name": "25 OH Vitamin D, Total",
+   "value": "18.4",
+   "unit": "ng/mL",
+   "reference": "30.0 - 100.0",
+   "status": "low"
+  },
+  {
+   "name": "TSH",
+   "value": "3.12",
+   "unit": "µIU/mL",
+   "reference": "0.35 - 5.50",
+   "status": "normal"
+  }
+ ],
+ "US_usa.pdf": [
+  {
+   "name": "GLUCOSE",
+   "value": "112",
+   "unit": "",
+   "reference": "65-99 mg/dL",
+   "status": "high"
+  },
+  {
+   "name": "UREA NITROGEN (BUN)",
+   "value": "14",
+   "unit": "",
+   "reference": "7-25 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "CREATININE",
+   "value": "0.88",
+   "unit": "",
+   "reference": "0.50-1.03 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "SODIUM",
+   "value": "133",
+   "unit": "",
+   "reference": "135-146 mmol/L",
+   "status": "low"
+  },
+  {
+   "name": "POTASSIUM",
+   "value": "4.4",
+   "unit": "",
+   "reference": "3.5-5.3 mmol/L",
+   "status": "normal"
+  },
+  {
+   "name": "CALCIUM",
+   "value": "9.6",
+   "unit": "",
+   "reference": "8.6-10.4 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "ALT",
+   "value": "58",
+   "unit": "",
+   "reference": "6-29 U/L",
+   "status": "high"
+  },
+  {
+   "name": "CHOLESTEROL, TOTAL",
+   "value": "236",
+   "unit": "",
+   "reference": "<200 mg/dL",
+   "status": "high"
+  },
+  {
+   "name": "HDL CHOLESTEROL",
+   "value": "52",
+   "unit": "",
+   "reference": "> OR = 50 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "HEMOGLOBIN A1c",
+   "value": "5.4",
+   "unit": "",
+   "reference": "<5.7 % of total Hgb",
+   "status": "normal"
+  }
+ ],
+ "UK_uk.pdf": [
+  {
+   "name": "Serum sodium",
+   "value": "139",
+   "unit": "mmol/L",
+   "reference": "(133 - 146)",
+   "status": "normal"
+  },
+  {
+   "name": "Serum potassium",
+   "value": "5.6",
+   "unit": "mmol/L",
+   "reference": "(3.5 - 5.3)",
+   "status": "high"
+  },
+  {
+   "name": "Serum creatinine",
+   "value": "96",
+   "unit": "umol/L",
+   "reference": "(59 - 104)",
+   "status": "normal"
+  },
+  {
+   "name": "eGFR",
+   "value": "78",
+   "unit": "mL/min/1.73m2",
+   "reference": "(>90)",
+   "status": "low"
+  },
+  {
+   "name": "Serum ALT",
+   "value": "22",
+   "unit": "U/L",
+   "reference": "(0 - 41)",
+   "status": "normal"
+  },
+  {
+   "name": "HbA1c (IFCC)",
+   "value": "52",
+   "unit": "mmol/mol",
+   "reference": "(20 - 41)",
+   "status": "high"
+  },
+  {
+   "name": "Serum cholesterol",
+   "value": "5.9",
+   "unit": "mmol/L",
+   "reference": "(< 5.0)",
+   "status": "high"
+  },
+  {
+   "name": "Serum ferritin",
+   "value": "14",
+   "unit": "ug/L",
+   "reference": "(30 - 400)",
+   "status": "low"
+  },
+  {
+   "name": "Haemoglobin",
+   "value": "138",
+   "unit": "g/L",
+   "reference": "(130 - 180)",
+   "status": "normal"
+  },
+  {
+   "name": "Plasma glucose",
+   "value": "5.4",
+   "unit": "mmol/L",
+   "reference": "(3.0 - 6.0)",
+   "status": "normal"
+  }
+ ],
+ "CN_china.pdf": [
+  {
+   "name": "葡萄糖(GLU)",
+   "value": "7.8",
+   "unit": "mmol/L",
+   "reference": "3.9-6.1",
+   "status": "high"
+  },
+  {
+   "name": "总胆固醇(TC)",
+   "value": "5.12",
+   "unit": "mmol/L",
+   "reference": "<5.2",
+   "status": "normal"
+  },
+  {
+   "name": "甘油三酯(TG)",
+   "value": "2.35",
+   "unit": "mmol/L",
+   "reference": "<1.7",
+   "status": "high"
+  },
+  {
+   "name": "肌酐(Cr)",
+   "value": "78",
+   "unit": "μmol/L",
+   "reference": "57-111",
+   "status": "normal"
+  },
+  {
+   "name": "尿酸(UA)",
+   "value": "512",
+   "unit": "μmol/L",
+   "reference": "208-428",
+   "status": "high"
+  },
+  {
+   "name": "丙氨酸氨基转移酶(ALT)",
+   "value": "35",
+   "unit": "U/L",
+   "reference": "9-50",
+   "status": "normal"
+  },
+  {
+   "name": "血红蛋白(HGB)",
+   "value": "118",
+   "unit": "g/L",
+   "reference": "130-175",
+   "status": "low"
+  },
+  {
+   "name": "白细胞计数(WBC)",
+   "value": "6.2",
+   "unit": "10^9/L",
+   "reference": "3.5-9.5",
+   "status": "normal"
+  },
+  {
+   "name": "糖化血红蛋白(HbA1c)",
+   "value": "6.8",
+   "unit": "%",
+   "reference": "4.0-6.0",
+   "status": "high"
+  },
+  {
+   "name": "促甲状腺激素(TSH)",
+   "value": "2.10",
+   "unit": "mIU/L",
+   "reference": "0.27-4.20",
+   "status": "normal"
+  }
+ ],
+ "ES_spain.pdf": [
+  {
+   "name": "Glucosa",
+   "value": "104",
+   "unit": "mg/dL",
+   "reference": "74 - 106",
+   "status": "normal"
+  },
+  {
+   "name": "Hemoglobina glicosilada (HbA1c)",
+   "value": "6,1",
+   "unit": "%",
+   "reference": "4,0 - 5,6",
+   "status": "high"
+  },
+  {
+   "name": "Colesterol total",
+   "value": "241",
+   "unit": "mg/dL",
+   "reference": "< 200",
+   "status": "high"
+  },
+  {
+   "name": "Triglicéridos",
+   "value": "132",
+   "unit": "mg/dL",
+   "reference": "< 150",
+   "status": "normal"
+  },
+  {
+   "name": "Creatinina",
+   "value": "0,74",
+   "unit": "mg/dL",
+   "reference": "0,51 - 0,95",
+   "status": "normal"
+  },
+  {
+   "name": "Hierro",
+   "value": "38",
+   "unit": "µg/dL",
+   "reference": "50 - 170",
+   "status": "low"
+  },
+  {
+   "name": "Ferritina",
+   "value": "9,8",
+   "unit": "ng/mL",
+   "reference": "15,0 - 150,0",
+   "status": "low"
+  },
+  {
+   "name": "Hemoglobina",
+   "value": "11,2",
+   "unit": "g/dL",
+   "reference": "12,0 - 15,5",
+   "status": "low"
+  },
+  {
+   "name": "Vitamina B12",
+   "value": "412",
+   "unit": "pg/mL",
+   "reference": "197 - 771",
+   "status": "normal"
+  },
+  {
+   "name": "Tirotropina (TSH)",
+   "value": "2,85",
+   "unit": "µUI/mL",
+   "reference": "0,38 - 5,33",
+   "status": "normal"
+  }
+ ],
+ "DE_germany.pdf": [
+  {
+   "name": "Glucose nüchtern",
+   "value": "98",
+   "unit": "mg/dl",
+   "reference": "70 - 100",
+   "status": "normal"
+  },
+  {
+   "name": "HbA1c",
+   "value": "6,4",
+   "unit": "%",
+   "reference": "< 5,7",
+   "status": "high"
+  },
+  {
+   "name": "Kreatinin",
+   "value": "1,31",
+   "unit": "mg/dl",
+   "reference": "0,67 - 1,17",
+   "status": "high"
+  },
+  {
+   "name": "GFR (CKD-EPI)",
+   "value": "58",
+   "unit": "ml/min",
+   "reference": "> 60",
+   "status": "low"
+  },
+  {
+   "name": "Harnsäure",
+   "value": "6,2",
+   "unit": "mg/dl",
+   "reference": "3,4 - 7,0",
+   "status": "normal"
+  },
+  {
+   "name": "GPT (ALT)",
+   "value": "31",
+   "unit": "U/l",
+   "reference": "< 50",
+   "status": "normal"
+  },
+  {
+   "name": "Cholesterin gesamt",
+   "value": "228",
+   "unit": "mg/dl",
+   "reference": "< 200",
+   "status": "high"
+  },
+  {
+   "name": "LDL-Cholesterin",
+   "value": "152",
+   "unit": "mg/dl",
+   "reference": "< 116",
+   "status": "high"
+  },
+  {
+   "name": "Hämoglobin",
+   "value": "14,9",
+   "unit": "g/dl",
+   "reference": "13,5 - 17,5",
+   "status": "normal"
+  },
+  {
+   "name": "TSH basal",
+   "value": "0,21",
+   "unit": "mU/l",
+   "reference": "0,27 - 4,20",
+   "status": "low"
+  }
+ ],
+ "FR_france.pdf": [
+  {
+   "name": "Glycémie à jeun",
+   "value": "1,08",
+   "unit": "g/L",
+   "reference": "0,70 à 1,05",
+   "status": "high"
+  },
+  {
+   "name": "Créatinine",
+   "value": "68",
+   "unit": "µmol/L",
+   "reference": "45 à 84",
+   "status": "normal"
+  },
+  {
+   "name": "Cholestérol total",
+   "value": "2,34",
+   "unit": "g/L",
+   "reference": "< 2,00",
+   "status": "high"
+  },
+  {
+   "name": "Triglycérides",
+   "value": "0,92",
+   "unit": "g/L",
+   "reference": "< 1,50",
+   "status": "normal"
+  },
+  {
+   "name": "Gamma GT",
+   "value": "18",
+   "unit": "UI/L",
+   "reference": "< 38",
+   "status": "normal"
+  },
+  {
+   "name": "Ferritine",
+   "value": "12",
+   "unit": "µg/L",
+   "reference": "15 à 150",
+   "status": "low"
+  },
+  {
+   "name": "Hémoglobine",
+   "value": "12,6",
+   "unit": "g/dL",
+   "reference": "11,5 à 16,0",
+   "status": "normal"
+  },
+  {
+   "name": "Vitamine D (25-OH)",
+   "value": "17",
+   "unit": "ng/mL",
+   "reference": "30 à 100",
+   "status": "low"
+  },
+  {
+   "name": "TSH",
+   "value": "1,92",
+   "unit": "mUI/L",
+   "reference": "0,40 à 4,00",
+   "status": "normal"
+  },
+  {
+   "name": "HbA1c",
+   "value": "5,9",
+   "unit": "%",
+   "reference": "4,0 à 6,0",
+   "status": "normal"
+  }
+ ],
+ "JP_japan.pdf": [
+  {
+   "name": "AST(GOT)",
+   "value": "42",
+   "unit": "U/L",
+   "reference": "13～30",
+   "status": "high"
+  },
+  {
+   "name": "ALT(GPT)",
+   "value": "55",
+   "unit": "U/L",
+   "reference": "10～42",
+   "status": "high"
+  },
+  {
+   "name": "γ-GT",
+   "value": "88",
+   "unit": "U/L",
+   "reference": "13～64",
+   "status": "high"
+  },
+  {
+   "name": "クレアチニン",
+   "value": "0.95",
+   "unit": "mg/dL",
+   "reference": "0.65～1.07",
+   "status": "normal"
+  },
+  {
+   "name": "尿酸",
+   "value": "7.9",
+   "unit": "mg/dL",
+   "reference": "3.7～7.0",
+   "status": "high"
+  },
+  {
+   "name": "空腹時血糖",
+   "value": "96",
+   "unit": "mg/dL",
+   "reference": "73～109",
+   "status": "normal"
+  },
+  {
+   "name": "HbA1c(NGSP)",
+   "value": "5.6",
+   "unit": "%",
+   "reference": "4.9～6.0",
+   "status": "normal"
+  },
+  {
+   "name": "LDLコレステロール",
+   "value": "148",
+   "unit": "mg/dL",
+   "reference": "65～163",
+   "status": "normal"
+  },
+  {
+   "name": "HDLコレステロール",
+   "value": "36",
+   "unit": "mg/dL",
+   "reference": "38～90",
+   "status": "low"
+  },
+  {
+   "name": "ヘモグロビン",
+   "value": "14.8",
+   "unit": "g/dL",
+   "reference": "13.7～16.8",
+   "status": "normal"
+  }
+ ],
+ "KR_korea.pdf": [
+  {
+   "name": "공복혈당",
+   "value": "118",
+   "unit": "mg/dL",
+   "reference": "70~99",
+   "status": "high"
+  },
+  {
+   "name": "당화혈색소",
+   "value": "6.2",
+   "unit": "%",
+   "reference": "4.0~5.6",
+   "status": "high"
+  },
+  {
+   "name": "총콜레스테롤",
+   "value": "186",
+   "unit": "mg/dL",
+   "reference": "0~199",
+   "status": "normal"
+  },
+  {
+   "name": "중성지방",
+   "value": "210",
+   "unit": "mg/dL",
+   "reference": "0~149",
+   "status": "high"
+  },
+  {
+   "name": "크레아티닌",
+   "value": "0.71",
+   "unit": "mg/dL",
+   "reference": "0.50~0.90",
+   "status": "normal"
+  },
+  {
+   "name": "혈색소",
+   "value": "11.4",
+   "unit": "g/dL",
+   "reference": "12.0~16.0",
+   "status": "low"
+  },
+  {
+   "name": "페리틴",
+   "value": "8.2",
+   "unit": "ng/mL",
+   "reference": "13.0~150.0",
+   "status": "low"
+  },
+  {
+   "name": "갑상선자극호르몬(TSH)",
+   "value": "3.40",
+   "unit": "uIU/mL",
+   "reference": "0.35~4.94",
+   "status": "normal"
+  },
+  {
+   "name": "AST",
+   "value": "21",
+   "unit": "IU/L",
+   "reference": "0~32",
+   "status": "normal"
+  },
+  {
+   "name": "ALT",
+   "value": "19",
+   "unit": "IU/L",
+   "reference": "0~33",
+   "status": "normal"
+  }
+ ],
+ "CA_canada.pdf": [
+  {
+   "name": "Glucose Fasting",
+   "value": "6.4",
+   "unit": "mmol/L",
+   "reference": "3.6 - 6.0",
+   "status": "high"
+  },
+  {
+   "name": "Hemoglobin A1C",
+   "value": "0.061",
+   "unit": "fraction",
+   "reference": "<0.060",
+   "status": "high"
+  },
+  {
+   "name": "Creatinine",
+   "value": "88",
+   "unit": "umol/L",
+   "reference": "60 - 110",
+   "status": "normal"
+  },
+  {
+   "name": "eGFR",
+   "value": "84",
+   "unit": "mL/min/1.73m2",
+   "reference": ">=60",
+   "status": "normal"
+  },
+  {
+   "name": "Cholesterol",
+   "value": "5.6",
+   "unit": "mmol/L",
+   "reference": "<5.2",
+   "status": "high"
+  },
+  {
+   "name": "LDL Cholesterol",
+   "value": "3.7",
+   "unit": "mmol/L",
+   "reference": "<3.5",
+   "status": "high"
+  },
+  {
+   "name": "HDL Cholesterol",
+   "value": "1.2",
+   "unit": "mmol/L",
+   "reference": ">1.0",
+   "status": "normal"
+  },
+  {
+   "name": "Triglycerides",
+   "value": "1.6",
+   "unit": "mmol/L",
+   "reference": "<1.7",
+   "status": "normal"
+  },
+  {
+   "name": "TSH",
+   "value": "2.8",
+   "unit": "mU/L",
+   "reference": "0.32 - 4.00",
+   "status": "normal"
+  },
+  {
+   "name": "Ferritin",
+   "value": "22",
+   "unit": "ug/L",
+   "reference": "30 - 400",
+   "status": "low"
+  }
+ ],
+ "AU_australia.pdf": [
+  {
+   "name": "Sodium",
+   "value": "141",
+   "unit": "mmol/L",
+   "reference": "(135-145)",
+   "status": "normal"
+  },
+  {
+   "name": "Potassium",
+   "value": "3.3",
+   "unit": "mmol/L",
+   "reference": "(3.5-5.2)",
+   "status": "low"
+  },
+  {
+   "name": "Urea",
+   "value": "6.1",
+   "unit": "mmol/L",
+   "reference": "(2.5-8.0)",
+   "status": "normal"
+  },
+  {
+   "name": "Creatinine",
+   "value": "71",
+   "unit": "umol/L",
+   "reference": "(45-90)",
+   "status": "normal"
+  },
+  {
+   "name": "eGFR",
+   "value": ">90",
+   "unit": "mL/min/1.73m2",
+   "reference": "(>59)",
+   "status": "normal"
+  },
+  {
+   "name": "Glucose",
+   "value": "7.4",
+   "unit": "mmol/L",
+   "reference": "(3.0-7.7)",
+   "status": "normal"
+  },
+  {
+   "name": "HbA1c",
+   "value": "6.6",
+   "unit": "%",
+   "reference": "(<6.0)",
+   "status": "high"
+  },
+  {
+   "name": "Total Cholesterol",
+   "value": "6.2",
+   "unit": "mmol/L",
+   "reference": "(<5.5)",
+   "status": "high"
+  },
+  {
+   "name": "ALT",
+   "value": "24",
+   "unit": "U/L",
+   "reference": "(<34)",
+   "status": "normal"
+  },
+  {
+   "name": "Ferritin",
+   "value": "210",
+   "unit": "ug/L",
+   "reference": "(30-500)",
+   "status": "normal"
+  }
+ ],
+ "BR_brazil.pdf": [
+  {
+   "name": "Glicose em jejum",
+   "value": "92",
+   "unit": "mg/dL",
+   "reference": "70 a 99 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "Hemoglobina glicada (HbA1c)",
+   "value": "5,9",
+   "unit": "%",
+   "reference": "4,0 a 5,6 %",
+   "status": "high"
+  },
+  {
+   "name": "Colesterol total",
+   "value": "231",
+   "unit": "mg/dL",
+   "reference": "Desejável: < 190 mg/dL",
+   "status": "high"
+  },
+  {
+   "name": "Triglicerídeos",
+   "value": "128",
+   "unit": "mg/dL",
+   "reference": "< 150 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "Creatinina",
+   "value": "0,82",
+   "unit": "mg/dL",
+   "reference": "0,50 a 0,90 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "Ureia",
+   "value": "31",
+   "unit": "mg/dL",
+   "reference": "15 a 40 mg/dL",
+   "status": "normal"
+  },
+  {
+   "name": "TGP (ALT)",
+   "value": "18",
+   "unit": "U/L",
+   "reference": "< 33 U/L",
+   "status": "normal"
+  },
+  {
+   "name": "Ferritina",
+   "value": "11,4",
+   "unit": "ng/mL",
+   "reference": "13,0 a 150,0 ng/mL",
+   "status": "low"
+  },
+  {
+   "name": "Hemoglobina",
+   "value": "12,1",
+   "unit": "g/dL",
+   "reference": "12,0 a 15,5 g/dL",
+   "status": "normal"
+  },
+  {
+   "name": "TSH",
+   "value": "5,92",
+   "unit": "µUI/mL",
+   "reference": "0,45 a 4,50 µUI/mL",
+   "status": "high"
+  }
+ ],
+ "MX_mexico.pdf": [
+  {
+   "name": "Glucosa",
+   "value": "142",
+   "unit": "mg/dL",
+   "reference": "70 - 100",
+   "status": "high"
+  },
+  {
+   "name": "Urea",
+   "value": "34",
+   "unit": "mg/dL",
+   "reference": "15 - 45",
+   "status": "normal"
+  },
+  {
+   "name": "Creatinina",
+   "value": "1.1",
+   "unit": "mg/dL",
+   "reference": "0.7 - 1.3",
+   "status": "normal"
+  },
+  {
+   "name": "Ácido úrico",
+   "value": "8.1",
+   "unit": "mg/dL",
+   "reference": "3.5 - 7.2",
+   "status": "high"
+  },
+  {
+   "name": "Colesterol total",
+   "value": "198",
+   "unit": "mg/dL",
+   "reference": "< 200",
+   "status": "normal"
+  },
+  {
+   "name": "Triglicéridos",
+   "value": "267",
+   "unit": "mg/dL",
+   "reference": "< 150",
+   "status": "high"
+  },
+  {
+   "name": "Colesterol HDL",
+   "value": "34",
+   "unit": "mg/dL",
+   "reference": "> 40",
+   "status": "low"
+  },
+  {
+   "name": "Hemoglobina glucosilada",
+   "value": "7.6",
+   "unit": "%",
+   "reference": "4.0 - 5.6",
+   "status": "high"
+  },
+  {
+   "name": "Hemoglobina",
+   "value": "15.2",
+   "unit": "g/dL",
+   "reference": "13.5 - 17.5",
+   "status": "normal"
+  },
+  {
+   "name": "TGP (ALT)",
+   "value": "29",
+   "unit": "U/L",
+   "reference": "7 - 56",
+   "status": "normal"
+  }
+ ],
+ "AE_uae.pdf": [
+  {
+   "name": "Glucose (Fasting)",
+   "value": "5.9",
+   "unit": "mmol/L",
+   "reference": "3.9 - 5.6",
+   "status": "high"
+  },
+  {
+   "name": "HbA1c",
+   "value": "5.8",
+   "unit": "%",
+   "reference": "4.0 - 5.6",
+   "status": "high"
+  },
+  {
+   "name": "Urea",
+   "value": "4.7",
+   "unit": "mmol/L",
+   "reference": "2.8 - 8.1",
+   "status": "normal"
+  },
+  {
+   "name": "Creatinine",
+   "value": "82",
+   "unit": "µmol/L",
+   "reference": "62 - 106",
+   "status": "normal"
+  },
+  {
+   "name": "Total Cholesterol",
+   "value": "4.6",
+   "unit": "mmol/L",
+   "reference": "< 5.2",
+   "status": "normal"
+  },
+  {
+   "name": "Triglycerides",
+   "value": "2.4",
+   "unit": "mmol/L",
+   "reference": "< 1.7",
+   "status": "high"
+  },
+  {
+   "name": "Vitamin D, 25-Hydroxy",
+   "value": "31",
+   "unit": "nmol/L",
+   "reference": "75 - 250",
+   "status": "low"
+  },
+  {
+   "name": "Vitamin B12",
+   "value": "310",
+   "unit": "pmol/L",
+   "reference": "138 - 652",
+   "status": "normal"
+  },
+  {
+   "name": "TSH",
+   "value": "1.9",
+   "unit": "mIU/L",
+   "reference": "0.27 - 4.20",
+   "status": "normal"
+  },
+  {
+   "name": "Hemoglobin",
+   "value": "15.1",
+   "unit": "g/dL",
+   "reference": "13.0 - 17.0",
+   "status": "normal"
+  }
+ ],
+ "SG_singapore.pdf": [
+  {
+   "name": "Glucose, Fasting",
+   "value": "7.2",
+   "unit": "mmol/L",
+   "reference": "3.9 - 6.0",
+   "status": "high"
+  },
+  {
+   "name": "HbA1c",
+   "value": "7.1",
+   "unit": "%",
+   "reference": "4.0 - 5.6",
+   "status": "high"
+  },
+  {
+   "name": "Cholesterol, Total",
+   "value": "4.9",
+   "unit": "mmol/L",
+   "reference": "< 5.2",
+   "status": "normal"
+  },
+  {
+   "name": "LDL Cholesterol",
+   "value": "3.1",
+   "unit": "mmol/L",
+   "reference": "< 2.6",
+   "status": "high"
+  },
+  {
+   "name": "HDL Cholesterol",
+   "value": "1.4",
+   "unit": "mmol/L",
+   "reference": "> 1.0",
+   "status": "normal"
+  },
+  {
+   "name": "Triglycerides",
+   "value": "1.3",
+   "unit": "mmol/L",
+   "reference": "< 1.7",
+   "status": "normal"
+  },
+  {
+   "name": "Creatinine",
+   "value": "64",
+   "unit": "umol/L",
+   "reference": "45 - 84",
+   "status": "normal"
+  },
+  {
+   "name": "eGFR",
+   "value": "89",
+   "unit": "mL/min/1.73m2",
+   "reference": ">= 90",
+   "status": "low"
+  },
+  {
+   "name": "Microalbumin/Creatinine Ratio",
+   "value": "4.8",
+   "unit": "mg/mmol",
+   "reference": "< 3.0",
+   "status": "high"
+  },
+  {
+   "name": "ALT",
+   "value": "17",
+   "unit": "U/L",
+   "reference": "7 - 36",
+   "status": "normal"
+  }
+ ]
+}

@@ -16,6 +16,21 @@ def source_field(words, page, method):
             'box': [x, y, right - x, bottom - y], 'method': method}
 
 
+FLAG_TOKEN = re.compile(r'^(?:\*?[HL]{1,2}\*?|\*|[↑↓]|[+]|A|N)$')
+
+
+def _split_flag(value_words):
+    """'5.6 H', '*H 7.2', '106 L': the flag shares the value column on many
+    reports. Keep only the number as the value and return the flag words."""
+    if len(value_words) < 2:
+        return value_words, []
+    numeric = [w for w in value_words if re.search(r'\d', w['text'])]
+    flags = [w for w in value_words if FLAG_TOKEN.match(w['text'])]
+    if len(numeric) == 1 and flags and len(flags) + 1 == len(value_words):
+        return numeric, flags
+    return value_words, []
+
+
 def _columns(words, boundaries):
     result = [[], [], [], []]
     for word in words:
@@ -129,6 +144,7 @@ def extract_digital_results(pages, source_digest):
                 if not words or words[0]['x'] > left + .025:
                     continue
                 cols = table_columns(words)
+                cols[1], printed_flag = _split_flag(cols[1])
                 text = [' '.join(w['text'] for w in col) for col in cols]
                 name, value, unit, reference = text
                 # Numbered interpretation paragraphs are prose. A clinical row
@@ -166,6 +182,8 @@ def extract_digital_results(pages, source_digest):
                     flag = source_field([w for w in words if w['x'] >= flag_x], number, line['method'])
                     if flag:
                         fields['flag'] = flag
+                if printed_flag and 'flag' not in fields:
+                    fields['flag'] = source_field(printed_flag, number, line['method'])
                 if cols[3]:
                     reference_parts = [fields['reference_range']]
                     for following in lines[i + 1:finish]:
