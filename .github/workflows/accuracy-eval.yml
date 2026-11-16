@@ -18,7 +18,7 @@ jobs:
   eval:
     # Each run spends a large share of the free daily AI allowance, so it runs
     # only when asked: put [eval] in the commit message.
-    if: contains(github.event.head_commit.message, '[eval]')
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[eval]')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     defaults:
