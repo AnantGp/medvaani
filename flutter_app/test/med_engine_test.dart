@@ -42,18 +42,20 @@ void main() {
     final day = DateTime(2026, 11, 1);
     final med = _med(MealRule.any, times: [8 * 60, 20 * 60]);
 
-    test('counts taken and missed past doses only', () {
+    test('an unanswered dose is "no reply", never "missed"', () {
       final logs = [
         DoseLog(
             medicineId: 'm',
             scheduled: day.add(const Duration(hours: 8)),
             status: DoseStatus.taken),
       ];
-      // Evening dose of the same day passed its grace period untaken.
+      // Evening dose of the same day passed its grace period unanswered.
       final now = day.add(const Duration(hours: 23));
       final result = adherence([med], logs, day, day, now);
       expect(result.taken, 1);
-      expect(result.missed, 1);
+      expect(result.missed, 0);
+      expect(result.noReply, 1);
+      // Not confirmed is not taken: 1 of 2 doses confirmed.
       expect(result.percent, 50);
     });
 
@@ -122,7 +124,8 @@ void main() {
         id: 'm', name: 'Test', dose: '1', times: [480], start: start);
     final result = adherence([med], const [], DateTime(2026, 10, 20),
         DateTime(2026, 11, 2), DateTime(2026, 11, 2, 23));
-    expect(result.missed, 1);
+    expect(result.noReply, 1);
+    expect(result.missed, 0);
   });
 
   test('state survives a storage round trip', () {
@@ -131,6 +134,19 @@ void main() {
     expect(restored.medicines.length, state.medicines.length);
     expect(restored.logs.length, state.logs.length);
     expect(restored.readings.length, state.readings.length);
+    expect(restored.demo, isTrue);
     expect(MedState.decode('not json').medicines, isEmpty);
+  });
+
+  test('demo history has a "no reply" evening and reported feelings', () {
+    final now = DateTime(2026, 11, 3, 9);
+    final state = sampleMedState(now);
+    final result = adherence(state.medicines, state.logs,
+        now.subtract(const Duration(days: 14)), now, now);
+    expect(result.noReply, greaterThanOrEqualTo(1));
+    expect(result.feelings['Tired'], greaterThan(0));
+    final signals =
+        followUpSignals(state.medicines, state.logs, state.readings, now);
+    expect(signals.any((s) => s.message.contains('felt tired')), isTrue);
   });
 }

@@ -1323,5 +1323,29 @@ class AppStrings {
       "{name}, {day}: {status}",
       "{name}，{day}：{status}"
     ],
+    "No reply": ["कोई जवाब नहीं", "Sin respuesta", "未回复"],
+    "No reply · update": ["जवाब नहीं · अपडेट करें", "Sin respuesta · actualizar", "未回复 · 更新"],
+    "Add the medicines your doctor prescribed, with their timing and food instructions.": [
+      "अपने डॉक्टर की लिखी दवाएं, उनके समय और खाने से जुड़े निर्देशों के साथ जोड़ें।",
+      "Añade los medicamentos que te recetó tu médico, con sus horarios e instrucciones sobre las comidas.",
+      "添加医生开的药物，以及服药时间和饮食说明。"
+    ],
+    "Want to see how it works?": [
+      "देखना चाहते हैं यह कैसे काम करता है?",
+      "¿Quieres ver cómo funciona?",
+      "想看看它是如何运作的吗？"
+    ],
+    "The demo uses a made-up patient with three medicines and three weeks of check-ins. It starts fresh each time and never mixes with a real plan.": [
+      "डेमो में एक काल्पनिक मरीज़ है, जिसकी तीन दवाएं और तीन हफ़्तों के चेक-इन हैं। यह हर बार नए सिरे से शुरू होता है और किसी असली योजना के साथ नहीं मिलता।",
+      "La demostración usa un paciente inventado con tres medicamentos y tres semanas de registros. Empieza de nuevo cada vez y nunca se mezcla con un plan real.",
+      "演示使用一位虚构的患者，包含三种药物和三周的打卡记录。每次都会重新开始，绝不会与真实的用药计划混在一起。"
+    ],
+    "See a demo": ["डेमो देखें", "Ver una demostración", "查看演示"],
+    "Demo plan · made-up patient, not real data": [
+      "डेमो योजना · काल्पनिक मरीज़, असली डेटा नहीं",
+      "Plan de demostración · paciente inventado, no son datos reales",
+      "演示计划 · 虚构患者，并非真实数据"
+    ],
+    "Exit demo": ["डेमो बंद करें", "Salir de la demostración", "退出演示"],
   };
 }

@@ -43,6 +43,8 @@ class _MedsPageState extends State<MedsPage> {
       raw = widget.load?.call();
     } catch (_) {}
     _state = MedState.decode(raw);
+    // A demo is always shown as of today, so it never goes stale.
+    if (_state.demo) _state = sampleMedState(_now);
     // Re-evaluate due/missed doses while the page is open.
     _tick = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
@@ -75,6 +77,10 @@ class _MedsPageState extends State<MedsPage> {
                   children: [
                     _modeSwitch(),
                     const SizedBox(height: 16),
+                    if (_state.demo) ...[
+                      _demoBanner(),
+                      const SizedBox(height: 12),
+                    ],
                     _previewNotice(),
                     const SizedBox(height: 20),
                     if (_state.medicines.isEmpty)
@@ -172,26 +178,90 @@ class _MedsPageState extends State<MedsPage> {
 
   // ---------------------------------------------------------------- patient
 
-  Widget _empty() => _card(
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(_t('No medicines yet'), style: serifStyle(24)),
-        const SizedBox(height: 8),
-        Text(
-            _t('Add the medicines your doctor prescribed, with their timing and food instructions, or try a sample plan to see how check-ins work.'),
-            style: const TextStyle(
-                fontSize: 16, height: 1.55, color: ReportPalette.body)),
-        const SizedBox(height: 18),
-        Wrap(spacing: 12, runSpacing: 12, children: [
+  Widget _empty() =>
+      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          heading(_t('No medicines yet'), serifStyle(24)),
+          const SizedBox(height: 8),
+          Text(
+              _t('Add the medicines your doctor prescribed, with their timing and food instructions.'),
+              style: const TextStyle(
+                  fontSize: 16, height: 1.55, color: ReportPalette.body)),
+          const SizedBox(height: 18),
           FilledButton.icon(
               onPressed: _addMedicine,
               icon: const Icon(Icons.add_rounded),
               label: Text(_t('Add a medicine'))),
-          OutlinedButton.icon(
-              onPressed: () => _save(sampleMedState(_now)),
-              icon: const Icon(Icons.auto_awesome_outlined),
-              label: Text(_t('Try a sample plan'))),
-        ]),
-      ]));
+        ])),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [ReportPalette.blush, ReportPalette.rose]),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: ReportPalette.border)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                  color: Colors.white, shape: BoxShape.circle),
+              child: const Icon(Icons.play_circle_outline_rounded,
+                  color: ReportPalette.burgundy, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  heading(_t('Want to see how it works?'),
+                      const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Text(
+                      _t('The demo uses a made-up patient with three medicines and three weeks of check-ins. It starts fresh each time and never mixes with a real plan.'),
+                      style: const TextStyle(
+                          fontSize: 15, height: 1.55, color: ReportPalette.body)),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                      onPressed: () => _save(sampleMedState(_now)),
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: Text(_t('See a demo'))),
+                ])),
+          ]),
+        ),
+      ]);
+
+  /// Always visible while the demo is on, with a one-tap way out.
+  Widget _demoBanner() => Semantics(
+        container: true,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+          decoration: BoxDecoration(
+              color: ReportPalette.lowBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: ReportPalette.lowInk.withValues(alpha: 0.35))),
+          child: Row(children: [
+            const Icon(Icons.play_circle_outline_rounded,
+                color: ReportPalette.lowInk, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Text(_t('Demo plan · made-up patient, not real data'),
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: ReportPalette.lowInk))),
+            TextButton(
+                onPressed: () => _save(MedState()),
+                style: TextButton.styleFrom(
+                    foregroundColor: ReportPalette.lowInk),
+                child: Text(_t('Exit demo'))),
+          ]),
+        ),
+      );
 
   Widget _today() {
     final now = _now;
@@ -366,6 +436,21 @@ class _MedsPageState extends State<MedsPage> {
                           : const BorderSide(color: ReportPalette.amber))),
           child: Text(_t('Missed · update'),
               style: const TextStyle(fontWeight: FontWeight.w600))),
+      DoseStatus.noReply => TextButton(
+          onPressed: () => _checkIn(dose),
+          style: TextButton.styleFrom(
+                  foregroundColor: ReportPalette.body,
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 14))
+              .copyWith(
+                  side: WidgetStateProperty.resolveWith((states) =>
+                      states.contains(WidgetState.focused)
+                          ? const BorderSide(
+                              color: ReportPalette.focusRing, width: 3)
+                          : const BorderSide(
+                              color: ReportPalette.controlBorder))),
+          child: Text(_t('No reply · update'),
+              style: const TextStyle(fontWeight: FontWeight.w600))),
       _ => dose.scheduled.isAfter(now.add(const Duration(minutes: 30)))
           ? Text(_t('Later'),
               style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
@@ -441,6 +526,30 @@ class _MedsPageState extends State<MedsPage> {
           stroke: ReportPalette.amber,
           icon: Icons.close_rounded,
           status: 'Missed'
+        );
+      }
+      if (statuses.any((s) => s == DoseStatus.noReply)) {
+        return (
+          fill: Colors.white,
+          stroke: ReportPalette.controlBorder,
+          icon: Icons.question_mark_rounded,
+          status: 'No reply'
+        );
+      }
+      if (statuses.any((s) => s == DoseStatus.skipped)) {
+        return (
+          fill: ReportPalette.sand,
+          stroke: ReportPalette.controlBorder,
+          icon: Icons.remove_rounded,
+          status: 'Skipped'
+        );
+      }
+      if (statuses.any((s) => s == DoseStatus.moved)) {
+        return (
+          fill: ReportPalette.lowBg,
+          stroke: ReportPalette.lowInk,
+          icon: Icons.schedule_rounded,
+          status: 'Moved to bedtime'
         );
       }
       if (statuses.every((s) => s == DoseStatus.due)) {
@@ -528,6 +637,8 @@ class _MedsPageState extends State<MedsPage> {
               _t('Taken')),
           _legend(Colors.white, ReportPalette.amber, Icons.close_rounded,
               ReportPalette.amber, _t('Missed')),
+          _legend(Colors.white, ReportPalette.controlBorder,
+              Icons.question_mark_rounded, ReportPalette.body, _t('No reply')),
           _legend(ReportPalette.sand, null, null, null, _t('Upcoming')),
         ]),
       ),
@@ -703,8 +814,9 @@ class _MedsPageState extends State<MedsPage> {
     final stats = [
       stat(Icons.fact_check_outlined, 'Doses confirmed · 28 days',
           month.percent == null ? '—' : '${month.percent}%',
-          '${month.missed} missed',
-          alert: month.missed > 0, noteIcon: Icons.error_outline_rounded),
+          '${month.missed} missed · ${month.noReply} no reply',
+          alert: month.missed + month.noReply > 0,
+          noteIcon: Icons.error_outline_rounded),
       stat(Icons.monitor_heart_outlined, 'Home BP · 7-day average',
           avgBp == null ? '—' : avgBp.round().toString(),
           avgBp != null && avgBp >= 140 ? 'Above 140 target' : null,
@@ -744,9 +856,10 @@ class _MedsPageState extends State<MedsPage> {
       const SizedBox(height: 12),
       for (final m in _state.medicines) _medBar(m, now),
     ]));
+    final fortnight = adherence(_state.medicines, _state.logs,
+        now.subtract(const Duration(days: 13)), now, now);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Sample data from this browser · self-reported check-ins',
-          style: const TextStyle(fontSize: 14, color: ReportPalette.muted)),
+      _planHeader(now),
       const SizedBox(height: 14),
       _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         heading('Needs attention',
@@ -801,6 +914,8 @@ class _MedsPageState extends State<MedsPage> {
         byMedicine,
       ],
       const SizedBox(height: 14),
+      _patientReported(fortnight),
+      const SizedBox(height: 14),
       const Text(
           'Check-ins are self-reported and can overstate doses actually taken; studies of phone-based dose reporting found it missed many non-adherent days. Confirm at the visit.',
           style: TextStyle(fontSize: 13, height: 1.5, color: ReportPalette.muted)),
@@ -829,6 +944,127 @@ class _MedsPageState extends State<MedsPage> {
     return out;
   }
 
+  /// Who and what the doctor is looking at, before any numbers.
+  Widget _planHeader(DateTime now) {
+    final starts = _state.medicines.map((m) => m.start).whereType<DateTime>();
+    final first = starts.isEmpty
+        ? null
+        : starts.reduce((a, b) => a.isBefore(b) ? a : b);
+    final days = first == null ? null : now.difference(first).inDays;
+    final prescriber = _state.medicines
+        .map((m) => m.prescribedBy)
+        .firstWhere((p) => p.isNotEmpty, orElse: () => '');
+    String times(Medicine m) => m.times
+        .map((t) =>
+            '${(t ~/ 60).toString().padLeft(2, '0')}:${(t % 60).toString().padLeft(2, '0')}')
+        .join(', ');
+    return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+              color: ReportPalette.rose, shape: BoxShape.circle),
+          child: const Icon(Icons.person_outline_rounded,
+              color: ReportPalette.burgundy),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          heading(_state.demo ? 'Demo patient' : 'Patient on this device',
+              const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(
+              [
+                '${_state.medicines.length} medicines',
+                if (days != null) 'plan started $days days ago',
+                if (prescriber.isNotEmpty) 'prescribed by $prescriber',
+                'self-reported check-ins',
+              ].join(' · '),
+              style: const TextStyle(fontSize: 13.5, color: ReportPalette.muted)),
+        ])),
+      ]),
+      const SizedBox(height: 14),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final m in _state.medicines)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+                color: ReportPalette.blush,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ReportPalette.border)),
+            child: Text('${m.name} ${m.dose} · ${times(m)} · ${_ruleLabel(m)}',
+                style: const TextStyle(fontSize: 13, color: ReportPalette.body)),
+          ),
+      ]),
+    ]));
+  }
+
+  /// What the patient said, in their own categories: why doses were missed
+  /// and how they felt when they confirmed one.
+  Widget _patientReported(Adherence a) {
+    Widget group(String title, IconData icon, Map<String, String> items,
+            String empty) =>
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 18, color: ReportPalette.muted),
+            const SizedBox(width: 8),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 10),
+          if (items.isEmpty)
+            Text(empty,
+                style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
+          else
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final e in items.entries)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                      color: ReportPalette.sand,
+                      borderRadius: BorderRadius.circular(999)),
+                  child: Text('${e.key}  ${e.value}',
+                      style: const TextStyle(
+                          fontSize: 13.5, color: ReportPalette.ink)),
+                ),
+            ]),
+        ]);
+    final reasons = {
+      for (final e in a.reasons.entries)
+        _capitalised(_reasonLabel(e.key)): '×${e.value}',
+      if (a.noReply > 0) 'No reply': '×${a.noReply}',
+    };
+    final feelings = {
+      for (final e in a.feelings.entries) e.key: '×${e.value}',
+    };
+    return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      heading('What the patient told us · 14 days',
+          const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+      const SizedBox(height: 14),
+      LayoutBuilder(builder: (context, box) {
+        final missedGroup = group('Why doses were missed',
+            Icons.help_outline_rounded, reasons, 'No missed doses reported.');
+        final feelGroup = group('How they felt when taking a dose',
+            Icons.sentiment_satisfied_outlined, feelings,
+            'No feelings recorded.');
+        return box.maxWidth >= 560
+            ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(child: missedGroup),
+                const SizedBox(width: 24),
+                Expanded(child: feelGroup),
+              ])
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                missedGroup,
+                const SizedBox(height: 18),
+                feelGroup,
+              ]);
+      }),
+    ]));
+  }
+
   Widget _medBar(Medicine m, DateTime now) {
     final a = adherence(_state.medicines, _state.logs,
         now.subtract(const Duration(days: 27)), now, now, medicineId: m.id);
@@ -855,7 +1091,7 @@ class _MedsPageState extends State<MedsPage> {
         ),
         const SizedBox(height: 4),
         Text(
-            '${a.missed} missed${reasons.isEmpty ? '' : ' · $reasons'}${m.mealSensitive ? ' · ${_ruleLabel(m)}' : ''}',
+            '${a.missed} missed${a.noReply > 0 ? ' · ${a.noReply} no reply' : ''}${reasons.isEmpty ? '' : ' · $reasons'}${m.mealSensitive ? ' · ${_ruleLabel(m)}' : ''}',
             style: const TextStyle(fontSize: 12, color: ReportPalette.muted)),
       ]),
     );
@@ -872,11 +1108,15 @@ class _MedsPageState extends State<MedsPage> {
       );
 }
 
+String _capitalised(String s) =>
+    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
+
 String _reasonLabel(String key) => switch (key) {
       'ran_out' => 'ran out',
       'unwell' => 'felt unwell',
       'away' => 'away from home',
       'forgot' => 'forgot',
+      'ate_first' => 'had already eaten',
       _ => 'other',
     };
 

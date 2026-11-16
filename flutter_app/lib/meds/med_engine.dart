@@ -36,7 +36,9 @@ enum AteFirstRule {
   askDoctor,
 }
 
-enum DoseStatus { due, taken, missed, skipped, moved, snoozed }
+/// `missed` means the patient said so; `noReply` means nobody answered, so
+/// whether the dose was taken is unknown.
+enum DoseStatus { due, taken, missed, skipped, moved, snoozed, noReply }
 
 enum Meal { breakfast, lunch, dinner, none }
 
@@ -199,7 +201,7 @@ class ScheduledDose {
   DoseStatus statusAt(DateTime now, {int graceMinutes = 120}) {
     if (log != null && log!.status != DoseStatus.snoozed) return log!.status;
     if (now.isAfter(scheduled.add(Duration(minutes: graceMinutes)))) {
-      return DoseStatus.missed;
+      return DoseStatus.noReply;
     }
     return DoseStatus.due;
   }
@@ -267,10 +269,18 @@ DateTime bedtimeFor(DateTime day, {int minutes = 22 * 60}) =>
 /// doses whose time has passed. Moved doses that were later taken count as
 /// taken; skipped-by-rule doses are excluded from the denominator.
 class Adherence {
-  Adherence(this.taken, this.missed, this.skipped, this.reasons);
-  final int taken, missed, skipped;
+  Adherence(this.taken, this.missed, this.skipped, this.reasons,
+      {this.noReply = 0, Map<String, int>? feelings})
+      : feelings = feelings ?? {};
+  final int taken, missed, skipped, noReply;
   final Map<String, int> reasons;
-  int get counted => taken + missed;
+
+  /// How the patient said they felt when confirming doses.
+  final Map<String, int> feelings;
+
+  /// Scheduled doses so far. Unanswered ones count as not confirmed,
+  /// never as taken.
+  int get counted => taken + missed + noReply;
   double? get rate => counted == 0 ? null : taken / counted;
   int? get percent => rate == null ? null : (rate! * 100).round();
 }
@@ -278,8 +288,9 @@ class Adherence {
 Adherence adherence(List<Medicine> medicines, List<DoseLog> logs, DateTime from,
     DateTime to, DateTime now,
     {String? medicineId}) {
-  var taken = 0, missed = 0, skipped = 0;
+  var taken = 0, missed = 0, skipped = 0, noReply = 0;
   final reasons = <String, int>{};
+  final feelings = <String, int>{};
   final meds = medicines.where((m) => medicineId == null || m.id == medicineId);
   for (var d = _day(from); !d.isAfter(_day(to)); d = d.add(const Duration(days: 1))) {
     for (final dose in dosesForDay(meds.toList(), logs, d)) {
@@ -288,6 +299,11 @@ Adherence adherence(List<Medicine> medicines, List<DoseLog> logs, DateTime from,
       final log = dose.log;
       if (status == DoseStatus.taken) {
         taken++;
+        if (log?.feeling != null) {
+          feelings[log!.feeling!] = (feelings[log.feeling!] ?? 0) + 1;
+        }
+      } else if (status == DoseStatus.noReply) {
+        noReply++;
       } else if (status == DoseStatus.skipped) {
         skipped++;
       } else if (status == DoseStatus.moved) {
@@ -299,8 +315,10 @@ Adherence adherence(List<Medicine> medicines, List<DoseLog> logs, DateTime from,
             l.scheduled == log!.movedTo);
         if (follow.any((l) => l.status == DoseStatus.taken)) {
           taken++;
-        } else if (log?.movedTo != null && now.isAfter(log!.movedTo!.add(const Duration(hours: 2)))) {
+        } else if (follow.any((l) => l.status == DoseStatus.missed)) {
           missed++;
+        } else if (log?.movedTo != null && now.isAfter(log!.movedTo!.add(const Duration(hours: 2)))) {
+          noReply++;
         }
       } else if (status == DoseStatus.missed) {
         missed++;
@@ -310,7 +328,8 @@ Adherence adherence(List<Medicine> medicines, List<DoseLog> logs, DateTime from,
       }
     }
   }
-  return Adherence(taken, missed, skipped, reasons);
+  return Adherence(taken, missed, skipped, reasons,
+      noReply: noReply, feelings: feelings);
 }
 
 /// Something for the doctor to look at. The app only lines patterns up;
@@ -356,6 +375,16 @@ List<FollowUpSignal> followUpSignals(List<Medicine> medicines, List<DoseLog> log
   if ((reasons['unwell'] ?? 0) > 0) {
     signals.add(FollowUpSignal(2, 'Patient reported feeling unwell after a dose ${reasons['unwell']} time(s)'));
   }
+  final unwellFeelings = recent.feelings.entries
+      .where((e) => e.key != 'Fine')
+      .map((e) => '${e.key.toLowerCase()} ×${e.value}');
+  if (unwellFeelings.isNotEmpty) {
+    signals.add(FollowUpSignal(2, 'Patient said they felt ${unwellFeelings.join(', ')} when confirming doses'));
+  }
+  if (recent.noReply >= 3) {
+    signals.add(FollowUpSignal(2,
+        'No reply to ${recent.noReply} check-ins in 14 days — whether those doses were taken is unknown'));
+  }
   for (final m in medicines) {
     if (m.supply != null && m.times.isNotEmpty && m.supply! <= m.times.length * 3) {
       signals.add(FollowUpSignal(1, '${m.name}: ${m.supply} tablets left'));
@@ -367,7 +396,11 @@ List<FollowUpSignal> followUpSignals(List<Medicine> medicines, List<DoseLog> log
 
 /// Serialises the whole follow-up state for browser storage.
 class MedState {
-  MedState({List<Medicine>? medicines, List<DoseLog>? logs, List<Reading>? readings})
+  MedState(
+      {List<Medicine>? medicines,
+      List<DoseLog>? logs,
+      List<Reading>? readings,
+      this.demo = false})
       : medicines = medicines ?? [],
         logs = logs ?? [],
         readings = readings ?? [];
@@ -375,8 +408,13 @@ class MedState {
   final List<DoseLog> logs;
   final List<Reading> readings;
 
+  /// A made-up demo patient. Demo plans are rebuilt around today's date on
+  /// every visit, so they never go stale or mix with a real plan.
+  final bool demo;
+
   String encode() => jsonEncode({
         'version': 1,
+        if (demo) 'demo': true,
         'medicines': medicines.map((m) => m.toJson()).toList(),
         'logs': logs.map((l) => l.toJson()).toList(),
         'readings': readings.map((r) => r.toJson()).toList(),
@@ -390,6 +428,7 @@ class MedState {
         medicines: [for (final m in j['medicines'] as List) Medicine.fromJson(Map<String, dynamic>.from(m as Map))],
         logs: [for (final l in j['logs'] as List) DoseLog.fromJson(Map<String, dynamic>.from(l as Map))],
         readings: [for (final r in (j['readings'] as List? ?? [])) Reading.fromJson(Map<String, dynamic>.from(r as Map))],
+        demo: j['demo'] == true,
       );
     } catch (_) {
       return MedState();
@@ -400,13 +439,14 @@ class MedState {
   MedState record(DoseLog log) => MedState(
       medicines: medicines,
       logs: [...logs.where((l) => l.key != log.key), log],
-      readings: readings);
+      readings: readings,
+      demo: demo);
 
   MedState withMedicines(List<Medicine> next) =>
-      MedState(medicines: next, logs: logs, readings: readings);
+      MedState(medicines: next, logs: logs, readings: readings, demo: demo);
 
-  MedState addReading(Reading r) =>
-      MedState(medicines: medicines, logs: logs, readings: [...readings, r]);
+  MedState addReading(Reading r) => MedState(
+      medicines: medicines, logs: logs, readings: [...readings, r], demo: demo);
 }
 
 /// A clearly labelled sample plan so the flow can be tried without real data.
@@ -444,13 +484,15 @@ MedState sampleMedState(DateTime now) {
         prescribedBy: 'Sample doctor',
         start: _day(now).subtract(const Duration(days: 21))),
   ];
-  var state = MedState(medicines: meds);
+  var state = MedState(medicines: meds, demo: true);
   final today = _day(now);
   // 21 days of history with a deterioration pattern in the last 10 days.
   for (var back = 21; back >= 1; back--) {
     final day = today.subtract(Duration(days: back));
     for (final dose in dosesForDay(meds, const [], day)) {
       final late = back <= 10;
+      // One evening with no answer, to show 'no reply' is not 'missed'.
+      if (back == 5 && dose.medicine.id == 'amlodipine') continue;
       final miss = late &&
           ((dose.medicine.id == 'amlodipine' && back % 2 == 0) ||
               (dose.medicine.id == 'metformin' && dose.scheduled.hour >= 20 && back % 3 == 0));
@@ -460,6 +502,11 @@ MedState sampleMedState(DateTime now) {
           status: miss ? DoseStatus.missed : DoseStatus.taken,
           at: miss ? null : dose.scheduled.add(const Duration(minutes: 10)),
           reason: miss ? (dose.medicine.id == 'amlodipine' ? 'ran_out' : 'forgot') : null,
+          feeling: miss
+              ? null
+              : dose.medicine.id == 'thyroxine'
+                  ? (late && back % 4 == 1 ? 'Tired' : 'Fine')
+                  : null,
           ateBefore: dose.medicine.mealSensitive ? dose.medicine.mealRule != MealRule.beforeFood : null));
     }
     final systolic = back > 10 ? 132 + (back % 4) : 140 + (10 - back) * 1.2;
