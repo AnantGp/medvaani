@@ -30,6 +30,7 @@ from report_quality import validate_document, report_quality, can_generate_repor
 from digital_results import extract_digital_results
 from docling_adapter import extract_docling_results, reconcile_measurements
 from docling_worker import DoclingWorker
+from ai_rows import decimal_comma_document, read_rows_sync
 
 docling_worker = DoclingWorker() if os.environ.get("MEDIVAANII_DOCLING_PYTHON") else None
 import agents
@@ -219,6 +220,20 @@ def process_report_async(job_id: str):
         candidates, diagnostics = extract_digital_results(native_pages, document['source_digest'])
         document['candidates'] = candidates + document.get('candidates', [])
         document['diagnostics'].extend(diagnostics)
+        _, quality = validate_document(document)
+        if native_pages and quality['state'] != 'ready' and os.getenv('MEDIVAANII_AI_ROWS', '1') == '1':
+            update_progress(32, "Reading result tables in this layout...")
+            try:
+                ai_found, ai_problems = read_rows_sync(native_pages, document['source_digest'])
+                document['candidates'] = reconcile_measurements(document['candidates'], ai_found)
+                document['diagnostics'] = [d for d in document['diagnostics']
+                                           if not (ai_found and d.get('code') in {'unresolved_result_region', 'unsupported_layout'})]
+                document['diagnostics'].extend(ai_problems)
+            except Exception as error:
+                document['diagnostics'].append({'code': 'ai_rows_failed', 'detail': str(error)[:200]})
+        if decimal_comma_document(document['candidates']):
+            for row in document['candidates']:
+                row['decimal_comma'] = True
         _, quality = validate_document(document)
         if docling_worker is not None and quality['state'] != 'ready':
             update_progress(35, "Reading complex tables locally; this may take several minutes...")

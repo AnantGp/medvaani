@@ -63,7 +63,7 @@ def parse_json(content):
     return json.loads(content)
 
 
-async def chat_json(messages, *, vision=False, max_tokens=600):
+async def chat_json(messages, *, vision=False, max_tokens=600, temperature=.2):
     # Qwen 3 32B and Scout were retired in July 2026. Environment overrides
     # remain possible; unavailable IDs are skipped using the live catalog.
     primary = os.getenv('GROQ_VISION_MODEL' if vision else 'GROQ_LLM_MODEL', 'qwen/qwen3.8-27b')
@@ -78,7 +78,7 @@ async def chat_json(messages, *, vision=False, max_tokens=600):
         for model in candidates:
             try:
                 response = await client.post(BASE_URL + '/chat/completions', headers=headers(), json={
-                    'model': model, 'messages': messages, 'temperature': .2,
+                    'model': model, 'messages': messages, 'temperature': temperature,
                     'max_completion_tokens': max_tokens, 'response_format': {'type': 'json_object'},
                     **reasoning_options(model)})
                 if not response.is_success:

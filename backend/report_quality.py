@@ -52,8 +52,44 @@ def _unit_problem(row):
     return bool(allowed is not None and unit and unit not in allowed)
 
 
+def _num(text, comma=False):
+    """Number as printed: "5,8" is 5.8 in decimal-comma reports, "7,200" is 7200 otherwise."""
+    text = str(text).strip()
+    if comma:
+        return Decimal(text.replace('.', '').replace(' ', '').replace(',', '.'))
+    return Decimal(text.replace(',', ''))
+
+
+HIGH_FLAG = re.compile(r'\b(high|above|elevated|raised|increased|prediabet\w*|diabet\w*|alt[oa]|elevad[oa]|aumentad[oa]|erhöht|hoch|élevée?|haute?|augmentée?)\b|偏高|升高|增高|高値|높음|上昇', re.I)
+LOW_FLAG = re.compile(r'\b(low|below|decreased|reduced|deficien\w*|baj[oa]|disminuid[oa]|erniedrigt|niedrig|basse?|diminuée?|baix[oa]|diminuíd[oa])\b|偏低|降低|减低|低値|낮음|低下', re.I)
+NORMAL_FLAG = re.compile(r'\b(normal|within|in range|desirable|optimal|negative|dentro|normale?)\b|正常|정상|基準内', re.I)
+SINGLE_FLAG = {'h': 'high', 'hh': 'critical', 'l': 'low', 'll': 'critical', 'n': 'normal', '↑': 'high', '↓': 'low',
+               '高': 'high', '低': 'low', '+': 'high', '-': 'low', '*': 'abnormal', 'a': 'abnormal',
+               'abnormal': 'abnormal', 'critical': 'critical', 'normal': 'normal', 'high': 'high', 'low': 'low'}
+
+
+def flag_status(text):
+    """What a printed flag says, in any of the supported report languages."""
+    t = re.sub(r'\s+', ' ', str(text or '')).strip().casefold()
+    if not t:
+        return None
+    if t in SINGLE_FLAG:
+        return SINGLE_FLAG[t]
+    high, low = bool(HIGH_FLAG.search(t)), bool(LOW_FLAG.search(t))
+    if high and not low:
+        return 'high'
+    if low and not high:
+        return 'low'
+    if not high and not low and NORMAL_FLAG.search(t):
+        return 'normal'
+    return None
+
+
 def _comparison(row):
     value, reference = str(row.get('value', '')), str(row.get('reference_range', '')).strip()
+    comma = bool(row.get('decimal_comma'))
+    # "(130 - 180)" and "[3.5-5.1]" are printed ranges in brackets.
+    reference = re.sub(r'^[(\[]\s*(.*?)\s*[)\]]$', r'\1', reference)
     if value_kind(value) == 'qualitative':
         return 'normal' if value.casefold() == reference.casefold() else None
     if value_kind(value) == 'bounded':
@@ -61,22 +97,24 @@ def _comparison(row):
     bound = re.fullmatch(r'\s*(<=|>=|</=|>/=|[<>≤≥])\s*([+-]?[\d,.]+)\s*([^\d]*)', reference)
     if bound and (not bound[3].strip() or normalized_unit(bound[3]) == normalized_unit(row.get('unit', ''))):
         try:
-            actual, limit = Decimal(value.replace(',', '')), Decimal(bound[2].replace(',', ''))
+            actual, limit = _num(value, comma), _num(bound[2], comma)
             op = bound[1].replace('/=', '=')
             inside = actual <= limit if op in {'<=', '≤'} else actual >= limit if op in {'>=', '≥'} else actual < limit if op == '<' else actual > limit
             return 'normal' if inside else 'high' if op.startswith('<') or op == '≤' else 'low'
         except InvalidOperation:
             return None
-    match = re.fullmatch(r'\s*([+-]?[\d,.]+)\s*(?:-|–|to)\s*([+-]?[\d,.]+)\s*([^\d]*)', reference, re.I)
+    # Range separators as printed around the world: 13-17, 13 to 17, 13 a 17,
+    # 13 à 17, 13 bis 17, 13~17, 13〜17, 13～17, 13至17.
+    match = re.fullmatch(r'\s*([+-]?[\d,.]+)\s*(?:-|–|—|to|a|à|bis|~|〜|～|至)\s*([+-]?[\d,.]+)\s*([^\d]*)', reference, re.I)
     if not match:
         return None
     if match[3].strip() and normalized_unit(match[3]) != normalized_unit(row.get('unit', '')):
         return None
     try:
-        low, high = [Decimal(s.replace(',', '')) for s in match.group(1, 2)]
+        low, high = [_num(s, comma) for s in match.group(1, 2)]
         if low > high:
             return None
-        values = [Decimal(s.strip().replace(',', '')) for s in re.split(r'\s*[-–]\s*', value)] if value_kind(value) == 'interval' else [Decimal(value.replace(',', ''))]
+        values = [_num(s.strip(), comma) for s in re.split(r'\s*[-–]\s*', value)] if value_kind(value) == 'interval' else [_num(value, comma)]
         if max(values) < low:
             return 'low'
         if min(values) > high:
@@ -155,8 +193,12 @@ def _validated_row(original):
     flag = fields.get('flag', {})
     if flag.get('method') in {'ocr', 'docling_ocr', 'groq_vision'} and 'flag' not in row.get('source_checked_fields', []) and not corrections.get('status', {}).get('confirmed'):
         issue('ocr_source_check', 'flag')
-    reported = {'h': 'high', 'high': 'high', 'l': 'low', 'low': 'low', 'normal': 'normal', 'n': 'normal',
-                'abnormal': 'abnormal', 'critical': 'critical'}.get(str(flag.get('text', '')).strip().casefold())
+    reported = flag_status(flag.get('text', ''))
+    if reported is None and flag.get('text') and row.get('flag_meaning') in OUTSIDE | {'normal'}:
+        reported = row['flag_meaning']
+    # A bare "abnormal" mark (e.g. "*") takes its direction from the printed range.
+    if reported == 'abnormal' and comparison in {'high', 'low'}:
+        reported = comparison
     if corrections.get('status', {}).get('confirmed') and corrections['status'].get('value') in OUTSIDE | {'normal', 'unknown'}:
         status, source = corrections['status']['value'], 'user_review'
         if status in {'normal', 'high', 'low'} and comparison and status != comparison:
