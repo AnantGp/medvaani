@@ -28,9 +28,13 @@ class VoicePanel extends StatefulWidget {
       this.onExpand,
       this.explainRequest = 0,
       this.explainMeasurementId,
+      this.explainLine,
       this.onExplanationStarted});
   final int explainRequest;
   final String? explainMeasurementId;
+
+  /// A printed report line the user tapped (vital signs, notes, any result).
+  final String? explainLine;
   final ValueChanged<int>? onExplanationStarted;
   final bool expanded, autoplay, active;
   final double playbackRate;
@@ -140,6 +144,15 @@ class _VoicePanelState extends State<VoicePanel> {
   void _scheduleExplanation() {
     final request = widget.explainRequest;
     final id = widget.explainMeasurementId;
+    final line = widget.explainLine;
+    if (request != 0 && id == null && line != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || widget.explainRequest != request) return;
+        widget.onExplanationStarted?.call(request);
+        _explainLine(line);
+      });
+      return;
+    }
     if (request == 0 || id == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
@@ -182,6 +195,28 @@ class _VoicePanelState extends State<VoicePanel> {
             'Explica mi resultado de $name',
             '解释我的$name检测结果'),
         forceAudio: forceAudio);
+  }
+
+  Future<void> _explainLine(String line) async {
+    setState(() {
+      _answer = '';
+      _citations = [];
+    });
+    final quoted = '“$line”';
+    final question = {
+      'en':
+          'Explain this line from my report in simple words: $quoted. Say what it measures or means, give the exact value and unit printed, and compare only with a range or comment printed in the report.',
+      'hi':
+          'मेरी रिपोर्ट की इस पंक्ति को आसान शब्दों में समझाएं: $quoted। यह क्या मापती है, रिपोर्ट में छपा सही नंबर और इकाई बताएं, और सिर्फ रिपोर्ट में दी गई सीमा या टिप्पणी से तुलना करें।',
+      'es':
+          'Explica con palabras sencillas esta línea de mi informe: $quoted. Di qué mide o significa, el valor y la unidad exactos impresos, y compara solo con un rango o comentario impreso en el informe.',
+      'zh':
+          '请用简单的话解释我报告中的这一行：$quoted。说明它测量或表示什么，给出报告上印的确切数值和单位，只与报告中印出的范围或说明比较。',
+    }[widget.language]!;
+    await _ask(
+        prompt: question,
+        displayQuestion: bodyCopy(widget.language, 'Explain: $line',
+            'समझाएं: $line', 'Explica: $line', '解释：$line'));
   }
 
   @override

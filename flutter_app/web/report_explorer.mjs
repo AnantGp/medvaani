@@ -176,6 +176,7 @@ function chooseLine(line) {
   ++selectionVersion;
   // Unmatched PDF text remains visible without an organ or result binding.
   selection={line};drawHighlights();showInspector();focusSection(inspector);
+  if(parent!==window)parent.postMessage(JSON.stringify({type:'medivaanii-explorer-line',text:String(line.text).slice(0,400),page:line.page}),location.origin);
 }
 function focusSection(section) {
   if(matchMedia('(max-width:720px)').matches && parent !== window) {
@@ -211,8 +212,11 @@ function drawHighlights() {
       }
     }
   }
-  // Reading an unmatched line is allowed; it does not gain a clinical binding.
-  if(!labs.length)for(const line of lines.filter(line=>/\d/.test(line.text) && safeBox(line.box))) {
+  // Any other printed line (vital signs, notes, urine results) can be tapped
+  // to have it explained; it does not gain a clinical binding.
+  const covered=line=>[...drawnBoxes].some(key=>{const b=key.split(':').slice(1).map(Number);const [x,y,w,h]=line.box;
+    return b[0]<x+w && x<b[0]+b[2] && b[1]<y+h && y<b[1]+b[3];});
+  for(const line of lines.filter(line=>/[\p{L}\d]{2,}/u.test(line.text) && line.text.trim().length>2 && safeBox(line.box) && !covered(line))) {
     const button=document.createElement('button');button.className='source-line';const [x,y,w,h]=line.box;
     Object.assign(button.style,{left:`calc(${x*100}% - 4px)`,top:`calc(${y*100}% - 4px)`,width:`calc(${w*100}% + 8px)`,height:`calc(${h*100}% + 8px)`});
     button.setAttribute('aria-label',t('readLine',{source:line.text}));button.onclick=()=>chooseLine(line);overlay.append(button);

@@ -96,6 +96,7 @@ class _HomePageState extends State<HomePage> {
   int _voiceExplanationRequest = 0;
   int _voiceExplanationHandled = 0;
   String? _voiceExplanationMeasurement;
+  String? _voiceExplanationLine;
   bool _voiceExplanationAudio = false;
   double _voiceRate = 1;
   bool _largeReadingText = false;
@@ -234,6 +235,17 @@ class _HomePageState extends State<HomePage> {
               });
         }
       }
+      if (data['type'] == 'medivaanii-explorer-line' &&
+          data['text'] is String &&
+          (data['text'] as String).trim().isNotEmpty &&
+          _reportData != null) {
+        setState(() {
+          _voiceExplanationRequest++;
+          _voiceExplanationMeasurement = null;
+          _voiceExplanationLine = (data['text'] as String).trim();
+          _voiceExplanationAudio = false;
+        });
+      }
       if (data['type'] == 'medivaanii-explorer-edit' &&
           data['measurement_id'] is String) {
         _editExplorerResult(data['measurement_id'] as String);
@@ -280,6 +292,7 @@ class _HomePageState extends State<HomePage> {
       if (speak) {
         _voiceExplanationRequest++;
         _voiceExplanationMeasurement = id;
+        _voiceExplanationLine = null;
         _voiceExplanationAudio = forceAudio;
       }
     });
@@ -1453,6 +1466,7 @@ class _HomePageState extends State<HomePage> {
                         ? _voiceExplanationRequest
                         : 0,
                 explainMeasurementId: _voiceExplanationMeasurement,
+                explainLine: _voiceExplanationLine,
                 onExplanationStarted: (request) =>
                     _voiceExplanationHandled = request,
                 report: _reportData!,
