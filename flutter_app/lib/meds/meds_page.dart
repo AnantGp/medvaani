@@ -798,9 +798,11 @@ class _MedsPageState extends State<MedsPage> {
             Row(mainAxisSize: MainAxisSize.min, children: [
               SizedBox(width: 18, child: outcomeCell(o, size: 18)),
               const SizedBox(width: 6),
-              Text(_t(outcomeStyle(o).label),
-                  style:
-                      const TextStyle(fontSize: 12.5, color: ReportPalette.muted)),
+              Flexible(
+                child: Text(_t(outcomeStyle(o).label),
+                    style: const TextStyle(
+                        fontSize: 12.5, color: ReportPalette.muted)),
+              ),
             ]),
         ]),
       ),

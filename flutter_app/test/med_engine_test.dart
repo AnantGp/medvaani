@@ -206,7 +206,8 @@ void main() {
       expect(doses.last.movedFrom, planned);
       // Unanswered at bedtime: unknown, not missed.
       expect(
-          outcomeOf(doses.first, [moved], day.add(const Duration(days: 1))),
+          outcomeOf(doses.first, [moved],
+              day.add(const Duration(days: 1, hours: 1))),
           DoseOutcome.noReply);
     });
 
