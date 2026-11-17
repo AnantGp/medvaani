@@ -155,6 +155,8 @@ void main() {
       await tester.drag(find.byType(SingleChildScrollView).first,
           const Offset(0, -1200));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Add a medicine'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Add a medicine'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save'));
