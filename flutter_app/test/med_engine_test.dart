@@ -149,4 +149,104 @@ void main() {
         followUpSignals(state.medicines, state.logs, state.readings, now);
     expect(signals.any((s) => s.message.contains('felt tired')), isTrue);
   });
+
+  group('how a dose was taken', () {
+    final day = DateTime(2026, 11, 1);
+    final morning = _med(MealRule.beforeFood,
+        ateFirst: AteFirstRule.moveToBedtime, times: [450]);
+    final planned = day.add(const Duration(minutes: 450));
+    DoseOutcome outcome(DoseLog log) => outcomeOf(
+        dosesForDay([morning], [log], day).first,
+        [log],
+        day.add(const Duration(hours: 23)));
+
+    test('on time and before food is as prescribed', () {
+      expect(
+          outcome(DoseLog(
+              medicineId: 'm',
+              scheduled: planned,
+              status: DoseStatus.taken,
+              at: planned.add(const Duration(minutes: 20)),
+              mealTiming: 'before')),
+          DoseOutcome.asPrescribed);
+    });
+
+    test('after breakfast breaks a before-food instruction', () {
+      expect(
+          outcome(DoseLog(
+              medicineId: 'm',
+              scheduled: planned,
+              status: DoseStatus.taken,
+              at: planned,
+              mealTiming: 'after')),
+          DoseOutcome.wrongFood);
+    });
+
+    test('more than an hour late is off time', () {
+      expect(
+          outcome(DoseLog(
+              medicineId: 'm',
+              scheduled: planned,
+              status: DoseStatus.taken,
+              at: planned.add(const Duration(minutes: 90)),
+              mealTiming: 'before')),
+          DoseOutcome.offTime);
+    });
+
+    test('a dose moved to bedtime appears at bedtime as its own dose', () {
+      final moved = DoseLog(
+          medicineId: 'm',
+          scheduled: planned,
+          status: DoseStatus.moved,
+          ateBefore: true,
+          movedTo: bedtimeFor(day));
+      final doses = dosesForDay([morning], [moved], day);
+      expect(doses.length, 2);
+      expect(doses.last.scheduled, bedtimeFor(day));
+      expect(doses.last.movedFrom, planned);
+      // Unanswered at bedtime: unknown, not missed.
+      expect(
+          outcomeOf(doses.first, [moved], day.add(const Duration(days: 1))),
+          DoseOutcome.noReply);
+    });
+
+    test('a snoozed dose stays due until the new time has passed', () {
+      final snoozed = DoseLog(
+          medicineId: 'm',
+          scheduled: planned,
+          status: DoseStatus.snoozed,
+          snoozedUntil: planned.add(const Duration(hours: 3)));
+      final dose = dosesForDay([morning], [snoozed], day).first;
+      expect(dose.statusAt(planned.add(const Duration(hours: 4))),
+          DoseStatus.due);
+      expect(dose.statusAt(planned.add(const Duration(hours: 6))),
+          DoseStatus.noReply);
+    });
+
+    test('adherence separates on time, off time and wrong food', () {
+      final logs = [
+        for (var i = 0; i < 3; i++)
+          DoseLog(
+              medicineId: 'm',
+              scheduled: planned.add(Duration(days: i)),
+              status: DoseStatus.taken,
+              at: planned.add(Duration(days: i, minutes: i == 1 ? 100 : 10)),
+              mealTiming: i == 2 ? 'after' : 'before'),
+      ];
+      final a = adherence([morning], logs, day, day.add(const Duration(days: 2)),
+          day.add(const Duration(days: 2, hours: 23)));
+      expect(a.taken, 3);
+      expect(a.asPrescribed, 1);
+      expect(a.offTime, 1);
+      expect(a.wrongFood, 1);
+      expect(a.foodAnswered, 3);
+      expect(a.foodFollowed, 2);
+    });
+
+    test('the evening dose of a twice-daily medicine is about dinner', () {
+      final twice = _med(MealRule.afterFood, times: [480, 1260]);
+      expect(mealAt(twice, DateTime(2026, 1, 1, 8)), Meal.breakfast);
+      expect(mealAt(twice, DateTime(2026, 1, 1, 21)), Meal.dinner);
+    });
+  });
 }

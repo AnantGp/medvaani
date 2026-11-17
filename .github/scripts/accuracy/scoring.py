@@ -88,8 +88,13 @@ def range_tokens(text):
     return tokens
 
 
-def range_matches(got, expected):
+def range_matches(got, expected, unit=''):
     if range_tokens(got) == range_tokens(expected):
+        return True, ''
+    # "65-99 mg/dL" printed in the range column is the range "65-99" when the
+    # unit is the result's own unit, which is scored separately.
+    bare, u = clean(expected), clean(unit)
+    if u and bare.casefold().endswith(u.casefold()) and range_tokens(bare[:-len(u)]) == range_tokens(got):
         return True, ''
     return False, f'range {clean(got)!r} != expected {clean(expected)!r}'
 
@@ -143,7 +148,13 @@ def match_rows(expected_rows, got_rows):
 
 def score_report(expected_rows, got_rows):
     """Field-by-field result for one report. Every field error is listed."""
+    # Rows marked optional are printed in the report but in a layout the app
+    # is not required to read (several results sharing one line). Returning
+    # one is not an invented row; missing one is not a miss.
+    optional = {name_key(e['name']) for e in expected_rows if e.get('optional')}
+    expected_rows = [e for e in expected_rows if not e.get('optional')]
     pairs, name_errors, missing, extra = match_rows(expected_rows, got_rows)
+    extra = [g for g in extra if name_key(g.get('test_name')) not in optional]
     res = {'expected': len(expected_rows), 'exact_name': len(pairs), 'name_errors': len(name_errors),
            'missing': len(missing), 'extra': len(extra), 'value_ok': 0, 'value_wrong': 0,
            'unit_wrong': 0, 'range_wrong': 0, 'status_ok': 0, 'status_wrong': 0, 'status_unlabelled': 0,
@@ -165,7 +176,7 @@ def score_report(expected_rows, got_rows):
         if not ok:
             res['unit_wrong'] += 1
             errors.append(f"UNIT {e['name']}: {why}")
-        ok, why = range_matches(g.get('reference_range'), e['reference'])
+        ok, why = range_matches(g.get('reference_range'), e['reference'], e['unit'])
         if not ok:
             res['range_wrong'] += 1
             errors.append(f"RANGE {e['name']}: {why}")

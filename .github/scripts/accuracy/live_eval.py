@@ -162,7 +162,7 @@ if MODE == 'pdf':
     quota_failures = 0
     for key in [k for k in truth if Path(k).name in QA_SET]:
         report = reports.get(key)
-        for kind, text, lang, check in question_plan(truth[key], key):
+        for kind, text, lang, check in question_plan([r for r in truth[key] if not r.get('optional')], key):
             if report is None:
                 questions.append({'item': key, 'kind': kind, 'question': text, 'outcome': 'no_report'})
                 continue

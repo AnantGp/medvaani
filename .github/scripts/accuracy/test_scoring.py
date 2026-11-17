@@ -138,3 +138,17 @@ def test_abnormal_list_accepts_printed_alias_dash_variants_and_values():
 def test_short_alias_matches_whole_words_only():
     ok, why = answer_lists_abnormal('Fasting plasma glucose: 108 mg/dL (high).', ['Fasting plasma glucose'], ['AST (SGOT)'])
     assert ok, why
+
+
+def test_range_with_the_results_own_unit_and_optional_rows():
+    from scoring import range_matches, score_report
+    assert range_matches('65-99', '65-99 mg/dL', 'mg/dL')[0]
+    assert not range_matches('65-98', '65-99 mg/dL', 'mg/dL')[0]
+    assert not range_matches('65-99', '65-99 mmol/L', 'mg/dL')[0]
+    expected = [{'name': 'Sodium', 'value': '140', 'unit': 'mmol/L', 'reference': '135-145', 'status': 'normal'},
+                {'name': 'pH', 'value': '', 'unit': '', 'reference': '', 'status': 'unknown', 'optional': True}]
+    got = [{'test_name': 'Sodium', 'value': '140', 'unit': 'mmol/L', 'reference_range': '135-145', 'status': 'normal'},
+           {'test_name': 'pH', 'value': '6.0'}, {'test_name': 'Invented', 'value': '1'}]
+    res, errors = score_report(expected, got)
+    assert res['expected'] == 1 and res['extra'] == 1 and res['missing'] == 0
+    assert any('Invented' in e for e in errors) and not any("'pH'" in e for e in errors)

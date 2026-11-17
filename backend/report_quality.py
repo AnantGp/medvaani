@@ -98,9 +98,25 @@ def _comparison(row):
         reference = labelled[1].strip()
     if value_kind(value) == 'qualitative':
         return 'normal' if value.casefold() == reference.casefold() else None
-    if value_kind(value) == 'bounded':
-        return None
+    # US laboratories print "> OR = 50" and "< OR = 5.6".
+    reference = re.sub(r'([<>])\s*(?:or)\s*=', r'\1=', reference, flags=re.I)
     bound = re.fullmatch(r'\s*(<=|>=|</=|>/=|[<>≤≥])\s*([+-]?[\d,.]+)\s*([^\d]*)', reference)
+    if value_kind(value) == 'bounded':
+        # ">90" against "(>59)": a result bounded on the same side as the rule
+        # and at least as far is inside it. Anything else stays unclassified.
+        mine = re.fullmatch(r'\s*([<>≤≥])\s*([\d,.]+)\s*', value)
+        if not (bound and mine) or (bound[3].strip() and normalized_unit(bound[3]) != normalized_unit(row.get('unit', ''))):
+            return None
+        try:
+            actual, limit = _num(mine[2], comma), _num(bound[2], comma)
+        except InvalidOperation:
+            return None
+        upward, rule_upward = mine[1] in '>≥', bound[1][0] in '>≥'
+        if upward and rule_upward and actual >= limit:
+            return 'normal'
+        if not upward and not rule_upward and actual <= limit:
+            return 'normal'
+        return None
     if bound and (not bound[3].strip() or normalized_unit(bound[3]) == normalized_unit(row.get('unit', ''))):
         try:
             actual, limit = _num(value, comma), _num(bound[2], comma)

@@ -1,13 +1,15 @@
 // Medicine follow-up: meal-aware dose check-ins for the patient and a
 // follow-up summary for the doctor. Prototype: data stays in this browser.
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../app_strings.dart';
 import '../report_workspace.dart' show ReportPalette, heading, serifStyle;
 import 'med_engine.dart';
+import 'meds_checkin.dart';
+import 'meds_doctor.dart';
+import 'meds_widgets.dart';
 
 class MedsPage extends StatefulWidget {
   const MedsPage(
@@ -190,7 +192,7 @@ class _MedsPageState extends State<MedsPage> {
 
   Widget _empty() =>
       Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        medCard(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           heading(_t('No medicines yet'), serifStyle(24)),
           const SizedBox(height: 8),
           Text(
@@ -273,49 +275,59 @@ class _MedsPageState extends State<MedsPage> {
         ),
       );
 
+
+  // ---------------------------------------------------------------- patient
+
+  /// Parts of the day a patient thinks in, each anchored to a meal.
+  static const _parts = [
+    ('Morning', Icons.wb_twilight_rounded, 0, 12 * 60),
+    ('Afternoon', Icons.wb_sunny_outlined, 12 * 60, 17 * 60),
+    ('Evening', Icons.nights_stay_outlined, 17 * 60, 21 * 60 + 30),
+    ('Night', Icons.bedtime_outlined, 21 * 60 + 30, 24 * 60),
+  ];
+
   Widget _today() {
     final now = _now;
     final doses = dosesForDay(_state.medicines, _state.logs, now);
-    final due = doses
-        .where((d) =>
-            d.statusAt(now) == DoseStatus.due &&
-            !d.scheduled.isAfter(now.add(const Duration(minutes: 30))))
+    final open = doses.where((d) => d.statusAt(now) == DoseStatus.due).toList();
+    final due = open
+        .where((d) => !d.remindAt.isAfter(now.add(const Duration(minutes: 30))))
         .toList();
-    final week = adherence(_state.medicines, _state.logs,
-        now.subtract(const Duration(days: 6)), now, now);
+    final done = doses
+        .where((d) => !{DoseStatus.due, DoseStatus.noReply}
+            .contains(d.statusAt(now)))
+        .length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (due.isNotEmpty) ...[
-        _dueBanner(due.first),
-        const SizedBox(height: 16),
-      ],
-      _card(Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        heading(_t('Today'),
-            const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        for (var i = 0; i < doses.length; i++) ...[
-          if (i > 0) const Divider(height: 1),
-          _doseRow(doses[i], now),
-        ],
-      ])),
-      const SizedBox(height: 16),
-      _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _summary(doses.length, done, due.isEmpty ? null : due.first,
+          open.isEmpty ? null : open.first),
+      const SizedBox(height: 18),
+      Row(children: [
+        Expanded(
+            child: heading(_t('Today'),
+                const TextStyle(fontSize: 19, fontWeight: FontWeight.w600))),
+        Text(MaterialLocalizations.of(context).formatMediumDate(now),
+            style: const TextStyle(fontSize: 14, color: ReportPalette.muted)),
+      ]),
+      const SizedBox(height: 10),
+      for (final part in _parts)
+        if (doses.any((d) => _inPart(d, part)))
+          _partSection(part, [for (final d in doses) if (_inPart(d, part)) d],
+              now),
+      const SizedBox(height: 8),
+      medCard(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
               child: heading(_t('This week'),
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.w600))),
-          Flexible(
-              child: Text(
-                  week.percent == null
-                      ? ''
-                      : _t('{taken} of {total} doses',
-                          {'taken': week.taken, 'total': week.counted}),
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(
-                      fontSize: 14, color: ReportPalette.muted))),
         ]),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
+        Text(_t('Each square is one day. Tap a dose above to update it.'),
+            style: const TextStyle(fontSize: 13.5, color: ReportPalette.muted)),
+        const SizedBox(height: 14),
         _weekGrid(now),
       ])),
+      const SizedBox(height: 16),
+      _planCard(),
       const SizedBox(height: 16),
       Wrap(spacing: 12, runSpacing: 12, children: [
         OutlinedButton.icon(
@@ -332,254 +344,401 @@ class _MedsPageState extends State<MedsPage> {
             style: TextButton.styleFrom(foregroundColor: ReportPalette.burgundy),
             label: Text(_t('Clear medicines'))),
       ]),
-      for (final m in _state.medicines)
-        if (m.supply != null && m.times.isNotEmpty && m.supply! <= m.times.length * 3)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(
-                _t('{name}: {count} tablets left — ask for a refill soon.',
-                    {'name': m.name, 'count': m.supply}),
-                style: const TextStyle(fontSize: 14, color: ReportPalette.highInk)),
-          ),
     ]);
   }
 
-  Widget _dueBanner(ScheduledDose dose) => Semantics(
-        liveRegion: true,
-        container: true,
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [ReportPalette.burgundy, ReportPalette.burgundyDark]),
-              boxShadow: const [
-                BoxShadow(
-                    color: Color(0x338B1A1A),
-                    blurRadius: 24,
-                    offset: Offset(0, 10))
-              ],
-              borderRadius: BorderRadius.circular(18)),
-          child: LayoutBuilder(builder: (context, box) {
-            final text = Row(children: [
-              const ExcludeSemantics(
-                  child: Icon(Icons.notifications_active_outlined,
-                      color: Colors.white, size: 26)),
-              const SizedBox(width: 14),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text(_t('Time for {name}', {'name': dose.medicine.name}),
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white)),
-                    const SizedBox(height: 2),
-                    Text(dose.medicine.dose,
-                        style: const TextStyle(
-                            fontSize: 14, color: Color(0xFFF7E3E0))),
-                  ])),
-            ]);
-            final button = _checkInButton(dose,
-                style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: ReportPalette.burgundy));
-            return box.maxWidth < 380
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [text, const SizedBox(height: 14), button])
-                : Row(children: [
-                    Expanded(child: text),
-                    const SizedBox(width: 12),
-                    button
-                  ]);
-          }),
+  bool _inPart(ScheduledDose d,
+      (String, IconData, int, int) part) {
+    final minutes = d.scheduled.hour * 60 + d.scheduled.minute;
+    return minutes >= part.$3 && minutes < part.$4;
+  }
+
+  /// Progress for the day and the one thing to do next.
+  Widget _summary(int total, int done, ScheduledDose? due, ScheduledDose? next) {
+    final ring = SizedBox(
+      width: 64,
+      height: 64,
+      child: Stack(alignment: Alignment.center, children: [
+        SizedBox.expand(
+          child: CircularProgressIndicator(
+              value: total == 0 ? 0 : done / total,
+              strokeWidth: 6,
+              backgroundColor: const Color(0x33FFFFFF),
+              color: Colors.white,
+              strokeCap: StrokeCap.round),
         ),
+        Text('$done/$total',
+            style: const TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
+      ]),
+    );
+    final String title, body;
+    if (due != null) {
+      title = _t('Time for {name}', {'name': due.medicine.name});
+      body = [
+        due.medicine.dose,
+        _ruleLabel(due.medicine, due.scheduled),
+      ].where((s) => s.isNotEmpty).join(' · ');
+    } else if (next != null) {
+      title = _t('Next: {name} at {time}',
+          {'name': next.medicine.name, 'time': clock(next.remindAt)});
+      body = _ruleLabel(next.medicine, next.scheduled);
+    } else {
+      title = total == 0 ? _t('No doses today') : _t('All done for today');
+      body = _t('{done} of {total} doses checked in',
+          {'done': done, 'total': total});
+    }
+    return Semantics(
+      container: true,
+      liveRegion: due != null,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+            gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [ReportPalette.burgundy, ReportPalette.burgundyDark]),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x338B1A1A), blurRadius: 24, offset: Offset(0, 10))
+            ],
+            borderRadius: BorderRadius.circular(20)),
+        child: LayoutBuilder(builder: (context, box) {
+          final text = Row(children: [
+            Semantics(
+                label: _t('{done} of {total} doses checked in today',
+                    {'done': done, 'total': total}),
+                child: ExcludeSemantics(child: ring)),
+            const SizedBox(width: 16),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+                  const SizedBox(height: 4),
+                  Text(body,
+                      style: const TextStyle(
+                          fontSize: 14, height: 1.4, color: Color(0xFFF7E3E0))),
+                ])),
+          ]);
+          if (due == null) return text;
+          final button = _checkInButton(due,
+              style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: ReportPalette.burgundy,
+                  minimumSize: const Size(120, 48)));
+          return box.maxWidth < 440
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [text, const SizedBox(height: 16), button])
+              : Row(children: [
+                  Expanded(child: text),
+                  const SizedBox(width: 12),
+                  button
+                ]);
+        }),
+      ),
+    );
+  }
+
+  Widget _partSection((String, IconData, int, int) part,
+          List<ScheduledDose> doses, DateTime now) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            child: Row(children: [
+              Icon(part.$2, size: 18, color: ReportPalette.muted),
+              const SizedBox(width: 8),
+              Text(_t(part.$1).toUpperCase(),
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      letterSpacing: 0.9,
+                      fontWeight: FontWeight.w700,
+                      color: ReportPalette.muted)),
+            ]),
+          ),
+          for (final d in doses)
+            Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _doseCard(d, now)),
+        ]),
       );
 
   /// A button that tells a screen reader which medicine it is for.
-  Widget _checkInButton(ScheduledDose dose, {ButtonStyle? style}) => Semantics(
+  Widget _checkInButton(ScheduledDose dose,
+          {ButtonStyle? style, String? label}) =>
+      Semantics(
         button: true,
         excludeSemantics: true,
         label: _t('Check in for {name} at {time}',
-            {'name': dose.medicine.name, 'time': _time(dose.scheduled)}),
+            {'name': dose.medicine.name, 'time': clock(dose.scheduled)}),
         onTap: () => _checkIn(dose),
         child: FilledButton(
             style: style,
             onPressed: () => _checkIn(dose),
-            child: Text(_t('Check in'))),
+            child: Text(label ?? _t('Check in'))),
       );
 
-  String _time(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-
-  String _ruleLabel(Medicine m) => switch (m.mealRule) {
-        MealRule.beforeFood => _t('Before food · wait {min} min to eat',
-            {'min': m.gapMinutes}),
-        MealRule.afterFood => _t('After food'),
-        MealRule.withFood => _t('With food'),
-        MealRule.any => _t('Any time, same time daily'),
+  String _mealWord(Meal meal) => switch (meal) {
+        Meal.breakfast => _t('breakfast'),
+        Meal.lunch => _t('lunch'),
+        Meal.dinner => _t('dinner'),
+        Meal.none => _t('your meal'),
       };
 
-  Widget _doseRow(ScheduledDose dose, DateTime now) {
-    final status = dose.statusAt(now);
-    final (Widget trailing) = switch (status) {
-      DoseStatus.taken => _chip(Icons.check_rounded, _t('Taken'),
-          ReportPalette.sageLight, ReportPalette.sage),
-      DoseStatus.moved => _chip(Icons.schedule_rounded, _t('Moved to bedtime'),
-          ReportPalette.lowBg, ReportPalette.lowInk),
-      DoseStatus.skipped => _chip(Icons.remove_rounded, _t('Skipped'),
-          ReportPalette.sand, ReportPalette.muted),
-      DoseStatus.missed => TextButton(
-          onPressed: () => _checkIn(dose),
-          style: TextButton.styleFrom(
-                  foregroundColor: ReportPalette.highInk,
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(horizontal: 14))
-              .copyWith(
-                  side: WidgetStateProperty.resolveWith((states) =>
-                      states.contains(WidgetState.focused)
-                          ? const BorderSide(
-                              color: ReportPalette.focusRing, width: 3)
-                          : const BorderSide(color: ReportPalette.amber))),
-          child: Text(_t('Missed · update'),
-              style: const TextStyle(fontWeight: FontWeight.w600))),
-      DoseStatus.noReply => TextButton(
-          onPressed: () => _checkIn(dose),
-          style: TextButton.styleFrom(
-                  foregroundColor: ReportPalette.body,
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(horizontal: 14))
-              .copyWith(
-                  side: WidgetStateProperty.resolveWith((states) =>
-                      states.contains(WidgetState.focused)
-                          ? const BorderSide(
-                              color: ReportPalette.focusRing, width: 3)
-                          : const BorderSide(
-                              color: ReportPalette.controlBorder))),
-          child: Text(_t('No reply · update'),
-              style: const TextStyle(fontWeight: FontWeight.w600))),
-      _ => dose.scheduled.isAfter(now.add(const Duration(minutes: 30)))
-          ? Text(_t('Later'),
-              style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
-          : _checkInButton(dose),
+  /// The food instruction for one dose, named by its meal.
+  String _ruleLabel(Medicine m, DateTime at) {
+    final meal = _mealWord(mealAt(m, at));
+    return switch (m.mealRule) {
+      MealRule.beforeFood => _t('Before {meal} · empty stomach, eat {min} min later',
+          {'meal': meal, 'min': m.gapMinutes}),
+      MealRule.afterFood => _t('After {meal}', {'meal': meal}),
+      MealRule.withFood => _t('With {meal}', {'meal': meal}),
+      MealRule.any => _t('Any time, same time daily'),
     };
-    final details =
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${dose.medicine.name} · ${dose.medicine.dose}',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 2),
-      Text(_ruleLabel(dose.medicine),
-          style: const TextStyle(fontSize: 13, color: ReportPalette.muted)),
+  }
+
+  String _foodWord(String? timing) => switch (timing) {
+        'before' => _t('before food'),
+        'with' => _t('with food'),
+        'after' => _t('after food'),
+        _ => '',
+      };
+
+  Widget _doseCard(ScheduledDose dose, DateTime now) {
+    final m = dose.medicine;
+    final status = dose.statusAt(now);
+    final log = dose.log;
+    final outcome = outcomeOf(dose, _state.logs, now);
+    final open = status == DoseStatus.due;
+    final soon = open &&
+        !dose.remindAt.isAfter(now.add(const Duration(minutes: 30)));
+
+    // What happened, in the patient's words.
+    String? result;
+    var resultInk = ReportPalette.sage;
+    IconData resultIcon = Icons.check_circle_rounded;
+    if (status == DoseStatus.taken && log != null) {
+      final off = minutesOff(log, planned: dose.scheduled) ?? 0;
+      result = [
+        _t('Taken at {time}', {'time': clock(log.at ?? dose.scheduled)}),
+        if (off.abs() > onTimeWindowMinutes)
+          off > 0
+              ? _t('{min} min late', {'min': off})
+              : _t('{min} min early', {'min': -off}),
+        if (m.mealSensitive && log.foodAnswer != null) _foodWord(log.foodAnswer),
+      ].join(' · ');
+      if (outcome == DoseOutcome.wrongFood) {
+        resultInk = ReportPalette.highInk;
+        resultIcon = Icons.restaurant_rounded;
+        result = '$result · ${_t('not as prescribed')}';
+      } else if (outcome == DoseOutcome.offTime) {
+        resultInk = ReportPalette.lowInk;
+        resultIcon = Icons.schedule_rounded;
+      }
+    } else if (status == DoseStatus.moved && log?.movedTo != null) {
+      result = _t('Moved to {time} by your doctor’s plan',
+          {'time': clock(log!.movedTo!)});
+      resultInk = ReportPalette.lowInk;
+      resultIcon = Icons.bedtime_outlined;
+    } else if (status == DoseStatus.skipped) {
+      result = _t('Skipped, as your doctor’s plan says');
+      resultInk = ReportPalette.body;
+      resultIcon = Icons.remove_circle_outline_rounded;
+    } else if (status == DoseStatus.missed) {
+      result = _t('Not taken');
+      resultInk = ReportPalette.burgundy;
+      resultIcon = Icons.cancel_outlined;
+    } else if (status == DoseStatus.noReply) {
+      result = _t('No reply yet — did you take it?');
+      resultInk = ReportPalette.body;
+      resultIcon = Icons.help_outline_rounded;
+    } else if (log?.status == DoseStatus.snoozed) {
+      result = _t('Reminder at {time}', {'time': clock(dose.remindAt)});
+      resultInk = ReportPalette.lowInk;
+      resultIcon = Icons.notifications_active_outlined;
+    }
+
+    final Widget? action = open
+        ? (soon
+            ? _checkInButton(dose)
+            : Semantics(
+                button: true,
+                excludeSemantics: true,
+                label: _t('Check in for {name} at {time}',
+                    {'name': m.name, 'time': clock(dose.scheduled)}),
+                onTap: () => _checkIn(dose),
+                child: OutlinedButton(
+                    onPressed: () => _checkIn(dose),
+                    child: Text(_t('Check in early')))))
+        : status == DoseStatus.noReply || status == DoseStatus.missed
+            ? TextButton(
+                onPressed: () => _checkIn(dose),
+                child: Text(_t('Update')))
+            : null;
+
+    final highlight = soon
+        ? ReportPalette.burgundy
+        : status == DoseStatus.noReply
+            ? ReportPalette.controlBorder
+            : ReportPalette.border;
+    final body = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Column(children: [
+        Text(clock(dose.scheduled),
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: soon ? ReportPalette.burgundy : ReportPalette.ink)),
+        if (dose.movedFrom != null)
+          Text(_t('was {time}', {'time': clock(dose.movedFrom!)}),
+              style: const TextStyle(fontSize: 11.5, color: ReportPalette.muted)),
+      ]),
+      const SizedBox(width: 14),
+      Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(m.name,
+            style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w600)),
+        if (m.dose.isNotEmpty)
+          Text(m.dose,
+              style: const TextStyle(fontSize: 14, color: ReportPalette.body)),
+        const SizedBox(height: 8),
+        medChip(
+            m.mealRule == MealRule.beforeFood
+                ? Icons.no_meals_rounded
+                : m.mealSensitive
+                    ? Icons.restaurant_rounded
+                    : Icons.schedule_rounded,
+            _ruleLabel(m, dose.scheduled),
+            m.mealSensitive ? ReportPalette.rose : ReportPalette.sand,
+            m.mealSensitive ? ReportPalette.burgundy : ReportPalette.body),
+        if (result != null) ...[
+          const SizedBox(height: 10),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(resultIcon, size: 18, color: resultInk),
+            const SizedBox(width: 6),
+            Expanded(
+                child: Text(result,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: resultInk))),
+          ]),
+        ],
+      ])),
     ]);
-    final time = SizedBox(
-        width: 56,
-        child: Text(_time(dose.scheduled),
-            style: const TextStyle(fontSize: 14, color: ReportPalette.muted)));
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 14, 14),
+      decoration: BoxDecoration(
+          color: status == DoseStatus.taken ? const Color(0xFFFCFDFB) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: soon ? ReportPalette.cardShadow : null,
+          border: Border.all(color: highlight, width: soon ? 1.6 : 1)),
       child: LayoutBuilder(
-          builder: (context, box) => box.maxWidth < 420 && trailing is! Text
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        time,
-                        Expanded(child: details),
-                      ]),
-                      const SizedBox(height: 10),
-                      Padding(
-                          padding: const EdgeInsets.only(left: 56),
-                          child: Align(
-                              alignment: Alignment.centerLeft, child: trailing)),
-                    ])
-              : Row(children: [
-                  time,
-                  Expanded(child: details),
-                  const SizedBox(width: 8),
-                  trailing,
-                ])),
+          builder: (context, box) => action == null
+              ? body
+              : box.maxWidth < 440
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                          body,
+                          const SizedBox(height: 12),
+                          Padding(
+                              padding: const EdgeInsets.only(left: 58),
+                              child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: action)),
+                        ])
+                  : Row(children: [
+                      Expanded(child: body),
+                      const SizedBox(width: 10),
+                      action,
+                    ])),
     );
   }
 
-  Widget _chip(IconData icon, String label, Color bg, Color fg) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 14, color: fg),
-          const SizedBox(width: 4),
-          Flexible(
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600, color: fg))),
-        ]),
-      );
+  /// What the doctor prescribed, in one place.
+  Widget _planCard() => medCard(
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        heading(_t('My plan'),
+            const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Text(_t('As your doctor prescribed. Only your doctor changes it.'),
+            style: const TextStyle(fontSize: 13.5, color: ReportPalette.muted)),
+        const SizedBox(height: 10),
+        for (var i = 0; i < _state.medicines.length; i++) ...[
+          if (i > 0) const Divider(height: 1),
+          Builder(builder: (context) {
+            final m = _state.medicines[i];
+            final low = m.supply != null &&
+                m.times.isNotEmpty &&
+                m.supply! <= m.times.length * 3;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        [m.name, if (m.dose.isNotEmpty) m.dose].join(' · '),
+                        style: const TextStyle(
+                            fontSize: 15.5, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (final t in m.times)
+                        medChip(
+                            Icons.schedule_rounded,
+                            '${clockMinutes(t)} · ${_ruleLabel(m, DateTime(2000, 1, 1, t ~/ 60, t % 60))}',
+                            ReportPalette.sand,
+                            ReportPalette.ink),
+                      if (m.supply != null)
+                        medChip(
+                            Icons.inventory_2_outlined,
+                            low
+                                ? _t('{count} left — ask for a refill',
+                                    {'count': m.supply})
+                                : _t('{count} tablets left',
+                                    {'count': m.supply}),
+                            low ? ReportPalette.highBg : ReportPalette.sand,
+                            low ? ReportPalette.highInk : ReportPalette.body),
+                    ]),
+                    if (m.mealRule == MealRule.beforeFood &&
+                        m.ateFirstRule != AteFirstRule.askDoctor) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                          _t('If you have already eaten: {rule}', {
+                            'rule': switch (m.ateFirstRule) {
+                              AteFirstRule.moveToBedtime =>
+                                _t('take it at bedtime instead'),
+                              AteFirstRule.skip => _t('skip that dose'),
+                              _ => _t('take it anyway'),
+                            }
+                          }),
+                          style: const TextStyle(
+                              fontSize: 13.5, color: ReportPalette.body)),
+                    ],
+                  ]),
+            );
+          }),
+        ],
+      ]));
 
   Widget _weekGrid(DateTime now) {
     final days = [for (var i = 6; i >= 0; i--) now.subtract(Duration(days: i))];
-    // Status is shown by fill, outline and a glyph, never by colour alone.
-    ({Color fill, Color? stroke, IconData? icon, String? status}) cell(
-        Medicine m, DateTime day) {
-      final doses = dosesForDay([m], _state.logs, day)
-          .where((d) => !d.scheduled.isAfter(now))
-          .toList();
-      if (doses.isEmpty) {
-        return (fill: ReportPalette.sand, stroke: null, icon: null, status: null);
-      }
-      final statuses = doses.map((d) => d.statusAt(now)).toList();
-      if (statuses.any((s) => s == DoseStatus.missed)) {
-        return (
-          fill: Colors.white,
-          stroke: ReportPalette.amber,
-          icon: Icons.close_rounded,
-          status: 'Missed'
-        );
-      }
-      if (statuses.any((s) => s == DoseStatus.noReply)) {
-        return (
-          fill: Colors.white,
-          stroke: ReportPalette.controlBorder,
-          icon: Icons.question_mark_rounded,
-          status: 'No reply'
-        );
-      }
-      if (statuses.any((s) => s == DoseStatus.skipped)) {
-        return (
-          fill: ReportPalette.sand,
-          stroke: ReportPalette.controlBorder,
-          icon: Icons.remove_rounded,
-          status: 'Skipped'
-        );
-      }
-      if (statuses.any((s) => s == DoseStatus.moved)) {
-        return (
-          fill: ReportPalette.lowBg,
-          stroke: ReportPalette.lowInk,
-          icon: Icons.schedule_rounded,
-          status: 'Moved to bedtime'
-        );
-      }
-      if (statuses.every((s) => s == DoseStatus.due)) {
-        return (
-          fill: ReportPalette.sand,
-          stroke: null,
-          icon: null,
-          status: 'Upcoming'
-        );
-      }
-      return (
-        fill: ReportPalette.sage,
-        stroke: null,
-        icon: Icons.check_rounded,
-        status: 'Taken'
-      );
-    }
-
     final loc = MaterialLocalizations.of(context);
     const weekday = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const legend = [
+      DoseOutcome.asPrescribed,
+      DoseOutcome.offTime,
+      DoseOutcome.wrongFood,
+      DoseOutcome.notTaken,
+      DoseOutcome.noReply,
+      DoseOutcome.open,
+    ];
     return Column(children: [
       ExcludeSemantics(
         child: Row(children: [
@@ -588,8 +747,14 @@ class _MedsPageState extends State<MedsPage> {
             Expanded(
                 child: Center(
                     child: Text(weekday[d.weekday - 1],
-                        style: const TextStyle(
-                            fontSize: 12, color: ReportPalette.muted)))),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: d.day == now.day
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                            color: d.day == now.day
+                                ? ReportPalette.ink
+                                : ReportPalette.muted)))),
         ]),
       ),
       const SizedBox(height: 6),
@@ -608,99 +773,65 @@ class _MedsPageState extends State<MedsPage> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 3),
                   child: Builder(builder: (context) {
-                    final c = cell(m, d);
+                    final o = dayOutcome(m, _state.logs, d, now);
                     return Semantics(
                       container: true,
-                      label: c.status == null
+                      label: o == null
                           ? null
                           : _t('{name}, {day}: {status}', {
                               'name': m.name,
                               'day': loc.formatFullDate(d),
-                              'status': _t(c.status!)
+                              'status': _t(outcomeStyle(o).label)
                             }),
-                      child: ExcludeSemantics(
-                        child: Container(
-                            height: 28,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                                color: c.fill,
-                                border: c.stroke == null
-                                    ? null
-                                    : Border.all(color: c.stroke!, width: 2),
-                                borderRadius: BorderRadius.circular(7)),
-                            child: c.icon == null
-                                ? null
-                                : Icon(c.icon,
-                                    size: 16,
-                                    color: c.stroke ?? Colors.white)),
-                      ),
+                      child: ExcludeSemantics(child: outcomeCell(o)),
                     );
                   }),
                 ),
               ),
           ]),
         ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 10),
       ExcludeSemantics(
-        child: Wrap(spacing: 16, runSpacing: 6, children: [
-          _legend(ReportPalette.sage, null, Icons.check_rounded, Colors.white,
-              _t('Taken')),
-          _legend(Colors.white, ReportPalette.amber, Icons.close_rounded,
-              ReportPalette.amber, _t('Missed')),
-          _legend(Colors.white, ReportPalette.controlBorder,
-              Icons.question_mark_rounded, ReportPalette.body, _t('No reply')),
-          _legend(ReportPalette.sand, null, null, null, _t('Upcoming')),
+        child: Wrap(spacing: 14, runSpacing: 8, children: [
+          for (final o in legend)
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(width: 18, child: outcomeCell(o, size: 18)),
+              const SizedBox(width: 6),
+              Text(_t(outcomeStyle(o).label),
+                  style:
+                      const TextStyle(fontSize: 12.5, color: ReportPalette.muted)),
+            ]),
         ]),
       ),
     ]);
   }
 
-  Widget _legend(Color fill, Color? stroke, IconData? icon, Color? iconColor,
-          String label) =>
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-            width: 16,
-            height: 16,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-                color: fill,
-                borderRadius: BorderRadius.circular(4),
-                border: stroke == null ? null : Border.all(color: stroke, width: 1.6)),
-            child: icon == null ? null : Icon(icon, size: 11, color: iconColor)),
-        const SizedBox(width: 6),
-        Text(label,
-            style: const TextStyle(fontSize: 13, color: ReportPalette.muted)),
-      ]);
-
   // ------------------------------------------------------------- check-in
 
-  Future<void> _checkIn(ScheduledDose dose) async {
-    final log = await showModalBottomSheet<DoseLog>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: ReportPalette.ground,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => _CheckInSheet(
-          dose: dose, language: widget.language, now: _now),
-    );
-    if (log == null || !mounted) return;
-    var next = _state.record(log);
-    if (log.status == DoseStatus.taken) {
-      final m = dose.medicine;
-      if (m.supply != null && m.supply! > 0) {
-        next = next.withMedicines([
-          for (final x in next.medicines) x.id == m.id ? x.copyWith(supply: m.supply! - 1) : x
-        ]);
-      }
-    }
-    if (log.status == DoseStatus.moved && log.movedTo != null) {
-      // The moved dose becomes its own reminder at bedtime.
-      next = next.withMedicines(next.medicines);
-    }
-    _save(next);
-  }
+  /// Each answer is saved as soon as it is given.
+  void _checkIn(ScheduledDose dose) => showCheckIn(context,
+          dose: dose, language: widget.language, now: () => _now,
+          onSave: (log) {
+        if (!mounted) return;
+        DoseStatus? previous;
+        for (final l in _state.logs) {
+          if (l.key == log.key) previous = l.status;
+        }
+        var next = _state.record(log);
+        final m = dose.medicine;
+        // One tablet used, counted once per dose however many answers follow.
+        if (log.status == DoseStatus.taken &&
+            previous != DoseStatus.taken &&
+            m.supply != null &&
+            m.supply! > 0) {
+          next = next.withMedicines([
+            for (final x in next.medicines)
+              x.id == m.id ? x.copyWith(supply: x.supply! - 1) : x
+          ]);
+        }
+        _save(next);
+      });
+
 
   // ------------------------------------------------------------- dialogs
 
@@ -780,670 +911,8 @@ class _MedsPageState extends State<MedsPage> {
 
   // ---------------------------------------------------------------- doctor
 
-  Widget _doctor(bool wide) {
-    final now = _now;
-    final signals =
-        followUpSignals(_state.medicines, _state.logs, _state.readings, now);
-    final month = adherence(_state.medicines, _state.logs,
-        now.subtract(const Duration(days: 27)), now, now);
-    final bp = _state.readings.where((r) => r.kind == 'bp').toList()
-      ..sort((a, b) => a.at.compareTo(b.at));
-    final recentBp = bp.where((r) => r.at.isAfter(now.subtract(const Duration(days: 7))));
-    final avgBp = recentBp.isEmpty
-        ? null
-        : recentBp.map((r) => r.value).reduce((a, b) => a + b) / recentBp.length;
-    Widget stat(IconData icon, String label, String value, String? note,
-            {bool alert = false, IconData? noteIcon}) =>
-        _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(icon, size: 18, color: ReportPalette.muted),
-            const SizedBox(width: 8),
-            Expanded(
-                child: Text(label,
-                    style: const TextStyle(
-                        fontSize: 13, color: ReportPalette.muted))),
-          ]),
-          const SizedBox(height: 8),
-          Text(value, style: serifStyle(36)),
-          const SizedBox(height: 6),
-          if (note != null)
-            Row(children: [
-              Icon(noteIcon ?? (alert ? Icons.info_outline_rounded : Icons.check_rounded),
-                  size: 16,
-                  color: alert ? ReportPalette.highInk : ReportPalette.sage),
-              const SizedBox(width: 4),
-              Text(note,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: alert ? ReportPalette.highInk : ReportPalette.sage)),
-            ])
-          else
-            const SizedBox(height: 16),
-        ]));
-    final stats = [
-      stat(Icons.fact_check_outlined, 'Doses confirmed · 28 days',
-          month.percent == null ? '—' : '${month.percent}%',
-          '${month.missed} missed · ${month.noReply} no reply',
-          alert: month.missed + month.noReply > 0,
-          noteIcon: Icons.error_outline_rounded),
-      stat(Icons.monitor_heart_outlined, 'Home BP · 7-day average',
-          avgBp == null ? '—' : avgBp.round().toString(),
-          avgBp != null && avgBp >= 140 ? 'Above 140 target' : null,
-          alert: true, noteIcon: Icons.trending_up_rounded),
-      stat(Icons.medication_outlined, 'Medicines', '${_state.medicines.length}', null),
-    ];
-    final bpWindow =
-        bp.where((r) => r.at.isAfter(now.subtract(const Duration(days: 22)))).toList();
-    final missedDays = _missedDays(now);
-    final chartCard = bp.isEmpty
-        ? null
-        : _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            heading('Doses and home blood pressure · 21 days',
-                const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            Semantics(
-              image: true,
-              label: _bpSummary(bpWindow, missedDays),
-              child: ExcludeSemantics(
-                child: SizedBox(
-                    height: 220,
-                    width: double.infinity,
-                    child: CustomPaint(
-                        painter: _BpPainter(
-                            readings: bpWindow, missedDays: missedDays, now: now))),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-                'Bars below the line mark days with a missed dose. Shown together for review; any link between them is the clinician’s judgement.',
-                style: TextStyle(fontSize: 13, height: 1.5, color: ReportPalette.muted)),
-          ]));
-    final byMedicine =
-        _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      heading('By medicine · 28 days',
-          const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 12),
-      for (final m in _state.medicines) _medBar(m, now),
-    ]));
-    final fortnight = adherence(_state.medicines, _state.logs,
-        now.subtract(const Duration(days: 13)), now, now);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _planHeader(now),
-      const SizedBox(height: 14),
-      _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        heading('Needs attention',
-            const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        if (signals.isEmpty)
-          const Text('Nothing flagged in the last 14 days.',
-              style: TextStyle(fontSize: 15, color: ReportPalette.body))
-        else
-          for (final s in signals)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Semantics(
-                  label: s.priority >= 3 ? 'Important' : 'Note',
-                  child: Icon(
-                      s.priority >= 3
-                          ? Icons.priority_high_rounded
-                          : Icons.info_outline_rounded,
-                      size: 18,
-                      color: s.priority >= 3
-                          ? ReportPalette.burgundy
-                          : ReportPalette.highInk),
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: Text(s.message, style: const TextStyle(fontSize: 15, height: 1.45))),
-              ]),
-            ),
-      ])),
-      const SizedBox(height: 14),
-      wide
-          ? IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                for (var i = 0; i < stats.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 14),
-                  Expanded(child: stats[i]),
-                ]
-              ]),
-            )
-          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              for (final s in stats) Padding(padding: const EdgeInsets.only(bottom: 12), child: s)
-            ]),
-      const SizedBox(height: 14),
-      if (wide && chartCard != null)
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(flex: 3, child: chartCard),
-          const SizedBox(width: 14),
-          Expanded(flex: 2, child: byMedicine),
-        ])
-      else ...[
-        if (chartCard != null) ...[chartCard, const SizedBox(height: 14)],
-        byMedicine,
-      ],
-      const SizedBox(height: 14),
-      _patientReported(fortnight),
-      const SizedBox(height: 14),
-      const Text(
-          'Check-ins are self-reported and can overstate doses actually taken; studies of phone-based dose reporting found it missed many non-adherent days. Confirm at the visit.',
-          style: TextStyle(fontSize: 13, height: 1.5, color: ReportPalette.muted)),
-    ]);
-  }
-
-  /// Text alternative for the chart: what a sighted clinician reads off it.
-  String _bpSummary(List<Reading> readings, Set<int> missedDays) {
-    if (readings.isEmpty) return 'Home blood pressure chart: no readings yet.';
-    final first = readings.first.value.round();
-    final last = readings.last.value.round();
-    return 'Home systolic blood pressure over the last 21 days: first reading '
-        '$first, latest $last, ${readings.length} readings. '
-        '${missedDays.length} days had a missed dose.';
-  }
-
-  Set<int> _missedDays(DateTime now) {
-    final out = <int>{};
-    for (var back = 0; back <= 21; back++) {
-      final day = now.subtract(Duration(days: back));
-      final doses = dosesForDay(_state.medicines, _state.logs, day);
-      if (doses.any((d) => !d.scheduled.isAfter(now) && d.statusAt(now) == DoseStatus.missed)) {
-        out.add(back);
-      }
-    }
-    return out;
-  }
-
-  /// Who and what the doctor is looking at, before any numbers.
-  Widget _planHeader(DateTime now) {
-    final starts = _state.medicines.map((m) => m.start).whereType<DateTime>();
-    final first = starts.isEmpty
-        ? null
-        : starts.reduce((a, b) => a.isBefore(b) ? a : b);
-    final days = first == null ? null : now.difference(first).inDays;
-    final prescriber = _state.medicines
-        .map((m) => m.prescribedBy)
-        .firstWhere((p) => p.isNotEmpty, orElse: () => '');
-    String times(Medicine m) => m.times
-        .map((t) =>
-            '${(t ~/ 60).toString().padLeft(2, '0')}:${(t % 60).toString().padLeft(2, '0')}')
-        .join(', ');
-    return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: const BoxDecoration(
-              color: ReportPalette.rose, shape: BoxShape.circle),
-          child: const Icon(Icons.person_outline_rounded,
-              color: ReportPalette.burgundy),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          heading(_state.demo ? 'Demo patient' : 'Patient on this device',
-              const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(
-              [
-                '${_state.medicines.length} medicines',
-                if (days != null) 'plan started $days days ago',
-                if (prescriber.isNotEmpty) 'prescribed by $prescriber',
-                'self-reported check-ins',
-              ].join(' · '),
-              style: const TextStyle(fontSize: 13.5, color: ReportPalette.muted)),
-        ])),
-      ]),
-      const SizedBox(height: 14),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        for (final m in _state.medicines)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-                color: ReportPalette.blush,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: ReportPalette.border)),
-            child: Text('${m.name} ${m.dose} · ${times(m)} · ${_ruleLabel(m)}',
-                style: const TextStyle(fontSize: 13, color: ReportPalette.body)),
-          ),
-      ]),
-    ]));
-  }
-
-  /// What the patient said, in their own categories: why doses were missed
-  /// and how they felt when they confirmed one.
-  Widget _patientReported(Adherence a) {
-    Widget group(String title, IconData icon, Map<String, String> items,
-            String empty) =>
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Icon(icon, size: 18, color: ReportPalette.muted),
-            const SizedBox(width: 8),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w600)),
-          ]),
-          const SizedBox(height: 10),
-          if (items.isEmpty)
-            Text(empty,
-                style: const TextStyle(fontSize: 14, color: ReportPalette.muted))
-          else
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final e in items.entries)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                      color: ReportPalette.sand,
-                      borderRadius: BorderRadius.circular(999)),
-                  child: Text('${e.key}  ${e.value}',
-                      style: const TextStyle(
-                          fontSize: 13.5, color: ReportPalette.ink)),
-                ),
-            ]),
-        ]);
-    final reasons = {
-      for (final e in a.reasons.entries)
-        _capitalised(_reasonLabel(e.key)): '×${e.value}',
-      if (a.noReply > 0) 'No reply': '×${a.noReply}',
-    };
-    final feelings = {
-      for (final e in a.feelings.entries) e.key: '×${e.value}',
-    };
-    return _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      heading('What the patient told us · 14 days',
-          const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-      const SizedBox(height: 14),
-      LayoutBuilder(builder: (context, box) {
-        final missedGroup = group('Why doses were missed',
-            Icons.help_outline_rounded, reasons, 'No missed doses reported.');
-        final feelGroup = group('How they felt when taking a dose',
-            Icons.sentiment_satisfied_outlined, feelings,
-            'No feelings recorded.');
-        return box.maxWidth >= 560
-            ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(child: missedGroup),
-                const SizedBox(width: 24),
-                Expanded(child: feelGroup),
-              ])
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                missedGroup,
-                const SizedBox(height: 18),
-                feelGroup,
-              ]);
-      }),
-    ]));
-  }
-
-  Widget _medBar(Medicine m, DateTime now) {
-    final a = adherence(_state.medicines, _state.logs,
-        now.subtract(const Duration(days: 27)), now, now, medicineId: m.id);
-    final pct = a.percent ?? 0;
-    final reasons = a.reasons.entries
-        .map((e) => '${_reasonLabel(e.key)} ×${e.value}')
-        .join(', ');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text('${m.name} · ${m.dose}', style: const TextStyle(fontSize: 15))),
-          Text(a.percent == null ? '—' : '$pct%',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-        ]),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-              value: pct / 100,
-              minHeight: 8,
-              backgroundColor: ReportPalette.sand,
-              color: pct >= 90 ? ReportPalette.sage : ReportPalette.amber),
-        ),
-        const SizedBox(height: 4),
-        Text(
-            '${a.missed} missed${a.noReply > 0 ? ' · ${a.noReply} no reply' : ''}${reasons.isEmpty ? '' : ' · $reasons'}${m.mealSensitive ? ' · ${_ruleLabel(m)}' : ''}',
-            style: const TextStyle(fontSize: 12, color: ReportPalette.muted)),
-      ]),
-    );
-  }
-
-  Widget _card(Widget child) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: ReportPalette.cardShadow,
-            border: Border.all(color: ReportPalette.border)),
-        child: child,
-      );
-}
-
-String _capitalised(String s) =>
-    s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
-
-String _reasonLabel(String key) => switch (key) {
-      'ran_out' => 'ran out',
-      'unwell' => 'felt unwell',
-      'away' => 'away from home',
-      'forgot' => 'forgot',
-      'ate_first' => 'had already eaten',
-      _ => 'other',
-    };
-
-class _BpPainter extends CustomPainter {
-  _BpPainter({required this.readings, required this.missedDays, required this.now});
-  final List<Reading> readings;
-  final Set<int> missedDays;
-  final DateTime now;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const left = 36.0, bottomStrip = 28.0;
-    final chartH = size.height - bottomStrip - 12;
-    const lo = 110.0, hi = 170.0;
-    double y(double v) => 6 + (hi - v.clamp(lo, hi)) / (hi - lo) * chartH;
-    double x(int back) => left + (21 - back) / 21 * (size.width - left - 8);
-    final grid = Paint()..color = ReportPalette.border;
-    final text = TextPainter(textDirection: TextDirection.ltr);
-    for (final v in [120.0, 140.0, 160.0]) {
-      canvas.drawLine(Offset(left, y(v)), Offset(size.width, y(v)),
-          v == 140 ? (Paint()..color = ReportPalette.amber..strokeWidth = 1) : grid);
-      text.text = TextSpan(
-          text: v.round().toString(),
-          style: const TextStyle(fontSize: 12, color: ReportPalette.muted));
-      text.layout();
-      text.paint(canvas, Offset(0, y(v) - 8));
-    }
-    text.text = const TextSpan(
-        text: 'Target 140',
-        style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: ReportPalette.highInk));
-    text.layout();
-    text.paint(canvas, Offset(size.width - text.width, y(140) - text.height - 2));
-    final points = <Offset>[];
-    for (final r in readings) {
-      final back = now.difference(r.at).inHours / 24;
-      points.add(Offset(left + (21 - back) / 21 * (size.width - left - 8), y(r.value)));
-    }
-    final line = Paint()
-      ..color = ReportPalette.ink
-      ..strokeWidth = 2.2
-      ..style = PaintingStyle.stroke;
-    for (var i = 1; i < points.length; i++) {
-      canvas.drawLine(points[i - 1], points[i], line);
-    }
-    for (final p in points) {
-      canvas.drawCircle(p, 3, Paint()..color = ReportPalette.ink);
-    }
-    final stripY = size.height - bottomStrip + 4;
-    final cellW = math.max(4.0, (size.width - left - 8) / 22 - 3);
-    for (var back = 0; back <= 21; back++) {
-      final missed = missedDays.contains(back);
-      final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(x(back) - cellW / 2, stripY, cellW, 16), const Radius.circular(4));
-      canvas.drawRRect(
-          rect,
-          Paint()
-            ..color = missed ? Colors.white : ReportPalette.sage
-            ..style = PaintingStyle.fill);
-      if (missed) {
-        canvas.drawRRect(
-            rect,
-            Paint()
-              ..color = ReportPalette.amber
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 2);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BpPainter old) => true;
-}
-
-// ------------------------------------------------------------ check-in sheet
-
-class _CheckInSheet extends StatefulWidget {
-  const _CheckInSheet({required this.dose, required this.language, required this.now});
-  final ScheduledDose dose;
-  final String language;
-  final DateTime now;
-
-  @override
-  State<_CheckInSheet> createState() => _CheckInSheetState();
-}
-
-enum _Step { meal, advice, taken, cant }
-
-class _CheckInSheetState extends State<_CheckInSheet> {
-  late _Step _step = firstQuestion(widget.dose.medicine) == CheckInQuestion.haveYouEaten
-      ? _Step.meal
-      : _Step.advice;
-  bool? _ate;
-  String? _feeling;
-  DoseLog? _pending;
-
-  Medicine get _m => widget.dose.medicine;
-  String _t(String s, [Map<String, Object?> v = const {}]) =>
-      AppStrings(widget.language).t(s, v);
-
-  DoseLog _log(DoseStatus status, {String? reason, DateTime? movedTo}) => DoseLog(
-      medicineId: _m.id,
-      scheduled: widget.dose.scheduled,
-      status: status,
-      at: status == DoseStatus.taken ? widget.now : null,
-      reason: reason,
-      feeling: _feeling,
-      ateBefore: _ate,
-      movedTo: movedTo);
-
-  void _finish(DoseLog log) => Navigator.pop(context, log);
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-              20, 4, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
-          child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('${_m.name} · ${_m.dose}',
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: ReportPalette.burgundy)),
-                const SizedBox(height: 10),
-                ...switch (_step) {
-                  _Step.meal => _mealStep(),
-                  _Step.advice => _adviceStep(),
-                  _Step.taken => _takenStep(),
-                  _Step.cant => _cantStep(),
-                },
-              ]),
-        ),
-      );
-
-  /// Each step's question is announced when it appears.
-  Widget _title(String text, double size) => Semantics(
-      header: true,
-      liveRegion: true,
-      child: Text(text, style: serifStyle(size, height: 1.2)));
-
-  List<Widget> _mealStep() {
-    final question = switch (_m.meal) {
-      Meal.lunch => 'Have you had lunch yet?',
-      Meal.dinner => 'Have you had dinner yet?',
-      _ => 'Have you had breakfast yet?',
-    };
-    return [
-      _title(_t(question), 26),
-      const SizedBox(height: 18),
-      FilledButton(
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(60)),
-          onPressed: () => setState(() {
-                _ate = false;
-                _step = _Step.advice;
-              }),
-          child: Text(_t('Not yet'))),
-      const SizedBox(height: 10),
-      OutlinedButton(
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(60)),
-          onPressed: () => setState(() {
-                _ate = true;
-                _step = _Step.advice;
-              }),
-          child: Text(_t('Yes, I have eaten'))),
-    ];
-  }
-
-  List<Widget> _adviceStep() {
-    final advice = _ate == null
-        ? CheckInAdvice.takeNow
-        : adviceAfterMealAnswer(_m, hasEaten: _ate!);
-    if (advice == CheckInAdvice.followAteFirstRule) {
-      final (String body, String action, DoseLog Function() result) = switch (_m.ateFirstRule) {
-        AteFirstRule.moveToBedtime => (
-            'Your doctor’s plan: take it at bedtime instead, at least 2 hours after dinner. Do not take two doses.',
-            'Remind me at bedtime',
-            () => _log(DoseStatus.moved, movedTo: bedtimeFor(widget.now))),
-        AteFirstRule.skip => (
-            'Your doctor’s plan: skip this dose and take the next one at its usual time. Do not take two doses.',
-            'Skip this dose',
-            () => _log(DoseStatus.skipped, reason: 'ate_first')),
-        AteFirstRule.takeNow => (
-            'Your doctor’s plan: take it now anyway.',
-            'I have taken it',
-            () => _log(DoseStatus.taken)),
-        AteFirstRule.askDoctor => (
-            'Your doctor has not set a plan for this. Do not take an extra dose; ask your doctor or pharmacist.',
-            'Note it for my doctor',
-            () => _log(DoseStatus.missed, reason: 'ate_first')),
-      };
-      return [
-        _title(_t('This medicine works best on an empty stomach.'), 24),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-              color: ReportPalette.warnBg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: ReportPalette.warnBorder)),
-          child: Text(_t(body),
-              style: const TextStyle(fontSize: 16, height: 1.5, color: ReportPalette.body)),
-        ),
-        const SizedBox(height: 16),
-        FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-            onPressed: () => _finish(result()),
-            child: Text(_t(action))),
-        const SizedBox(height: 8),
-        Text(_t('Medivaanii only follows the instructions your doctor set. It never changes a dose.'),
-            style: const TextStyle(fontSize: 13, color: ReportPalette.muted)),
-      ];
-    }
-    final title = switch (advice) {
-      CheckInAdvice.takeNowThenWait => _t('Good timing. Take it now.'),
-      CheckInAdvice.eatFirst => _t('Have your meal first, then take it.'),
-      _ => _t('Time to take it.'),
-    };
-    final body = switch (advice) {
-      CheckInAdvice.takeNowThenWait =>
-        _t('Then wait about {min} minutes before eating.', {'min': _m.gapMinutes}),
-      CheckInAdvice.eatFirst => _t('Check in again after you have eaten.'),
-      _ => '',
-    };
-    return [
-      _title(title, 26),
-      if (body.isNotEmpty) ...[
-        const SizedBox(height: 8),
-        Text(body, style: const TextStyle(fontSize: 16, height: 1.5, color: ReportPalette.body)),
-      ],
-      const SizedBox(height: 18),
-      if (advice != CheckInAdvice.eatFirst)
-        FilledButton(
-            style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(60),
-                backgroundColor: ReportPalette.sage),
-            onPressed: () => setState(() {
-                  _pending = _log(DoseStatus.taken);
-                  _step = _Step.taken;
-                }),
-            child: Text(_t('I have taken it'))),
-      const SizedBox(height: 10),
-      Row(children: [
-        Expanded(
-            child: OutlinedButton(
-                onPressed: () => _finish(_log(DoseStatus.snoozed)),
-                child: Text(_t('Remind me later')))),
-        const SizedBox(width: 10),
-        Expanded(
-            child: OutlinedButton(
-                onPressed: () => setState(() => _step = _Step.cant),
-                child: Text(_t('I can’t take it')))),
-      ]),
-    ];
-  }
-
-  List<Widget> _takenStep() {
-    final feelings = ['Fine', 'Tired', 'Dizzy or shaky', 'Something else'];
-    return [
-      Row(children: [
-        const Icon(Icons.check_circle_rounded, color: ReportPalette.sage),
-        const SizedBox(width: 8),
-        Text(_t('Logged'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-      ]),
-      const SizedBox(height: 14),
-      _title(_t('How are you feeling today?'), 22),
-      const SizedBox(height: 12),
-      Wrap(spacing: 10, runSpacing: 10, children: [
-        for (final f in feelings)
-          ChoiceChip(
-              label: Text(_t(f)),
-              selected: _feeling == f,
-              selectedColor: ReportPalette.rose,
-              onSelected: (_) => setState(() => _feeling = f)),
-      ]),
-      const SizedBox(height: 16),
-      FilledButton(
-          onPressed: () => _finish(_log(DoseStatus.taken)),
-          child: Text(_t(_feeling == null ? 'Skip' : 'Done'))),
-      const SizedBox(height: 6),
-      Text(_t('Shared with your doctor so they can see how this medicine suits you.'),
-          style: const TextStyle(fontSize: 13, color: ReportPalette.muted)),
-    ];
-  }
-
-  List<Widget> _cantStep() {
-    final reasons = {
-      'ran_out': 'I have run out of tablets',
-      'unwell': 'It makes me feel unwell',
-      'away': 'I am away from home',
-      'other': 'Something else',
-    };
-    return [
-      _title(_t('That’s okay. What’s stopping you?'), 24),
-      const SizedBox(height: 6),
-      Text(_t('Your answer helps your doctor, not to blame you.'),
-          style: const TextStyle(fontSize: 14, color: ReportPalette.muted)),
-      const SizedBox(height: 14),
-      for (final e in reasons.entries)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                  alignment: Alignment.centerLeft),
-              onPressed: () => _finish(_log(DoseStatus.missed, reason: e.key)),
-              child: Text(_t(e.value))),
-        ),
-    ];
-  }
-
-  // Keep analyzer quiet about the pending log used for future undo.
-  DoseLog? get pending => _pending;
+  Widget _doctor(bool wide) =>
+      DoctorFollowUp(state: _state, now: _now, wide: wide);
 }
 
 // ------------------------------------------------------- add medicine dialog

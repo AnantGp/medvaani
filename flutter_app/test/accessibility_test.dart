@@ -117,7 +117,7 @@ void main() {
       _phone(tester);
       await tester.pumpWidget(_meds(now));
       await tester.pumpAndSettle();
-      expect(find.bySemanticsLabel(RegExp(r'^Thyroxine, .*: (Taken|Missed)$')),
+      expect(find.bySemanticsLabel(RegExp(r'^Thyroxine, .*: (Taken as prescribed|Not taken|Taken off time|Food instruction not followed)$')),
           findsWidgets);
       handle.dispose();
     });

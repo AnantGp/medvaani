@@ -201,6 +201,87 @@ def rows_from_model(items, pages, digest, model=''):
     return _dedupe(rows), problems
 
 
+NUMERIC_CELL = re.compile(r'[<>≤≥]?\d+(?:[.,]\d+)*')
+COLUMN_TOLERANCE = 0.012  # fraction of the page width
+
+
+def recover_sibling_rows(rows, pages, digest, model=''):
+    """Rows the model skipped that sit in the same printed columns as its rows.
+
+    The model sometimes stops before the last lines of a table. Where at least
+    three of its rows on a page agree on where the value, unit, range and flag
+    columns are, any other line with a number in the value column and the same
+    cells filled is the same kind of row. Text and boxes come from the page.
+    """
+    recovered = []
+    for page in pages:
+        mine = [r for r in rows if r['source_fields']['value']['page'] == page['page']]
+        if len(mine) < 3:
+            continue
+        spans = {}
+        for key in ('value', 'unit', 'reference_range', 'flag'):
+            boxes = [r['source_fields'][key]['box'] for r in mine if key in r['source_fields']
+                     and r['source_fields'][key].get('page') == page['page']]
+            if key == 'value' or len(boxes) >= max(2, len(mine) // 3):
+                spans[key] = (min(b[0] for b in boxes), max(b[0] + b[2] for b in boxes))
+        ordered = sorted(spans.items(), key=lambda kv: kv[1][0])
+        if any(a[1][1] > b[1][0] - 1e-6 for a, b in zip(ordered, ordered[1:])):
+            continue  # columns overlap: positions cannot tell cells apart
+        required = {key for key in ('unit', 'reference_range')
+                    if key in spans and sum(key in r['source_fields'] for r in mine) >= 0.7 * len(mine)}
+        used = [(r['source_fields']['value']['box']) for r in mine]
+        top = min(b[1] for b in used) - 0.03
+        bottom = max(b[1] + b[3] for b in used) + 0.06
+        for line in page.get('lines', []):
+            words = line.get('words') or []
+            if not words or not (top <= words[0]['y'] <= bottom):
+                continue
+            if any(abs(w['y'] - b[1]) < 0.004 and b[0] - 1e-6 <= w['x'] <= b[0] + b[2] for w in words for b in used):
+                continue
+            cells = {key: [] for key in spans}
+            name, unknown = [], False
+            for word in words:
+                left, right = word['x'], word['x'] + word['width']
+                if right <= spans['value'][0] - COLUMN_TOLERANCE / 2:
+                    name.append(word)
+                    continue
+                home = [key for key, (lo, hi) in spans.items()
+                        if right > lo - COLUMN_TOLERANCE and left < hi + COLUMN_TOLERANCE]
+                if len(home) != 1:
+                    unknown = True
+                    break
+                cells[home[0]].append(word)
+            if unknown or not name or len(cells['value']) != 1:
+                continue
+            value_text = str(cells['value'][0]['text'])
+            name_text = ' '.join(str(w['text']) for w in name)
+            if not NUMERIC_CELL.fullmatch(value_text) or not re.search(r'[^\W\d_]', name_text) or ':' in name_text:
+                continue
+            if any(not cells[key] for key in required):
+                continue
+            fields = {'test_name': _field((name_text, name, page['page'])),
+                      'value': _field((value_text, cells['value'], page['page']))}
+            for key in ('unit', 'reference_range', 'flag'):
+                if cells.get(key):
+                    fields[key] = _field((' '.join(str(w['text']) for w in cells[key]), cells[key], page['page']))
+            if 'unit' in fields and not re.search(r'[^\d\s.,]', fields['unit']['text']):
+                continue
+            box = fields['value']['box']
+            recovered.append({
+                'measurement_id': measurement_id(digest, page['page'], 'ai_layout', box),
+                'record_type': 'measurement',
+                'test_name': name_text, 'canonical_test': canonical_test(name_text),
+                'panel': 'Laboratory results',
+                'value': value_text, 'value_kind': value_kind(value_text),
+                'unit': fields.get('unit', {}).get('text', ''),
+                'reference_range': fields.get('reference_range', {}).get('text', ''),
+                'source_fields': fields, 'source_quote': _norm(line.get('text', '')),
+                'status': 'unknown', 'status_source': 'unknown', 'issues': [],
+                'extraction_method': 'ai_layout', 'ai_model': model, 'recovered_by': 'column_position',
+            })
+    return recovered
+
+
 def _dedupe(rows):
     seen, result = set(), []
     for row in rows:
@@ -244,7 +325,10 @@ async def read_rows(pages, digest, chat=None):
         else:
             problems.append({'code': 'ai_bad_response'})
     rows, more = rows_from_model(items, pages, digest, model)
-    return rows, problems + more
+    extra = recover_sibling_rows(rows, pages, digest, model)
+    if extra:
+        more.append({'code': 'ai_rows_recovered', 'detail': ', '.join(r['test_name'] for r in extra)[:200]})
+    return _dedupe(rows + extra), problems + more
 
 
 async def _ask(chat, chunk, budget, waits=None):

@@ -1,6 +1,7 @@
 """The AI layout reader may only choose text that is printed on the page."""
 import asyncio
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -126,3 +127,35 @@ def test_transient_ai_failures_are_retried():
     ai_rows.RETRY_WAITS = (0, 0, 0)
     rows, _ = asyncio.run(ai_rows.read_rows(PAGE, 'd', chat=flaky))
     assert len(calls) == 3 and rows[0]['value'] == '13.6'
+
+
+def test_rows_the_model_skipped_are_recovered_from_the_same_columns():
+    """The model stopped two lines early on a Korean table; the page still has them."""
+    from pathlib import Path
+    from ocr import read_document
+    from ai_rows import recover_sibling_rows
+    doc = read_document(str(Path(__file__).parent.parent / 'test_data/world/KR_korea.pdf'))
+    pages = doc['pages']
+    lines = pages[0]['lines']
+    items = []
+    for number, line in enumerate(lines, 1):
+        words = [w['text'] for w in line['words']]
+        if len(words) < 4 or not re.fullmatch(r'\d+(?:\.\d+)?', words[1]) or words[0] in {'AST', 'ALT'}:
+            continue
+        flag = words[2] if words[2] in {'H', 'L'} else ''
+        rest = words[3:] if flag else words[2:]
+        items.append({'line': f'p1.L{number}', 'test_name': words[0], 'value': words[1], 'flag': flag,
+                      'flag_meaning': {'H': 'high', 'L': 'low'}.get(flag, ''),
+                      'unit': rest[0], 'reference_range': rest[1]})
+    rows, _ = rows_from_model(items, pages, 'd')
+    assert len(rows) == 8 and not {'AST', 'ALT'} & {r['test_name'] for r in rows}
+    extra = recover_sibling_rows(rows, pages, 'd')
+    assert [(r['test_name'], r['value'], r['unit'], r['reference_range']) for r in extra] == [
+        ('AST', '21', 'IU/L', '0~32'), ('ALT', '19', 'IU/L', '0~33')]
+    # Headers, patient details and the footer are never turned into results.
+    assert all(r['source_fields']['value']['text'] == r['value'] for r in extra)
+
+
+def test_sibling_recovery_needs_three_agreeing_rows():
+    from ai_rows import recover_sibling_rows
+    assert recover_sibling_rows([], [{'page': 1, 'lines': []}], 'd') == []

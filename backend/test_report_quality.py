@@ -132,3 +132,14 @@ def test_ocr_flag_requires_its_own_source_check():
     row['source_checked_fields'] = ['flag']
     checked, _ = policy().validate_document(document(row))
     assert checked[0]['acceptance_state'] == 'eligible'
+
+
+def test_us_style_bound_and_bounded_results():
+    from report_quality import _comparison
+    assert _comparison({'value': '62', 'reference_range': '> OR = 50', 'unit': 'mg/dL'}) == 'normal'
+    assert _comparison({'value': '41', 'reference_range': '> OR = 50', 'unit': 'mg/dL'}) == 'low'
+    assert _comparison({'value': '>90', 'reference_range': '(>59)', 'unit': 'mL/min/1.73m2'}) == 'normal'
+    assert _comparison({'value': '<0.5', 'reference_range': '<5.0', 'unit': 'mg/L'}) == 'normal'
+    # A result bounded the other way, or past the rule, is not guessed.
+    assert _comparison({'value': '>90', 'reference_range': '<59', 'unit': ''}) is None
+    assert _comparison({'value': '>40', 'reference_range': '>59', 'unit': ''}) is None

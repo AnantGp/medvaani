@@ -132,6 +132,8 @@ class DoseLog {
     this.feeling,
     this.ateBefore,
     this.movedTo,
+    this.mealTiming,
+    this.snoozedUntil,
   });
 
   final String medicineId;
@@ -144,6 +146,31 @@ class DoseLog {
   final bool? ateBefore;
   final DateTime? movedTo;
 
+  /// When the patient took it relative to the meal: 'before', 'with' or
+  /// 'after'. Asked after a dose is confirmed.
+  final String? mealTiming;
+
+  /// "Remind me later": the dose stays open until this time.
+  final DateTime? snoozedUntil;
+
+  /// The food answer, including check-ins saved before [mealTiming] existed.
+  String? get foodAnswer =>
+      mealTiming ?? (ateBefore == null ? null : (ateBefore! ? 'after' : 'before'));
+
+  DoseLog copyWith(
+          {DateTime? at, String? feeling, String? mealTiming, String? reason}) =>
+      DoseLog(
+          medicineId: medicineId,
+          scheduled: scheduled,
+          status: status,
+          at: at ?? this.at,
+          reason: reason ?? this.reason,
+          feeling: feeling ?? this.feeling,
+          ateBefore: ateBefore,
+          movedTo: movedTo,
+          mealTiming: mealTiming ?? this.mealTiming,
+          snoozedUntil: snoozedUntil);
+
   String get key => doseKey(medicineId, scheduled);
 
   Map<String, dynamic> toJson() => {
@@ -155,6 +182,8 @@ class DoseLog {
         'feeling': feeling,
         'ateBefore': ateBefore,
         'movedTo': movedTo?.toIso8601String(),
+        if (mealTiming != null) 'mealTiming': mealTiming,
+        if (snoozedUntil != null) 'snoozedUntil': snoozedUntil!.toIso8601String(),
       };
 
   static DoseLog fromJson(Map<String, dynamic> j) => DoseLog(
@@ -166,6 +195,10 @@ class DoseLog {
         feeling: j['feeling'] as String?,
         ateBefore: j['ateBefore'] as bool?,
         movedTo: j['movedTo'] == null ? null : DateTime.parse(j['movedTo'] as String),
+        mealTiming: j['mealTiming'] as String?,
+        snoozedUntil: j['snoozedUntil'] == null
+            ? null
+            : DateTime.parse(j['snoozedUntil'] as String),
       );
 }
 
@@ -193,14 +226,23 @@ DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);
 
 /// A dose as shown on the patient's day list.
 class ScheduledDose {
-  ScheduledDose(this.medicine, this.scheduled, this.log);
+  ScheduledDose(this.medicine, this.scheduled, this.log, {this.movedFrom});
   final Medicine medicine;
   final DateTime scheduled;
   final DoseLog? log;
 
+  /// Set when this is a dose the doctor's rule moved here from an earlier time.
+  final DateTime? movedFrom;
+
+  /// When the reminder for this dose should next appear.
+  DateTime get remindAt {
+    final until = log?.status == DoseStatus.snoozed ? log!.snoozedUntil : null;
+    return until != null && until.isAfter(scheduled) ? until : scheduled;
+  }
+
   DoseStatus statusAt(DateTime now, {int graceMinutes = 120}) {
     if (log != null && log!.status != DoseStatus.snoozed) return log!.status;
-    if (now.isAfter(scheduled.add(Duration(minutes: graceMinutes)))) {
+    if (now.isAfter(remindAt.add(Duration(minutes: graceMinutes)))) {
       return DoseStatus.noReply;
     }
     return DoseStatus.due;
@@ -218,8 +260,124 @@ List<ScheduledDose> dosesForDay(
         ScheduledDose(m, start.add(Duration(minutes: t)),
             byKey[doseKey(m.id, start.add(Duration(minutes: t)))]),
   ];
+  // A dose moved by the doctor's rule is a real dose at its new time.
+  for (final log in logs) {
+    final to = log.movedTo;
+    if (log.status != DoseStatus.moved || to == null || _day(to) != start) {
+      continue;
+    }
+    final owner = medicines.where((m) => m.id == log.medicineId);
+    if (owner.isEmpty ||
+        doses.any((d) => d.medicine.id == log.medicineId && d.scheduled == to)) {
+      continue;
+    }
+    doses.add(ScheduledDose(owner.first, to, byKey[doseKey(log.medicineId, to)],
+        movedFrom: log.scheduled));
+  }
   doses.sort((a, b) => a.scheduled.compareTo(b.scheduled));
   return doses;
+}
+
+/// A dose counts as on time within this many minutes of its planned time.
+const onTimeWindowMinutes = 60;
+
+/// Minutes between the planned time and when the patient says they took it.
+int? minutesOff(DoseLog log, {DateTime? planned}) =>
+    log.status != DoseStatus.taken || log.at == null
+        ? null
+        : log.at!.difference(planned ?? log.scheduled).inMinutes;
+
+/// Whether the food answer matches the doctor's instruction; null when the
+/// medicine has no food instruction or the question was not answered.
+bool? foodAsPrescribed(Medicine m, DoseLog log) {
+  final answer = log.foodAnswer;
+  if (answer == null || log.status != DoseStatus.taken) return null;
+  switch (m.mealRule) {
+    case MealRule.any:
+      return null;
+    case MealRule.beforeFood:
+      return answer == 'before';
+    case MealRule.afterFood:
+    case MealRule.withFood:
+      return answer != 'before';
+  }
+}
+
+/// What finally happened to a planned dose, as a doctor would sort it.
+enum DoseOutcome {
+  /// Taken within the hour and, where asked, correctly with or without food.
+  asPrescribed,
+
+  /// Taken, but more than an hour early or late.
+  offTime,
+
+  /// Taken, but not with/without food as instructed.
+  wrongFood,
+
+  /// The patient said they did not take it.
+  notTaken,
+
+  /// Nobody answered; whether it was taken is unknown.
+  noReply,
+
+  /// Skipped because the doctor's own rule said so.
+  skippedByPlan,
+
+  /// Not due yet, or still open.
+  open,
+}
+
+/// The log that settles a dose: its own, or the bedtime follow-up of a moved one.
+DoseLog? settlingLog(ScheduledDose dose, List<DoseLog> logs) {
+  final log = dose.log;
+  if (log?.status != DoseStatus.moved || log!.movedTo == null) return log;
+  for (final l in logs) {
+    if (l.medicineId == dose.medicine.id &&
+        l.scheduled == log.movedTo &&
+        l.status != DoseStatus.moved) {
+      return l;
+    }
+  }
+  return null;
+}
+
+DoseOutcome outcomeOf(ScheduledDose dose, List<DoseLog> logs, DateTime now) {
+  final status = dose.statusAt(now);
+  final own = dose.log;
+  switch (status) {
+    case DoseStatus.due:
+    case DoseStatus.snoozed:
+      return DoseOutcome.open;
+    case DoseStatus.noReply:
+      return DoseOutcome.noReply;
+    case DoseStatus.missed:
+      return DoseOutcome.notTaken;
+    case DoseStatus.skipped:
+      return DoseOutcome.skippedByPlan;
+    case DoseStatus.moved:
+      final follow = settlingLog(dose, logs);
+      if (follow == null || follow.status == DoseStatus.snoozed) {
+        final to = own?.movedTo;
+        return to != null && now.isAfter(to.add(const Duration(hours: 2)))
+            ? DoseOutcome.noReply
+            : DoseOutcome.open;
+      }
+      if (follow.status == DoseStatus.missed) return DoseOutcome.notTaken;
+      if (follow.status != DoseStatus.taken) return DoseOutcome.open;
+      // The move itself was the doctor's instruction about food.
+      final off = minutesOff(follow, planned: own!.movedTo);
+      return off != null && off.abs() > onTimeWindowMinutes
+          ? DoseOutcome.offTime
+          : DoseOutcome.asPrescribed;
+    case DoseStatus.taken:
+      if (foodAsPrescribed(dose.medicine, own!) == false) {
+        return DoseOutcome.wrongFood;
+      }
+      final off = minutesOff(own, planned: dose.scheduled);
+      return off != null && off.abs() > onTimeWindowMinutes
+          ? DoseOutcome.offTime
+          : DoseOutcome.asPrescribed;
+  }
 }
 
 /// The first question to ask before a dose, or null to ask "taken?" directly.
@@ -262,6 +420,18 @@ CheckInAdvice adviceAfterMealAnswer(Medicine m, {required bool hasEaten}) {
 }
 
 /// Bedtime used when a dose is moved; the doctor can change it per plan.
+/// The meal a dose is taken around. A medicine taken more than once a day,
+/// or with no meal set, goes by the time of the dose.
+Meal mealAt(Medicine m, DateTime scheduled) {
+  if (m.meal != Meal.none && m.times.length <= 1) return m.meal;
+  final minutes = scheduled.hour * 60 + scheduled.minute;
+  return minutes < 11 * 60
+      ? Meal.breakfast
+      : minutes < 17 * 60
+          ? Meal.lunch
+          : Meal.dinner;
+}
+
 DateTime bedtimeFor(DateTime day, {int minutes = 22 * 60}) =>
     _day(day).add(Duration(minutes: minutes));
 
@@ -270,7 +440,14 @@ DateTime bedtimeFor(DateTime day, {int minutes = 22 * 60}) =>
 /// taken; skipped-by-rule doses are excluded from the denominator.
 class Adherence {
   Adherence(this.taken, this.missed, this.skipped, this.reasons,
-      {this.noReply = 0, Map<String, int>? feelings})
+      {this.noReply = 0,
+      Map<String, int>? feelings,
+      this.asPrescribed = 0,
+      this.offTime = 0,
+      this.wrongFood = 0,
+      this.foodAnswered = 0,
+      this.foodFollowed = 0,
+      this.averageDelay})
       : feelings = feelings ?? {};
   final int taken, missed, skipped, noReply;
   final Map<String, int> reasons;
@@ -278,58 +455,96 @@ class Adherence {
   /// How the patient said they felt when confirming doses.
   final Map<String, int> feelings;
 
+  /// Of the doses taken: how many were on time and correct with food, how
+  /// many were more than an hour off, and how many broke the food instruction.
+  final int asPrescribed, offTime, wrongFood;
+
+  /// Doses where the food question was answered, and where the answer
+  /// matched the instruction.
+  final int foodAnswered, foodFollowed;
+
+  /// Average minutes after the planned time, over taken doses with a time.
+  final int? averageDelay;
+
   /// Scheduled doses so far. Unanswered ones count as not confirmed,
   /// never as taken.
   int get counted => taken + missed + noReply;
   double? get rate => counted == 0 ? null : taken / counted;
   int? get percent => rate == null ? null : (rate! * 100).round();
+
+  /// Share of all planned doses that were taken exactly as prescribed.
+  int? get asPrescribedPercent =>
+      counted == 0 ? null : (asPrescribed / counted * 100).round();
 }
 
 Adherence adherence(List<Medicine> medicines, List<DoseLog> logs, DateTime from,
     DateTime to, DateTime now,
     {String? medicineId}) {
   var taken = 0, missed = 0, skipped = 0, noReply = 0;
+  var asPrescribed = 0, offTime = 0, wrongFood = 0;
+  var foodAnswered = 0, foodFollowed = 0, delaySum = 0, delayCount = 0;
   final reasons = <String, int>{};
   final feelings = <String, int>{};
-  final meds = medicines.where((m) => medicineId == null || m.id == medicineId);
+  final meds =
+      medicines.where((m) => medicineId == null || m.id == medicineId).toList();
   for (var d = _day(from); !d.isAfter(_day(to)); d = d.add(const Duration(days: 1))) {
-    for (final dose in dosesForDay(meds.toList(), logs, d)) {
-      if (dose.scheduled.isAfter(now)) continue;
-      final status = dose.statusAt(now);
-      final log = dose.log;
-      if (status == DoseStatus.taken) {
-        taken++;
-        if (log?.feeling != null) {
-          feelings[log!.feeling!] = (feelings[log.feeling!] ?? 0) + 1;
-        }
-      } else if (status == DoseStatus.noReply) {
-        noReply++;
-      } else if (status == DoseStatus.skipped) {
-        skipped++;
-      } else if (status == DoseStatus.moved) {
-        // A moved dose is judged by the follow-up log at its new time.
-        final follow = logs.where((l) =>
-            l.medicineId == dose.medicine.id &&
-            l.movedTo == null &&
-            log?.movedTo != null &&
-            l.scheduled == log!.movedTo);
-        if (follow.any((l) => l.status == DoseStatus.taken)) {
+    for (final dose in dosesForDay(meds, logs, d)) {
+      // A moved dose is judged once, through its original time.
+      if (dose.movedFrom != null || dose.scheduled.isAfter(now)) continue;
+      final settled = settlingLog(dose, logs);
+      final own = dose.log;
+      switch (outcomeOf(dose, logs, now)) {
+        case DoseOutcome.asPrescribed:
           taken++;
-        } else if (follow.any((l) => l.status == DoseStatus.missed)) {
+          asPrescribed++;
+        case DoseOutcome.offTime:
+          taken++;
+          offTime++;
+        case DoseOutcome.wrongFood:
+          taken++;
+          wrongFood++;
+        case DoseOutcome.notTaken:
           missed++;
-        } else if (log?.movedTo != null && now.isAfter(log!.movedTo!.add(const Duration(hours: 2)))) {
+        case DoseOutcome.noReply:
           noReply++;
-        }
-      } else if (status == DoseStatus.missed) {
-        missed++;
+        case DoseOutcome.skippedByPlan:
+          skipped++;
+        case DoseOutcome.open:
+          break;
       }
-      if (log?.reason != null && status != DoseStatus.taken) {
-        reasons[log!.reason!] = (reasons[log.reason!] ?? 0) + 1;
+      if (settled != null && settled.status == DoseStatus.taken) {
+        if (settled.feeling != null) {
+          feelings[settled.feeling!] = (feelings[settled.feeling!] ?? 0) + 1;
+        }
+        final followed = foodAsPrescribed(dose.medicine, settled);
+        if (followed != null && own?.status != DoseStatus.moved) {
+          foodAnswered++;
+          if (followed) foodFollowed++;
+        }
+        final off = minutesOff(settled,
+            planned: own?.status == DoseStatus.moved ? own!.movedTo : dose.scheduled);
+        if (off != null) {
+          delaySum += off;
+          delayCount++;
+        }
+      }
+      for (final log in {own, settled}) {
+        final reason = log?.reason;
+        if (log != null && reason != null && log.status != DoseStatus.taken) {
+          reasons[reason] = (reasons[reason] ?? 0) + 1;
+        }
       }
     }
   }
   return Adherence(taken, missed, skipped, reasons,
-      noReply: noReply, feelings: feelings);
+      noReply: noReply,
+      feelings: feelings,
+      asPrescribed: asPrescribed,
+      offTime: offTime,
+      wrongFood: wrongFood,
+      foodAnswered: foodAnswered,
+      foodFollowed: foodFollowed,
+      averageDelay: delayCount == 0 ? null : (delaySum / delayCount).round());
 }
 
 /// Something for the doctor to look at. The app only lines patterns up;
@@ -380,6 +595,14 @@ List<FollowUpSignal> followUpSignals(List<Medicine> medicines, List<DoseLog> log
       .map((e) => '${e.key.toLowerCase()} ×${e.value}');
   if (unwellFeelings.isNotEmpty) {
     signals.add(FollowUpSignal(2, 'Patient said they felt ${unwellFeelings.join(', ')} when confirming doses'));
+  }
+  if (recent.wrongFood > 0) {
+    signals.add(FollowUpSignal(2,
+        'Food instruction not followed for ${recent.wrongFood} dose(s) in 14 days'));
+  }
+  if (recent.offTime >= 2) {
+    signals.add(FollowUpSignal(1,
+        '${recent.offTime} doses taken more than an hour off the planned time in 14 days'));
   }
   if (recent.noReply >= 3) {
     signals.add(FollowUpSignal(2,
@@ -462,7 +685,7 @@ MedState sampleMedState(DateTime now) {
         gapMinutes: 30,
         ateFirstRule: AteFirstRule.moveToBedtime,
         supply: 40,
-        prescribedBy: 'Sample doctor',
+        prescribedBy: 'Dr Sample (demo)',
         start: _day(now).subtract(const Duration(days: 21))),
     Medicine(
         id: 'metformin',
@@ -472,7 +695,7 @@ MedState sampleMedState(DateTime now) {
         meal: Meal.breakfast,
         mealRule: MealRule.afterFood,
         supply: 6,
-        prescribedBy: 'Sample doctor',
+        prescribedBy: 'Dr Sample (demo)',
         start: _day(now).subtract(const Duration(days: 21))),
     Medicine(
         id: 'amlodipine',
@@ -481,7 +704,7 @@ MedState sampleMedState(DateTime now) {
         times: [21 * 60],
         mealRule: MealRule.any,
         supply: 20,
-        prescribedBy: 'Sample doctor',
+        prescribedBy: 'Dr Sample (demo)',
         start: _day(now).subtract(const Duration(days: 21))),
   ];
   var state = MedState(medicines: meds, demo: true);
@@ -491,23 +714,38 @@ MedState sampleMedState(DateTime now) {
     final day = today.subtract(Duration(days: back));
     for (final dose in dosesForDay(meds, const [], day)) {
       final late = back <= 10;
+      final id = dose.medicine.id;
       // One evening with no answer, to show 'no reply' is not 'missed'.
-      if (back == 5 && dose.medicine.id == 'amlodipine') continue;
+      if (back == 5 && id == 'amlodipine') continue;
       final miss = late &&
-          ((dose.medicine.id == 'amlodipine' && back % 2 == 0) ||
-              (dose.medicine.id == 'metformin' && dose.scheduled.hour >= 20 && back % 3 == 0));
+          ((id == 'amlodipine' && back % 2 == 0) ||
+              (id == 'metformin' && dose.scheduled.hour >= 20 && back % 3 == 0));
+      // Thyroxine after breakfast on a few recent mornings, and the evening
+      // metformin sometimes well after dinner time.
+      final afterBreakfast = late && id == 'thyroxine' && back % 4 == 3;
+      final veryLate =
+          !miss && id == 'metformin' && dose.scheduled.hour >= 20 && back % 4 == 2;
+      final delay = afterBreakfast
+          ? 75
+          : veryLate
+              ? 95
+              : 5 + (back * 7 + dose.scheduled.hour) % 25;
       state = state.record(DoseLog(
-          medicineId: dose.medicine.id,
+          medicineId: id,
           scheduled: dose.scheduled,
           status: miss ? DoseStatus.missed : DoseStatus.taken,
-          at: miss ? null : dose.scheduled.add(const Duration(minutes: 10)),
-          reason: miss ? (dose.medicine.id == 'amlodipine' ? 'ran_out' : 'forgot') : null,
+          at: miss ? null : dose.scheduled.add(Duration(minutes: delay)),
+          reason: miss ? (id == 'amlodipine' ? 'ran_out' : 'forgot') : null,
           feeling: miss
               ? null
-              : dose.medicine.id == 'thyroxine'
+              : id == 'thyroxine'
                   ? (late && back % 4 == 1 ? 'Tired' : 'Fine')
                   : null,
-          ateBefore: dose.medicine.mealSensitive ? dose.medicine.mealRule != MealRule.beforeFood : null));
+          mealTiming: miss || !dose.medicine.mealSensitive
+              ? null
+              : id == 'thyroxine'
+                  ? (afterBreakfast ? 'after' : 'before')
+                  : 'after'));
     }
     final systolic = back > 10 ? 132 + (back % 4) : 140 + (10 - back) * 1.2;
     state = state.addReading(Reading(
@@ -515,6 +753,23 @@ MedState sampleMedState(DateTime now) {
         at: day.add(const Duration(hours: 8)),
         value: systolic.toDouble(),
         value2: systolic * 0.62));
+  }
+  // Today: the morning doses that are already past were confirmed.
+  for (final dose in dosesForDay(meds, const [], today)) {
+    if (dose.scheduled.isAfter(now.subtract(const Duration(minutes: 20)))) {
+      continue;
+    }
+    state = state.record(DoseLog(
+        medicineId: dose.medicine.id,
+        scheduled: dose.scheduled,
+        status: DoseStatus.taken,
+        at: dose.scheduled.add(const Duration(minutes: 10)),
+        feeling: dose.medicine.id == 'thyroxine' ? 'Fine' : null,
+        mealTiming: !dose.medicine.mealSensitive
+            ? null
+            : dose.medicine.mealRule == MealRule.beforeFood
+                ? 'before'
+                : 'after'));
   }
   return state;
 }

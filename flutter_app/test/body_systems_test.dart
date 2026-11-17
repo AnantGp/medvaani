@@ -29,8 +29,20 @@ void main() {
     }
     expect(bodySystemForTest('Glycated Hemoglobin (HbA1c)'), BodySystem.sugar);
     expect(bodySystemForTest('Urine Albumin'), BodySystem.kidneys);
-    expect(bodySystemForTest('Urine glucose'), BodySystem.general);
-    expect(bodySystemForTest('Sodium'), BodySystem.general);
+    expect(bodySystemForTest('Urine glucose'), BodySystem.urine);
+    expect(bodySystemForTest('Specific gravity'), BodySystem.urine);
+    expect(bodySystemForTest('Sodium'), BodySystem.salts);
+    expect(bodySystemForTest('Serum potassium'), BodySystem.salts);
+    expect(bodySystemForTest('LDL cholesterol'), BodySystem.heart);
+    expect(bodySystemForTest('ALT (SGPT)'), BodySystem.liver);
+    expect(bodySystemForTest('Total Leukocyte Count'), BodySystem.blood);
+    expect(bodySystemForTest('Hämoglobin'), BodySystem.blood);
+    expect(bodySystemForTest('Glycémie à jeun'), BodySystem.sugar);
+    expect(bodySystemForTest('Hemoglobina glicada (HbA1c)'), BodySystem.sugar);
+    expect(bodySystemForTest('총콜레스테롤'), BodySystem.heart);
+    expect(bodySystemForTest('ヘモグロビン'), BodySystem.blood);
+    expect(bodySystemForTest('Fasting'), BodySystem.general);
+    expect(bodySystemForTest('Protein'), BodySystem.general);
     expect(bodySystemForTest('Booking ID'), BodySystem.general);
     expect(bodySystemForTest('Basal temperature'), BodySystem.general);
     expect(bodySystemForTest('肌酐'), BodySystem.kidneys);

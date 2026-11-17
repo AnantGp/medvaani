@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {matchesSource,sourceForLine,safeBox,educationFor,resultLabel} from '../flutter_app/web/report_explorer_core.mjs';
-import {selectedMeasurement, sourceSelection, groupMeasurements, sourceAtPoint, educationForMeasurement} from '../flutter_app/web/report_explorer_core.mjs';
+import {selectedMeasurement, sourceSelection, groupMeasurements, sourceAtPoint, educationForMeasurement, bodySystemFor} from '../flutter_app/web/report_explorer_core.mjs';
 import {sourceMimeType} from '../flutter_app/web/source_document.mjs';
 test('viewer routes raw PDF, PNG, JPEG and WebP bytes without a server URL', () => {
   assert.equal(sourceMimeType(new TextEncoder().encode('%PDF-1.7\n')), 'application/pdf');
@@ -65,7 +65,9 @@ test('unmatched_source_does_not_bind_guideline_to_organ_explanation',()=>{
   assert.equal(sourceAtPoint([row,{...row,measurement_id:'duplicate'}],17,.44,.31),null);
 });
 test('urine glucose cannot bind to blood-glucose education',()=>{
-  assert.equal(educationForMeasurement({...row,test_name:'Glucose',canonical_test:'glucose',specimen:'Urine',value:'Negative'}),null);
+  const urine=educationForMeasurement({...row,test_name:'Glucose',canonical_test:'glucose',specimen:'Urine',value:'Negative'});
+  assert.equal(urine.organ,'urine');
+  assert.doesNotMatch(urine.measures,/fuels your cells/);
 });
 const source={lab_id:0,source_quote:'Creatinine: 1.8 mg/dL',original_fields:{test_name:'Creatinine',value:'1.8'}};
 test('source matching uses the original value and rejects similar numbers',()=>{
@@ -107,4 +109,20 @@ test('frame bridge rejects other origins and other windows',()=>{
   deliver({origin:context.location.origin,source:frame.contentWindow,data:'accepted'});
   assert.deepEqual(received,['accepted']);
   bridge.stop('frame'); assert.equal(listeners.size,0);
+});
+
+test('every common test name gets a body-system picture, in any report language',()=>{
+  const expected={'ALT (SGPT)':'liver','AST':'liver','Total bilirubin':'liver','Albumin':'liver','γ-GT':'liver',
+    'LDL cholesterol':'heart','Non-HDL cholesterol':'heart','Triglicéridos':'heart','LDL-Cholesterin':'heart','총콜레스테롤':'heart',
+    'Sodium':'salts','Serum potassium':'salts','TSH':'thyroid','갑상선자극호르몬(TSH)':'thyroid','Vitamin D, 25-Hydroxy':'bones','CALCIUM':'bones',
+    'Fasting plasma glucose':'sugar','Glycémie à jeun':'sugar','Hemoglobina glicada (HbA1c)':'sugar','당화혈색소':'sugar',
+    'Kreatinin':'kidneys','尿酸(UA)':'kidneys','ヘモグロビン':'blood','Hämoglobin':'blood','Total Leukocyte Count':'blood','페리틴':'blood',
+    'Specific gravity':'urine','pH':'urine','Pus cells':'urine'};
+  for(const [name,organ] of Object.entries(expected)) assert.equal(bodySystemFor(name),organ,name);
+  // A name that does not say which system it belongs to gets no picture.
+  for(const name of ['Protein','Blood','Fasting','Unknown test','Patient ID']) assert.equal(bodySystemFor(name),null,name);
+  const liver=educationForMeasurement({...row,test_name:'ALT (SGPT)'});
+  assert.equal(liver.organ,'liver'); assert.match(liver.url,/medlineplus/);
+  assert.equal(educationForMeasurement({...row,test_name:'LDL cholesterol'}).title,'Blood lipids');
+  assert.equal(educationForMeasurement({...row,test_name:'ALT',acceptance_state:'needs_review'}),null);
 });
