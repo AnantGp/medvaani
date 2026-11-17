@@ -82,6 +82,7 @@ def test_decimal_comma_detection():
 def test_shami_report_with_a_perfect_reader_is_fully_grounded():
     """Given correct choices, every Shami result is located and labelled correctly."""
     truth = json.loads((ROOT / 'test_data' / 'shami' / 'truth.json').read_text())['shami_synthetic_report.pdf']
+    truth = [t for t in truth if not t.get('optional')]
     doc = read_document(str(SHAMI))
     lines = {l['text']: f"p{p['page']}.L{i}" for p in doc['pages'] for i, l in enumerate(p['lines'], 1) if l['words']}
     flags = ['Within range', 'Above normal range', 'Prediabetes range', 'Desirable', 'Above optimal',

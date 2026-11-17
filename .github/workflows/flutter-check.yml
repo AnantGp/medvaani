@@ -37,6 +37,9 @@ jobs:
           set +e
           flutter analyze --no-fatal-infos --no-fatal-warnings --write=analyze.txt > /dev/null
           code=$?
+          grep -iE "error|warning" analyze.txt | head -40 | while IFS= read -r line; do
+            echo "::warning title=analyze::$line"
+          done
           grep -E "^(error|warning) " analyze.txt | head -50 | while IFS= read -r line; do
             file=$(echo "$line" | sed -E 's/.* - (lib|test)\//\1\//' | cut -d: -f1)
             num=$(echo "$line" | sed -E 's/.* - (lib|test)\/[^:]+:([0-9]+):.*/\2/')
