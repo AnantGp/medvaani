@@ -1,6 +1,7 @@
 // Medicine follow-up: meal-aware dose check-ins for the patient and a
 // follow-up summary for the doctor. Prototype: data stays in this browser.
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
