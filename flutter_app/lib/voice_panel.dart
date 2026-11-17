@@ -61,6 +61,9 @@ class _VoicePanelState extends State<VoicePanel> {
   String? _audioUrl, _error;
   String _answer = '';
   List<String> _citations = [];
+
+  /// A tapped report line being explained; shown instead of a result card.
+  String? _lineFocus;
   final List<Map<String, String>> _history = [];
   Map<String, dynamic>? _lastAnswer;
   final List<html.Blob> _chunks = [];
@@ -175,6 +178,7 @@ class _VoicePanelState extends State<VoicePanel> {
     setState(() {
       _answer = '';
       _citations = [];
+      _lineFocus = null;
     });
     final name = row['test_name'];
     final question = {
@@ -201,6 +205,7 @@ class _VoicePanelState extends State<VoicePanel> {
     setState(() {
       _answer = '';
       _citations = [];
+      _lineFocus = line;
     });
     final quoted = '“$line”';
     final question = {
@@ -233,6 +238,10 @@ class _VoicePanelState extends State<VoicePanel> {
       }
       _lastAnswer = null;
       _error = null;
+    }
+    if (oldWidget.report['selected_measurement_id'] !=
+        widget.report['selected_measurement_id']) {
+      _lineFocus = null;
     }
     if (oldWidget.explainRequest != widget.explainRequest) {
       _scheduleExplanation();
@@ -549,12 +558,14 @@ class _VoicePanelState extends State<VoicePanel> {
               ? const EdgeInsets.fromLTRB(16, 10, 16, 8)
               : const EdgeInsets.fromLTRB(20, 14, 20, 12),
           child: activity),
-      if (selected != null && !keyboard)
+      if ((_lineFocus != null || selected != null) && !keyboard)
         Padding(
             padding: mobile
                 ? const EdgeInsets.fromLTRB(16, 0, 16, 12)
                 : const EdgeInsets.fromLTRB(20, 0, 20, 16),
-            child: _selectedResult(selected)),
+            child: _lineFocus != null
+                ? _selectedLine(_lineFocus!)
+                : _selectedResult(selected!)),
       const Divider(height: 1, color: Color(0xffe8deda)),
       Expanded(
           child: Scrollbar(
@@ -773,6 +784,37 @@ class _VoicePanelState extends State<VoicePanel> {
       side: const BorderSide(color: Color(0xffe8deda)),
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       visualDensity: VisualDensity.compact);
+
+  /// The tapped line, quoted exactly, with the body system it names.
+  Widget _selectedLine(String line) {
+    final system = bodySystemForTest(line);
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      ActiveBodyVisual(
+          key: ValueKey('active-body-line-${system.name}'),
+          system: system,
+          language: widget.language,
+          compact: true),
+      const SizedBox(width: 12),
+      Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+            bodyCopy(widget.language, 'From your report', 'आपकी रिपोर्ट से',
+                'De su informe', '来自您的报告'),
+            style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff5e5754))),
+        const SizedBox(height: 4),
+        Text(line,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: widget.largeText ? 18 : 16,
+                height: 1.4,
+                fontWeight: FontWeight.w600)),
+      ])),
+    ]);
+  }
 
   Widget _selectedResult(Map<String, dynamic> row) {
     final mobile = MediaQuery.sizeOf(context).width < 900;

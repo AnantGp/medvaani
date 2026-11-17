@@ -191,7 +191,7 @@ const tests = [
     measures:'These tests describe the number, size or proportion of red blood cells, which carry oxygen around the body.',
     context:'Your clinician considers these measurements together with hemoglobin and your history.',
     question:'What does the pattern of my blood counts show?', url:'https://medlineplus.gov/lab-tests/complete-blood-count-cbc/'},
-  {terms:['cholesterol','ldl','hdl','triglyceride'], organ:'circulation', system:'Blood & circulation', title:'Blood lipids',
+  {terms:['cholesterol','ldl','hdl','triglyceride','triglycerides'], organ:'circulation', system:'Heart & blood vessels', title:'Blood lipids',
     measures:'A lipid panel measures cholesterol and other fats in the blood.',
     context:'A doctor considers the different lipid measurements with other factors affecting heart health.',
     question:'How do the different lipid results fit together in my situation?', url:'https://medlineplus.gov/cholesterollevelswhatyouneedtoknow.html'}

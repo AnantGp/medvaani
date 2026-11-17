@@ -208,7 +208,7 @@ const _bodySystemTable = <(BodySystem, String, List<String>)>[
   ),
   (
     BodySystem.heart,
-    r'cholesterol|colesterol|cholesterin|hdl(?:[ -]c)?|ldl(?:[ -]c)?|non[- ]hdl|vldl|triglycerides?|triglyceride|trigliceridos|triglicerideos|triglicerides|apolipoprotein|lipoprotein|troponin|ck[- ]?mb|nt[- ]?probnp|bnp',
+    r'cholesterol|colesterol|cholesterin|hdl(?:[ -]c)?|ldl(?:[ -]c)?|non[- ]hdl|vldl|triglycerides?|triglyceride|trigliceridos|triglicerideos|triglicerides|apolipoprotein|lipoprotein|troponin|ck[- ]?mb|nt[- ]?probnp|bnp|blood pressure|pulse(?: rate)?|heart rate',
     ['कोलेस्ट्रॉल', 'ट्राइग्लिसराइड', '胆固醇', '甘油三酯', '脂蛋白', '콜레스테롤', '중성지방', 'コレステロール', '中性脂肪']
   ),
   (

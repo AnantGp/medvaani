@@ -559,8 +559,8 @@ List<FollowUpSignal> followUpSignals(List<Medicine> medicines, List<DoseLog> log
     List<Reading> readings, DateTime now,
     {double bpTarget = 140, int alertPercent = 80}) {
   final signals = <FollowUpSignal>[];
-  final recentFrom = now.subtract(const Duration(days: 14));
-  final earlierFrom = now.subtract(const Duration(days: 28));
+  final recentFrom = now.subtract(const Duration(days: 13));
+  final earlierFrom = now.subtract(const Duration(days: 27));
   final recent = adherence(medicines, logs, recentFrom, now, now);
   final earlier = adherence(medicines, logs, earlierFrom,
       recentFrom.subtract(const Duration(days: 1)), now);
