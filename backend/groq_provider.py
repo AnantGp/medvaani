@@ -94,6 +94,7 @@ async def chat_json(messages, *, vision=False, max_tokens=600, temperature=.2):
         if not candidates:
             raise GroqError('The configured AI model is no longer available. Update the model setting.')
         last_error = None
+        budget = max_tokens
         for attempt in range(2):
             now = time.monotonic()
             ready = [m for m in candidates if _cooldown.get(m, 0) <= now]
@@ -105,11 +106,13 @@ async def chat_json(messages, *, vision=False, max_tokens=600, temperature=.2):
                     break
                 await asyncio.sleep(wait + .2)
                 ready = [m for m in candidates if _cooldown.get(m, 0) <= time.monotonic()]
-            for model in ready:
+            queue = list(ready)
+            while queue:
+                model = queue.pop(0)
                 try:
                     response = await client.post(BASE_URL + '/chat/completions', headers=headers(), json={
                         'model': model, 'messages': messages, 'temperature': temperature,
-                        'max_completion_tokens': max_tokens, 'response_format': {'type': 'json_object'},
+                        'max_completion_tokens': budget, 'response_format': {'type': 'json_object'},
                         **reasoning_options(model)})
                     if not response.is_success:
                         # Groq says which limit was hit (requests or tokens, per
@@ -125,6 +128,13 @@ async def chat_json(messages, *, vision=False, max_tokens=600, temperature=.2):
                             raise last_error
                         if response.status_code == 429:
                             _cooldown[model] = time.monotonic() + _retry_after(response)
+                        elif (response.status_code == 400 and budget == max_tokens
+                              and 'failed to generate json' in str(detail.get('message', '')).casefold()):
+                            # A long answer (every out-of-range result, say)
+                            # ran out of room before its JSON closed. Ask the
+                            # same model once more with twice the room.
+                            budget = min(max_tokens * 2, 900)
+                            queue.insert(0, model)
                         continue
                     result = parse_json(response.json()['choices'][0]['message']['content'])
                     if not isinstance(result, dict):

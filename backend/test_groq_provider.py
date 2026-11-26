@@ -85,3 +85,24 @@ def test_gives_up_with_a_quota_error_when_resets_are_far_away(monkeypatch):
     result, calls, slept = run(lambda m, n: limited('50'), monkeypatch)
     assert isinstance(result, g.GroqError) and result.status == 429
     assert slept == [] and len(calls) == 3
+
+
+def test_an_answer_cut_off_mid_json_is_asked_again_with_more_room(monkeypatch):
+    budgets = []
+    def script(model, n):
+        return (Response(400, {'error': {'message': "Failed to generate JSON. Please adjust your prompt."}})
+                if n == 1 else ok())
+    calls = []
+    monkeypatch.setenv('GROQ_API_KEY', 'test')
+    client = fake_client(script, calls)
+    original = client.post
+    async def post(self, url, headers=None, json=None, **k):
+        budgets.append(json['max_completion_tokens'])
+        return await original(self, url, headers=headers, json=json)
+    client.post = post
+    monkeypatch.setattr(g.httpx, 'AsyncClient', client)
+    monkeypatch.setattr(g, '_models', None)
+    monkeypatch.setattr(g, '_cooldown', {})
+    result = asyncio.run(g.chat_json([{'role': 'user', 'content': 'q'}], max_tokens=380))
+    assert result[1] == 'qwen/qwen3.8-27b'
+    assert calls == ['qwen/qwen3.8-27b', 'qwen/qwen3.8-27b'] and budgets == [380, 760]
