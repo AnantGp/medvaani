@@ -88,10 +88,6 @@ void main() {
           find.text(copy.t(
               'Understand your report. Then talk it through with your doctor.')),
           findsOneWidget);
-      expect(
-          find.text(copy.t(
-              'Research prototype. Please use sample reports only — not real patient records.')),
-          findsOneWidget);
       expect(find.text(copy.t('Choose PDF')), findsOneWidget);
       expect(find.text(copy.t('Take photo')), findsOneWidget);
       expect(find.text(copy.t('Settings')), findsOneWidget);

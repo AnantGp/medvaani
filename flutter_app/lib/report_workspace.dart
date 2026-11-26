@@ -379,7 +379,6 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
         return Scaffold(
           body: SafeArea(
               child: Column(children: [
-            if (!keyboard) _prototypeBanner(desktop),
             if (desktop || !keyboard) _header(desktop),
             Expanded(
                 child: IndexedStack(
@@ -436,29 +435,6 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 ),
         );
       });
-
-  Widget _prototypeBanner(bool desktop) => Semantics(
-        container: true,
-        child: Container(
-          width: double.infinity,
-          color: ReportPalette.charcoal,
-          padding: EdgeInsets.symmetric(
-              horizontal: 16, vertical: desktop ? 10 : 8),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.warning_amber_rounded,
-                size: 16, color: Color(0xFFF5EFEC)),
-            const SizedBox(width: 8),
-            Flexible(
-                child: Text(
-                    _t('Research prototype. Please use sample reports only — not real patient records.'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: desktop ? 14 : 12,
-                        height: 1.4,
-                        color: const Color(0xFFF5EFEC)))),
-          ]),
-        ),
-      );
 
   Widget _header(bool desktop) => Container(
         padding:
