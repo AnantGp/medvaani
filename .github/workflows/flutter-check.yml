@@ -110,4 +110,4 @@ jobs:
       - name: Install
         run: pip install -r ../requirements.txt pytest reportlab
       - name: Extraction tests
-        run: python -m pytest -q test_digital_results.py test_report_quality.py test_lab_parsing.py test_ai_rows.py
+        run: python -m pytest -q test_digital_results.py test_report_quality.py test_lab_parsing.py test_ai_rows.py test_groq_provider.py

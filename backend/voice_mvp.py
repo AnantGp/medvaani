@@ -156,7 +156,9 @@ REPORT DATA:\n{json.dumps(model_context, ensure_ascii=False, separators=(',', ':
     context_bytes = sum(len(message['content'].encode('utf-8')) for message in messages)
     context_size = 4096 if context_bytes < 10000 else 8192 if context_bytes < 22000 else 16384
     if groq_provider.configured():
-        result, model = await groq_provider.chat_json(messages, max_tokens=500)
+        # Answers are at most 80 words; a smaller reservation lets more
+        # questions fit in the free per-minute output allowance.
+        result, model = await groq_provider.chat_json(messages, max_tokens=380)
     elif os.getenv('VERCEL') == '1':
         raise groq_provider.GroqError('Set GROQ_API_KEY in the Vercel project environment.')
     else:

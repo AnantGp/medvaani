@@ -1,4 +1,5 @@
 """Hosted speech recognition and JSON explanations; no local ML imports."""
+import asyncio
 import json
 import logging
 import os
@@ -49,7 +50,6 @@ async def available_models(client):
     if response.is_success:
         _models = {item['id'] for item in response.json()['data']}
         _models_at = time.monotonic()
-        log.warning('groq models available: %s', ', '.join(sorted(_models)))
     return _models
 
 
@@ -67,46 +67,74 @@ def parse_json(content):
     return json.loads(content)
 
 
+# Free-tier limits are per model and per minute, so each model is a separate
+# pool of allowance. A model that answered 429 is skipped until Groq's own
+# reset time instead of being asked again on every request.
+_cooldown = {}
+RETRY_WAIT_LIMIT = 20  # seconds a request may wait for a reset before giving up
+
+
+def _retry_after(response):
+    try:
+        return max(1.0, float(response.headers.get('retry-after', '')))
+    except ValueError:
+        return 10.0
+
+
 async def chat_json(messages, *, vision=False, max_tokens=600, temperature=.2):
-    # Qwen 3 32B and Scout were retired in July 2026. Environment overrides
-    # remain possible; unavailable IDs are skipped using the live catalog.
+    # Qwen 3 32B and Scout were retired in July 2026, and Llama 3.3 70B is no
+    # longer offered to this key. Unavailable IDs are skipped using the live
+    # catalog; environment overrides remain possible.
     primary = os.getenv('GROQ_VISION_MODEL' if vision else 'GROQ_LLM_MODEL', 'qwen/qwen3.8-27b')
     candidates = [primary] if vision else list(dict.fromkeys([
-        primary, 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b']))
+        primary, 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.3-70b-versatile']))
     async with httpx.AsyncClient(timeout=httpx.Timeout(60, connect=10)) as client:
         active = await available_models(client)
         candidates = [model for model in candidates if active is None or model in active]
         if not candidates:
             raise GroqError('The configured AI model is no longer available. Update the model setting.')
         last_error = None
-        for model in candidates:
-            try:
-                response = await client.post(BASE_URL + '/chat/completions', headers=headers(), json={
-                    'model': model, 'messages': messages, 'temperature': temperature,
-                    'max_completion_tokens': max_tokens, 'response_format': {'type': 'json_object'},
-                    **reasoning_options(model)})
-                if not response.is_success:
-                    # Groq says which limit was hit (requests or tokens, per
-                    # minute or per day) and when it resets; keep it visible.
-                    try:
-                        detail = response.json().get('error', {})
-                    except ValueError:
-                        detail = {'message': response.text[:300]}
-                    log.warning('groq %s %s: %s | retry-after=%s remaining-tokens=%s',
-                                model, response.status_code, str(detail.get('message', ''))[:400],
-                                response.headers.get('retry-after'),
-                                response.headers.get('x-ratelimit-remaining-tokens'))
-                    last_error = error_for(response)
-                    if response.status_code in (401, 403):
-                        raise last_error
-                    continue
-                result = parse_json(response.json()['choices'][0]['message']['content'])
-                if not isinstance(result, dict):
-                    raise ValueError('Expected a JSON object')
-                return result, model
-            except (httpx.TimeoutException, json.JSONDecodeError, ValueError, KeyError):
-                last_error = GroqError('The AI service did not return a complete answer. Please ask again.')
-        raise last_error or GroqError('The AI service is temporarily unavailable.')
+        for attempt in range(2):
+            now = time.monotonic()
+            ready = [m for m in candidates if _cooldown.get(m, 0) <= now]
+            if not ready:
+                # Every model is inside its per-minute limit. Wait for the
+                # earliest reset when it is close, rather than failing at once.
+                wait = min(_cooldown[m] for m in candidates) - now
+                if wait > RETRY_WAIT_LIMIT:
+                    break
+                await asyncio.sleep(wait + .2)
+                ready = [m for m in candidates if _cooldown.get(m, 0) <= time.monotonic()]
+            for model in ready:
+                try:
+                    response = await client.post(BASE_URL + '/chat/completions', headers=headers(), json={
+                        'model': model, 'messages': messages, 'temperature': temperature,
+                        'max_completion_tokens': max_tokens, 'response_format': {'type': 'json_object'},
+                        **reasoning_options(model)})
+                    if not response.is_success:
+                        # Groq says which limit was hit (requests or tokens, per
+                        # minute or per day) and when it resets; keep it visible.
+                        try:
+                            detail = response.json().get('error', {})
+                        except ValueError:
+                            detail = {'message': response.text[:300]}
+                        log.warning('groq %s %s: %s | retry-after=%s', model, response.status_code,
+                                    str(detail.get('message', ''))[:400], response.headers.get('retry-after'))
+                        last_error = error_for(response)
+                        if response.status_code in (401, 403):
+                            raise last_error
+                        if response.status_code == 429:
+                            _cooldown[model] = time.monotonic() + _retry_after(response)
+                        continue
+                    result = parse_json(response.json()['choices'][0]['message']['content'])
+                    if not isinstance(result, dict):
+                        raise ValueError('Expected a JSON object')
+                    return result, model
+                except (httpx.TimeoutException, json.JSONDecodeError, ValueError, KeyError):
+                    last_error = GroqError('The AI service did not return a complete answer. Please ask again.')
+            if not isinstance(last_error, GroqError) or last_error.status != 429:
+                break
+        raise last_error or GroqError('The AI service is busy. Please try again in a minute.', 429)
 
 
 async def transcribe(data, language, vocabulary=(), filename='question.webm'):
