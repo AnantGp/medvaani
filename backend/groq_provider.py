@@ -1,10 +1,13 @@
 """Hosted speech recognition and JSON explanations; no local ML imports."""
 import json
+import logging
 import os
 import re
 import time
 
 import httpx
+
+log = logging.getLogger('medivaanii.groq')
 
 BASE_URL = 'https://api.groq.com/openai/v1'
 _models = None
@@ -82,6 +85,16 @@ async def chat_json(messages, *, vision=False, max_tokens=600, temperature=.2):
                     'max_completion_tokens': max_tokens, 'response_format': {'type': 'json_object'},
                     **reasoning_options(model)})
                 if not response.is_success:
+                    # Groq says which limit was hit (requests or tokens, per
+                    # minute or per day) and when it resets; keep it visible.
+                    try:
+                        detail = response.json().get('error', {})
+                    except ValueError:
+                        detail = {'message': response.text[:300]}
+                    log.warning('groq %s %s: %s | retry-after=%s remaining-tokens=%s',
+                                model, response.status_code, str(detail.get('message', ''))[:400],
+                                response.headers.get('retry-after'),
+                                response.headers.get('x-ratelimit-remaining-tokens'))
                     last_error = error_for(response)
                     if response.status_code in (401, 403):
                         raise last_error
