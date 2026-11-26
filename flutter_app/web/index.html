@@ -31,8 +31,72 @@
 
   <title>Medivaanii</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Shown from the first byte until Flutter draws its first frame, so the
+       page is never blank while the app loads. Mirrors the upload screen. */
+    @font-face { font-family: "Medivaanii Serif"; font-display: swap;
+      src: url("assets/assets/fonts/NotoSerif-Regular.ttf") format("truetype"); }
+    html, body { margin: 0; background: #FBF7F4; }
+    #mv-splash { position: fixed; inset: 0; z-index: 10; background: #FBF7F4; color: #1F1B1A;
+      font-family: "Noto Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+      transition: opacity .35s ease; }
+    #mv-splash.mv-gone { opacity: 0; pointer-events: none; }
+    .mv-notice { background: #2B2B2B; color: #fff; font-size: 13px; text-align: center; padding: 8px 16px; }
+    .mv-bar { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 20px;
+      border-bottom: 1px solid #E8DEDA; background: #fff; }
+    .mv-bar img { width: 32px; height: 32px; border-radius: 8px; }
+    .mv-bar b { font-family: "Medivaanii Serif", Georgia, serif; font-weight: 400; font-size: 21px; }
+    .mv-hero { max-width: 1168px; margin: 0 auto; padding: 48px 20px; }
+    .mv-eyebrow { color: #8B1A1A; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .mv-hero h1 { font-family: "Medivaanii Serif", Georgia, serif; font-weight: 400; font-size: clamp(34px, 5vw, 48px);
+      line-height: 1.15; margin: 14px 0 16px; max-width: 13em; }
+    .mv-hero p { color: #3C3533; font-size: 16px; line-height: 1.6; margin: 0; max-width: 32em; }
+    .mv-progress { margin-top: 32px; width: min(320px, 100%); height: 4px; border-radius: 999px; background: #F3ECE9; overflow: hidden; }
+    .mv-progress i { display: block; width: 40%; height: 100%; border-radius: 999px; background: #8B1A1A;
+      animation: mv-slide 1.3s ease-in-out infinite; }
+    .mv-status { margin-top: 10px; color: #5E5754; font-size: 13px; }
+    @keyframes mv-slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @media (prefers-reduced-motion: reduce) { .mv-progress i { animation: none; width: 100%; opacity: .5; } }
+  </style>
 </head>
 <body>
+  <div id="mv-splash" role="status" aria-live="polite">
+    <div class="mv-notice">Research prototype. Please use sample reports only — not real patient records.</div>
+    <div class="mv-bar"><img src="icons/Icon-192.png" alt=""><b>Medivaanii</b></div>
+    <div class="mv-hero">
+      <div class="mv-eyebrow" data-k="eyebrow">Lab reports, in your language</div>
+      <h1 data-k="title">Understand your report. Then talk it through with your doctor.</h1>
+      <p data-k="body">Upload a printed lab report. Medivaanii reads each value, shows you exactly where it came from, and answers your questions out loud.</p>
+      <div class="mv-progress" aria-hidden="true"><i></i></div>
+      <div class="mv-status" data-k="status">Opening Medivaanii…</div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var copy = {
+        hi: { eyebrow: 'लैब रिपोर्ट, आपकी भाषा में', title: 'अपनी रिपोर्ट समझें। फिर डॉक्टर से बात करें।',
+              body: 'छपी हुई लैब रिपोर्ट अपलोड करें। Medivaanii हर नतीजा पढ़ता है, दिखाता है कि वह रिपोर्ट में कहाँ है, और आपके सवालों का जवाब बोलकर देता है।', status: 'Medivaanii खुल रहा है…' },
+        es: { eyebrow: 'Análisis clínicos, en tu idioma', title: 'Entiende tu informe. Luego háblalo con tu médico.',
+              body: 'Sube un informe de laboratorio. Medivaanii lee cada valor, muestra de dónde salió y responde tus preguntas en voz alta.', status: 'Abriendo Medivaanii…' },
+        zh: { eyebrow: '化验报告，用你的语言', title: '看懂你的报告，再和医生好好聊聊。',
+              body: '上传打印的化验报告。Medivaanii 读取每一项结果，标出它在报告中的位置，并用语音回答你的问题。', status: '正在打开 Medivaanii…' }
+      };
+      var lang = '';
+      try { lang = String(localStorage.getItem('medivaanii-language') || ''); } catch (e) {}
+      var key = /hindi|हिन्दी|^hi/i.test(lang) ? 'hi' : /span|españ|^es/i.test(lang) ? 'es' : /mandarin|chinese|中文|^zh/i.test(lang) ? 'zh' : '';
+      if (copy[key]) {
+        document.documentElement.lang = key;
+        document.querySelectorAll('#mv-splash [data-k]').forEach(function (el) { el.textContent = copy[key][el.dataset.k]; });
+      }
+      function hide() {
+        var el = document.getElementById('mv-splash');
+        if (!el) return;
+        el.classList.add('mv-gone');
+        setTimeout(function () { el.remove(); }, 400);
+      }
+      window.addEventListener('flutter-first-frame', hide, { once: true });
+    })();
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

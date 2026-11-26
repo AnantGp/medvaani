@@ -1,0 +1,435 @@
+/* Medivaanii's look on the Stageshow kit: warm paper ground, burgundy
+   accent, Noto type. The band behind the demo is white, so the stage is
+   the page: no plate, the window runs off the right and bottom. */
+.rd .ss-stage {
+  --ss-accent: #8b1a1a;
+  --ss-accent-2: #5c0a0a;
+  --ss-accent-soft: #f7ecea;
+  --ss-accent-text: #8b1a1a;
+  --ss-canvas: #fbf7f4;
+  --ss-well: #ffffff;
+  --ss-surface: #ffffff;
+  --ss-text-strong: #1f1b1a;
+  --ss-text: #3c3533;
+  --ss-text-faint: #5e5754;
+  --ss-line: #e8deda;
+  --ss-line-faint: #f1e8e4;
+  --ss-warning: #b45309;
+  --ss-warning-soft: #fbe6d2;
+  --ss-warning-text: #7a3a05;
+  --ss-font: 'Noto Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --gutter: 28px;
+  overflow: hidden;
+  background: var(--ss-well);
+}
+
+.rd--hi .ss-stage { --ss-font: 'Noto Sans', 'Noto Sans Devanagari', 'Kohinoor Devanagari', system-ui, sans-serif; }
+.rd--zh .ss-stage { --ss-font: 'Noto Sans', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif; }
+
+.rd .rd-win {
+  position: absolute;
+  top: var(--gutter);
+  left: var(--gutter);
+  width: 732px;
+  height: 452px;
+  border-radius: 12px;
+  box-shadow: var(--ss-shadow-hero);
+}
+
+.rd .rd-body {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  height: 100%;
+  background: var(--ss-canvas);
+}
+
+/* ------------------------------------------------------------ the report */
+
+.rd .rd-source {
+  padding: 18px 0 0 20px;
+  border-right: 1px solid var(--ss-line);
+  min-width: 0;
+}
+
+.rd .rd-pane-label {
+  margin-bottom: 10px;
+}
+
+.rd .rd-pane-label .ss-text {
+  color: var(--ss-text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* A printed page: white, square-cornered, runs off the bottom */
+.rd .rd-paper {
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--ss-line), 0 8px 24px -12px rgba(43, 27, 24, 0.18);
+  padding: 18px 8px 28px;
+  margin-right: 20px;
+}
+
+.rd .rd-paper__head {
+  display: grid;
+  gap: 8px;
+  padding: 0 8px 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--ss-line);
+}
+
+.rd .rd-table {
+  display: grid;
+  min-width: 0;
+}
+
+.rd .rd-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 70px 46px 10px;
+  align-items: center;
+  column-gap: 10px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border-bottom: 1px solid var(--ss-line-faint);
+}
+
+.rd .rd-row--head {
+  height: 26px;
+}
+
+.rd .rd-cell {
+  color: var(--ss-text);
+  font-size: 12px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd .rd-cell--name {
+  color: var(--ss-text-strong);
+  font-weight: 500;
+}
+
+.rd .rd-cell--value {
+  color: var(--ss-text-strong);
+  font-weight: 600;
+}
+
+.rd .rd-cell--flag {
+  color: #7a3a05;
+  font-weight: 700;
+}
+
+/* The tapped row: the app outlines the exact printed cells it read */
+.rd .rd-row--target {
+  position: relative;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.rd .rd-row--target[data-hover] {
+  background: var(--ss-accent-soft);
+}
+
+.rd .rd-row--target[data-picked] {
+  background: var(--ss-accent-soft);
+  box-shadow: inset 0 0 0 2px var(--ss-accent);
+  border-bottom-color: transparent;
+}
+
+/* ------------------------------------------------------------ the answer */
+
+.rd .rd-answer {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+  /* The window runs 40px past the stage's right edge: the right inset keeps
+     every word a full gutter inside the visible crop. */
+  padding: 18px 68px 76px 20px;
+  background: var(--ss-surface);
+}
+
+.rd .rd-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  background: #fbf4f2;
+  box-shadow: inset 0 0 0 1px var(--ss-line);
+}
+
+.rd .rd-organ {
+  flex: none;
+  margin-left: auto;
+  width: 100px;
+  height: 52px;
+  border-radius: 10px;
+  background: #f5f3ee;
+  display: grid;
+  place-items: center;
+}
+
+.rd .rd-organ__art {
+  width: 88px;
+  height: 46px;
+}
+
+.rd .rd-card__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rd .rd-card__organ {
+  color: #1d5c3a;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rd .rd-card__name {
+  color: var(--ss-text-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rd .rd-card__value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rd .rd-card__figure {
+  color: var(--ss-text-strong);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.rd .rd-thread {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 0;
+  padding-bottom: 14px;
+  overflow: hidden;
+}
+
+.rd .rd-q {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rd .rd-q .ss-text {
+  max-width: 80%;
+  padding: 8px 14px;
+  border-radius: 16px 16px 4px 16px;
+  background: var(--ss-accent);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rd .rd-thinking {
+  color: var(--ss-text-faint);
+  font-size: 12px;
+}
+
+.rd .rd-a {
+  display: grid;
+  gap: 8px;
+}
+
+.rd .rd-stream {
+  color: var(--ss-text-strong);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.rd--zh .rd-stream .ss-stream__w {
+  margin-right: 0;
+}
+
+.rd .rd-voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  background: #e6f0ea;
+  color: #1d5c3a;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  /* Rides the answer's opening on its own layer, so its text never snaps */
+  will-change: transform;
+}
+
+.rd .rd-voice[data-on] {
+  opacity: 1;
+}
+
+.rd .rd-voice__wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+}
+
+.rd .rd-voice__wave i {
+  display: block;
+  width: 2px;
+  height: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  transform-origin: center;
+  animation: rd-wave 1s ease-in-out infinite;
+}
+
+.rd .rd-voice__wave i:nth-child(2) { animation-delay: 0.15s; }
+.rd .rd-voice__wave i:nth-child(3) { animation-delay: 0.3s; }
+.rd .rd-voice__wave i:nth-child(4) { animation-delay: 0.45s; }
+
+.rd .rd-composer .ss-field__box,
+.rd .rd-composer [data-target='composer'] {
+  border-radius: 999px;
+}
+
+.rd .rd-send {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  color: var(--ss-accent);
+}
+
+/* ---------------------------------------------------------------- phone */
+/* Narrow: the mobile app on a phone, pinned one gutter from the top,
+   centered, running off the bottom. The screen is laid out in points. */
+.rd .ss-stage[data-layout='compact'] {
+  --gutter: 16px;
+}
+
+.rd .rd-phone {
+  position: absolute;
+  top: var(--gutter);
+  left: 16px;
+}
+
+.rd .rd-app {
+  position: absolute;
+  /* Ends where the stage crops the phone, so the composer sits a gutter
+     above the crop and never moves as the answer arrives */
+  inset: 58px 0 var(--rd-app-foot, 266px);
+  display: grid;
+}
+
+.rd .rd-app .rd-body {
+  grid-template-columns: 1fr;
+  grid-template-rows: max-content minmax(0, 1fr);
+  height: 100%;
+}
+
+.rd .rd-app .rd-source {
+  padding: 16px 0 12px 16px;
+  border-right: 0;
+  border-bottom: 1px solid var(--ss-line);
+}
+
+.rd .rd-app .rd-pane-label {
+  margin-bottom: 8px;
+}
+
+.rd .rd-app .rd-paper {
+  margin-right: 16px;
+  padding: 4px 6px 8px;
+}
+
+.rd .rd-app .rd-paper__head,
+.rd .rd-app .rd-row--head,
+.rd .rd-app .rd-row--lead,
+.rd .rd-app .rd-row--tail {
+  display: none;
+}
+
+.rd .rd-app .rd-row {
+  grid-template-columns: minmax(0, 1fr) 76px 48px 10px;
+  column-gap: 8px;
+  height: 36px;
+}
+
+.rd .rd-app .rd-cell { font-size: 14px; }
+
+.rd .rd-app .rd-answer {
+  /* The stage crops the phone at the composer's foot plus a gutter */
+  padding: 14px 16px 16px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rd .rd-app .rd-pane-label { padding-left: 12px; }
+.rd .rd-app .rd-pane-label .ss-text { font-size: 13px; }
+.rd .rd-app .rd-composer,
+.rd .rd-app .rd-composer .ss-field__box { will-change: transform; }
+.rd .rd-app .rd-card { padding-left: 12px; }
+.rd .rd-app .rd-flag { font-size: 13px; }
+.rd .rd-app .rd-voice { font-size: 13px; }
+.rd .rd-app .rd-voice__wave { height: 14px; }
+
+.rd .rd-app .rd-thread {
+  justify-content: flex-start;
+  min-height: 0;
+}
+
+.rd .rd-app .rd-card__organ { font-size: 13px; }
+.rd .rd-app .rd-card__name { font-size: 15px; }
+.rd .rd-app .rd-card__figure { font-size: 22px; }
+.rd .rd-app .rd-q .ss-text,
+.rd .rd-app .rd-stream { font-size: 15px; }
+.rd .rd-app .rd-thinking { font-size: 14px; }
+
+@keyframes rd-wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd .rd-voice__wave i { animation: none; transform: scaleY(0.7); }
+}
+
+/* Before anything is tapped the panel is the app's resting state: a ready
+   line and its starter questions, as placeholders; they leave once the
+   reader acts, so the panel is never an empty field. */
+.rd .rd-rest {
+  display: grid;
+  gap: 10px;
+  align-content: end;
+  transition: opacity 0.3s ease;
+}
+
+.rd .rd-rest[data-gone] {
+  opacity: 0;
+}
+
+.rd .rd-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rd .rd-starter {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--ss-line);
+  background: #fbf7f4;
+}

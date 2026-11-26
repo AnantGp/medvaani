@@ -47,3 +47,7 @@ Thumbs.db
 # Temporary files
 *.swp
 *~
+
+# Built by scripts/build_vercel.sh from demo/
+flutter_app/web/demo/
+demo/node_modules/

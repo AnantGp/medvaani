@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:typed_data';
+import 'demo_frame_stub.dart' if (dart.library.html) 'demo_frame_web.dart';
 import 'report_data.dart';
 import 'app_strings.dart';
 import 'body_systems.dart';
@@ -1412,7 +1413,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                     ])),
           const SizedBox(height: 10),
           Text(
-              _t('You can switch at any time. The report itself needs to be printed in English for now.'),
+              _t('You can switch at any time. Printed lab reports from most countries work; a digital PDF reads best.'),
               style: const TextStyle(
                   fontSize: 14, height: 1.5, color: ReportPalette.muted)),
         ]);
@@ -1567,7 +1568,7 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                   const Divider(),
                   const SizedBox(height: 12),
                   Text(
-                      _t('Keep the full page in view, with good light and no blur. For clear, printed English reports.'),
+                      _t('Keep the whole page in view, with good light and no blur.'),
                       style: const TextStyle(
                           fontSize: 13,
                           color: ReportPalette.muted,
@@ -1608,6 +1609,8 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                 heading(_t('Three steps, and you stay in control'),
                     serifStyle(wide ? 34 : 26)),
                 const SizedBox(height: 28),
+                _demo(),
+                const SizedBox(height: 32),
                 wide
                     ? IntrinsicHeight(
                         child: Row(
@@ -1651,6 +1654,37 @@ class _ReportWorkspaceState extends State<ReportWorkspace> {
                           ])))),
         ]);
       });
+
+  /// The animated example: tapping a printed result and hearing it
+  /// explained, in the page's language. Built with the Stageshow kit into
+  /// web/demo/ (see demo/README.md).
+  Widget _demo() {
+    final code = widget.languages.firstWhere(
+            (l) => l['name'] == widget.language,
+            orElse: () => const {'code': 'en'})['code'] ??
+        'en';
+    return LayoutBuilder(builder: (context, box) {
+      final phone = box.maxWidth < 600;
+      final width = phone ? box.maxWidth : box.maxWidth.clamp(0, 720).toDouble();
+      final height = phone ? width * 508 / 358 : width * 432 / 720;
+      return Center(
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Semantics(
+            image: true,
+            label: _t('Example: tapping HbA1c on a sample report shows its result card, and the answer is read aloud.'),
+            child: ExcludeSemantics(
+              child: demoFrame(
+                  key: ValueKey('demo-$code-$phone'),
+                  src: 'demo/index.html?lang=$code',
+                  title: _t('Animated example of Medivaanii')),
+            ),
+          ),
+        ),
+      );
+    });
+  }
 
   Widget _languageChoice(String name, String native, {bool compact = false}) {
     final selected = widget.language == name;

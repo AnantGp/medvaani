@@ -111,3 +111,44 @@ jobs:
         run: pip install -r ../requirements.txt pytest reportlab
       - name: Extraction tests
         run: python -m pytest -q test_digital_results.py test_report_quality.py test_lab_parsing.py test_ai_rows.py test_groq_provider.py
+
+  # The upload-page demo: build it, typecheck it, and run Stageshow's
+  # rehearsal gate in every language at desktop and phone width.
+  demo:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npx --yes -p typescript@5.6.3 tsc --noEmit -p .
+      - run: npm run build
+      - name: Stageshow rehearsal gate
+        run: |
+          git clone --depth 1 https://github.com/benjitaylor/skills /tmp/skills
+          mkdir -p /tmp/film && cd /tmp/film && npm init -y >/dev/null && npm i playwright-core@1.48.2 >/dev/null
+          cp -r /tmp/skills/stageshow/scripts /tmp/film/scripts
+          npx --yes playwright@1.48.2 install chromium >/dev/null
+          export CHROME_PATH=$(find ~/.cache/ms-playwright -type f -name chrome -path '*chrome-linux*' | head -1)
+          site=/tmp/site && mkdir -p $site && cp -r $GITHUB_WORKSPACE/flutter_app/web/demo/* $site/
+          (cd $site && python3 -m http.server 5181 >/dev/null 2>&1 &)
+          sleep 2
+          fail=0
+          for lang in en hi es zh; do
+            for width in 900 390; do
+              out=$(node scripts/film.mjs "http://127.0.0.1:5181/index.html?lang=$lang" --gate --width $width --every 700 --count 20 --out /tmp/film/$lang-$width.png 2>&1 || true)
+              # Vite bundles the kit's CSS with the demo's into one file, so
+              # the gate reads the kit's own phone styles as overrides. Those
+              # lines are discounted; every other gate line fails the job.
+              kit=$(echo "$out" | grep -c 'kit override' || true)
+              failed=$(echo "$out" | sed -n 's/.*rehearsal failed: \([0-9]*\).*/\1/p')
+              echo "== $lang $width"; echo "$out" | grep -v 'kit override\|404\|Failed to load resource' | tail -6
+              if [ -n "$failed" ] && [ "$failed" -gt "$kit" ]; then fail=1; fi
+            done
+          done
+          exit $fail

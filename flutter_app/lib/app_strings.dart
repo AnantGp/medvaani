@@ -49,6 +49,8 @@ class AppStrings {
       ? t(message)
       : t('Reading your report…');
   static const Map<String, List<String>> _translations = {
+    "Example: tapping HbA1c on a sample report shows its result card, and the answer is read aloud.": ["उदाहरण: नमूना रिपोर्ट में HbA1c पर टैप करने से उसका नतीजा कार्ड खुलता है और जवाब बोलकर सुनाया जाता है।", "Ejemplo: al tocar HbA1c en un informe de ejemplo se abre su tarjeta de resultado y la respuesta se lee en voz alta.", "示例：在示例报告中点按 HbA1c，会打开它的结果卡片，并朗读回答。"],
+    "Animated example of Medivaanii": ["Medivaanii का चलता हुआ उदाहरण", "Ejemplo animado de Medivaanii", "Medivaanii 动画示例"],
     "1 hour": ["1 घंटे", "1 hora", "1 小时"],
     "After eating": ["खाने के बाद", "Después de comer", "饭后"],
     "After {meal}": ["{meal} के बाद", "Después de comer ({meal})", "{meal}后"],
@@ -364,11 +366,10 @@ class AppStrings {
     "Choose PDF": ["PDF चुनें", "Elegir PDF", "选择PDF"],
     "Take photo": ["फोटो लें", "Tomar foto", "拍照"],
     "Choose photo": ["फोटो चुनें", "Elegir foto", "选择照片"],
-    "Keep the full page in view, with good light and no blur. For clear, printed English reports.":
-        [
-      "पूरा पन्ना साफ और अच्छी रोशनी में रखें। अभी साफ, अंग्रेज़ी में छपी रिपोर्ट के लिए है।",
-      "Incluye la página completa, con buena luz y sin desenfoque. Para informes impresos en inglés y legibles.",
-      "请拍到完整页面，确保光线充足、文字清晰。目前适用于清晰的英文打印报告。"
+    "Keep the whole page in view, with good light and no blur.": [
+      "पूरा पन्ना फ्रेम में रखें, अच्छी रोशनी हो और तस्वीर धुंधली न हो।",
+      "Incluye la página completa, con buena luz y sin desenfoque.",
+      "请拍到完整页面，确保光线充足、画面不模糊。"
     ],
     "Reports and voice questions use Groq. Spoken answers use Microsoft Edge neural speech.":
         [
@@ -750,10 +751,10 @@ class AppStrings {
       "Explícamelo en",
       "用这种语言为我讲解"
     ],
-    "You can switch at any time. The report itself needs to be printed in English for now.": [
-      "आप कभी भी भाषा बदल सकते हैं। अभी रिपोर्ट अंग्रेज़ी में छपी होनी चाहिए।",
-      "Puedes cambiarlo cuando quieras. Por ahora, el informe debe estar impreso en inglés.",
-      "您可以随时切换语言。目前报告本身需为英文打印版。"
+    "You can switch at any time. Printed lab reports from most countries work; a digital PDF reads best.": [
+      "आप कभी भी भाषा बदल सकते हैं। ज़्यादातर देशों की छपी लैब रिपोर्ट चलती हैं; डिजिटल PDF सबसे अच्छी पढ़ी जाती है।",
+      "Puedes cambiarlo cuando quieras. Funcionan informes de laboratorio impresos de la mayoría de países; un PDF digital se lee mejor.",
+      "您可以随时切换语言。支持大多数国家的打印化验报告；电子版 PDF 识别效果最好。"
     ],
     "Drop a PDF or photo here": [
       "PDF या फोटो यहाँ छोड़ें",
