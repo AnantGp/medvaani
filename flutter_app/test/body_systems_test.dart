@@ -74,7 +74,8 @@ void main() {
       for (final asset in [
         system.iconName,
         system.illustrationName,
-        'location-${system.name}'
+        'location-${system.name}',
+        'anatomy-${system.name}'
       ]) {
         expect(await rootBundle.loadString('assets/body_systems/$asset.svg'),
             contains('<svg'));
@@ -86,6 +87,7 @@ void main() {
                   child: ActiveBodyVisual(system: system, language: 'en')))));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: system.name);
+      expect(find.byKey(const ValueKey('anatomy-figure')), findsOneWidget);
     }
   });
 }

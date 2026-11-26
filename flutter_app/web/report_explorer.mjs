@@ -231,6 +231,7 @@ function scrollToSelection() {
   if(button) scroller.scrollTop = Math.max(0,button.offsetTop-scroller.clientHeight*.35);
 }
 
+const ANATOMY = {cells:'sugar', circulation:'heart', bones:'vitamins'};
 function illustration(organ, label) {
   const figure = document.createElement('figure'); figure.className = 'organ';
   const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -250,7 +251,11 @@ function illustration(organ, label) {
   // Only constant, locally authored SVG markup is inserted here.
   if(!art[organ]) return null;
   svg.innerHTML = art[organ];
-  figure.append(svg,text('figcaption',label),text('small',t('illustrationCaption'))); return figure;
+  // Where it sits in the body: a front-view figure with this organ lit.
+  const body = document.createElement('img'); body.className = 'organ-body'; body.alt = '';
+  body.src = `assets/assets/body_systems/anatomy-${ANATOMY[organ] || organ}.svg`;
+  const row = document.createElement('div'); row.className = 'organ-row'; row.append(body, svg);
+  figure.append(row,text('figcaption',label),text('small',t('illustrationCaption'))); return figure;
 }
 function showInspector(animate=true) {
   inspector.replaceChildren();

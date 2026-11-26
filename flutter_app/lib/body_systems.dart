@@ -301,14 +301,15 @@ class ActiveBodyVisual extends StatelessWidget {
                       ? null
                       : const ColorFilter.mode(
                           Color(0xff1d5c3a), BlendMode.srcIn))),
-          if (!compact) ...[
-            const SizedBox(width: 6),
-            SizedBox(
-                height: compact ? 32 : 38,
-                width: compact ? 24 : 28,
-                child: SvgPicture.asset(
-                    'assets/body_systems/location-${system.name}.svg')),
-          ],
+          // A front-view body with this system lit, so the reader sees
+          // where in the body the result belongs.
+          const SizedBox(width: 8),
+          SizedBox(
+              key: const ValueKey('anatomy-figure'),
+              height: compact ? 96 : 120,
+              width: compact ? 46 : 57,
+              child: SvgPicture.asset(
+                  'assets/body_systems/anatomy-${system.name}.svg')),
         ])),
       );
 }
