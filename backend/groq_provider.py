@@ -49,6 +49,7 @@ async def available_models(client):
     if response.is_success:
         _models = {item['id'] for item in response.json()['data']}
         _models_at = time.monotonic()
+        log.warning('groq models available: %s', ', '.join(sorted(_models)))
     return _models
 
 
